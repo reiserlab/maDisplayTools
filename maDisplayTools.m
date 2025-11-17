@@ -827,9 +827,9 @@ classdef maDisplayTools < handle
                                     row = panelStartRow;
 
                                     % Bounds safety
-                                    if row+1 <= rows && col+1 <= cols
-                                        img(row+1, col+1) = pixel_val;
-                                    end
+%                                     if row+1 <= rows && col+1 <= cols
+                                    img(row+1, col+1) = pixel_val;
+%                                     end
                                 end
                             end
                         end
