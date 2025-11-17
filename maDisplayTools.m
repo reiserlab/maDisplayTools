@@ -21,7 +21,8 @@ classdef maDisplayTools < handle
             %       Pats: 4D array (PatR, PatC, NumPatsX, NumPatsY) with pixel values
             %       save_dir: Directory path where pattern will be saved
             %       patName: Base name for the pattern file
-            %       gs_val: (optional) Grayscale value, 4 or 16. Default: 4
+            %       gs_val: (optional) Grayscale value: 2 (binary) or 16 (grayscale). Default: 16
+            %               Legacy values 4 and 1 are also accepted for backwards compatibility.
             %       stretch: (optional) 2D array (NumPatsX, NumPatsY). Default: all ones
             %       arena_pitch: (optional) Arena pitch parameter. Default: 0
             %
@@ -30,7 +31,24 @@ classdef maDisplayTools < handle
             
             % Handle optional arguments
             if nargin < 4 || isempty(gs_val)
-                gs_val = 4;
+                gs_val = 16;
+            end
+
+            % Backwards compatibility: Convert legacy values
+            % Legacy: 4 meant "4-bit grayscale" → 16 (16 levels)
+            % Legacy: 16 meant "binary" → 2 (2 levels) [confusingly named!]
+            % Legacy: 1 also meant "binary" → 2
+            if gs_val == 4
+                warning('gs_val=4 is deprecated. Use gs_val=16 for grayscale patterns.');
+                gs_val = 16;
+            elseif gs_val == 1
+                warning('gs_val=1 is deprecated. Use gs_val=2 for binary patterns.');
+                gs_val = 2;
+            end
+            
+            % Validate gs_val
+            if ~ismember(gs_val, [2, 16])
+                error('gs_val must be 2 (binary) or 16 (grayscale). Got: %d', gs_val);
             end
             
             if nargin < 5 || isempty(stretch)
@@ -40,7 +58,7 @@ classdef maDisplayTools < handle
             if nargin < 6 || isempty(arena_pitch)
                 arena_pitch = 0;
             end
-            
+
             % Get dimensions
             [PatR, PatC, NumPatsX, NumPatsY] = size(Pats);
             
@@ -51,6 +69,19 @@ classdef maDisplayTools < handle
             
             if mod(PatC, 16) ~= 0
                 error('Number of columns (%d) must be a multiple of 16. Each panel column is 16 pixels.', PatC);
+            end
+
+            % Validate pixel values based on gs_val
+            if gs_val == 2
+                % Binary: values must be 0 or 1
+                if any(Pats(:) < 0) || any(Pats(:) > 1)
+                    error('For binary patterns (gs_val=2), pixel values must be 0 or 1');
+                end
+            elseif gs_val == 16
+                % Grayscale: values must be 0-15
+                if any(Pats(:) < 0) || any(Pats(:) > 15)
+                    error('For grayscale patterns (gs_val=16), pixel values must be 0-15');
+                end
             end
             
             % Get next available ID
@@ -162,19 +193,14 @@ classdef maDisplayTools < handle
             %   Takes in a pattern structure with fields:
             %   - Pats: 4D array (PatR, PatC, NumPatsX, NumPatsY)
             %   - stretch: 2D array (NumPatsX, NumPatsY)
-            %   - gs_val: grayscale value (4 or 16)
+            %   - gs_val: grayscale value (2 for binary, 16 for grayscale)
             %
             %   Returns:
             %   - pat_vector: 1D uint8 array with header and all encoded frames
             
             Pats = pattern.Pats;  % shape: (PatR, PatC, NumPatsX, NumPatsY)
             stretch = pattern.stretch;
-            
-            if pattern.gs_val == 4
-                gs_val = 16;
-            else
-                gs_val = 2;
-            end
+            gs_val = pattern.gs_val;  % Should be 2 or 16
             
             [PatR, PatC, NumPatsX, NumPatsY] = size(Pats);
             RowN = PatR / 16;
@@ -192,15 +218,24 @@ classdef maDisplayTools < handle
                     frame = squeeze(Pats(:, :, i, j));
                     stretch_val = stretch(i, j);
                     
+                    % Validate and cap stretch values based on mode
                     if gs_val == 16
+                        % Grayscale mode
                         stretch_val = min(stretch_val, 20);
                     elseif gs_val == 2
+                        % Binary mode
                         stretch_val = min(stretch_val, 107);
                     else
                         error('Invalid gs_val');
                     end
                     
-                    frameOut = maDisplayTools.make_framevector_gs16(frame, stretch_val);
+                    % Call appropriate encoder based on mode
+                    if gs_val == 16
+                        frameOut = maDisplayTools.make_framevector_gs16(frame, stretch_val);
+                    elseif gs_val == 2
+                        frameOut = maDisplayTools.make_framevector_binary(frame, stretch_val);
+                    end
+
                     pat_vector = [pat_vector; uint8(frameOut(:))];
                 end
             end
@@ -209,13 +244,14 @@ classdef maDisplayTools < handle
         function convertedPatternData = make_framevector_gs16(framein, stretch)
             % MAKE_FRAMEVECTOR_GS16 Encode a 2D frame into hardware format
             %   This is the inverse of decode_framevector_gs16
+            %   Encodes a grayscale frame with 4 bits per pixel (values 0-15)
             %
             %   Parameters:
             %   - framein: 2D array of shape (dataRow, dataCol) with values 0-15
             %   - stretch: optional int (0 or 1), default is 0
             %
             %   Returns:
-            %   - 1D uint8 array encoded for hardware
+            %   - 1D uint8 array encoded for hardware (33 bytes per subpanel message)
             
             if nargin < 2
                 stretch = 0;
@@ -261,6 +297,86 @@ classdef maDisplayTools < handle
                                 end
                                 
                                 convertedPatternData(n) = bitor(tmp1, bitshift(tmp2, 4));
+                                n = n + 1;
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        function convertedPatternData = make_framevector_binary(framein, stretch)
+            % MAKE_FRAMEVECTOR_BINARY Encode a 2D frame into hardware format (binary)
+            %   Encodes a binary frame with 1 bit per pixel (values 0-1)
+            %   Uses 8x8 addressing: each data byte encodes one row of 8 pixels
+            %
+            %   Parameters:
+            %   - framein: 2D array of shape (dataRow, dataCol) with values 0-1
+            %   - stretch: optional int (default 0), controls frame display duration
+            %
+            %   Returns:
+            %   - 1D uint8 array encoded for hardware (9 bytes per subpanel message)
+            %
+            %   Note: This implementation matches the original C code (make_framevector_gs2.c)
+            %   which uses 8x8 addressing (8 rows of 8 pixels each = 64 pixels per subpanel).
+            
+            if nargin < 2
+                stretch = 0;
+            end
+            
+            [dataRow, dataCol] = size(framein);
+            numSubpanel = 4;
+            subpanelMsgLength = 9;  % Binary uses 9 bytes per subpanel
+            idBinary = 0;  % Binary mode identifier
+            
+            panelCol = dataCol / 16;
+            panelRow = dataRow / 16;
+            
+            outputVectorLength = (panelCol * subpanelMsgLength + 1) * panelRow * numSubpanel;
+            convertedPatternData = zeros(outputVectorLength, 1, 'uint8');
+            stretch = uint8(stretch);
+            
+            n = 1;  % MATLAB uses 1-based indexing
+            for i = 0:(panelRow-1)
+                for j = 1:numSubpanel
+                    % Row header
+                    convertedPatternData(n) = i + 1;
+                    n = n + 1;
+                    
+                    for k = 1:subpanelMsgLength
+                        for m = 0:(panelCol-1)
+                            if k == 1
+                                % Command byte: binary mode ID with stretch value
+                                convertedPatternData(n) = bitor(idBinary, bitshift(stretch, 1));
+                                n = n + 1;
+                            else
+                                % Each data byte (k=2 to 9) encodes ONE row of 8 pixels
+                                % This is 8x8 addressing: 8 bytes × 8 pixels = 64 pixels
+                                row_offset = k - 2;  % 0-7 (which row within the 8x8 subpanel)
+                                
+                                % Calculate row position
+                                panelStartRowBeforeInvert = i * 16 + mod(j-1, 2) * 8 + row_offset;
+                                panelStartRow = floor(panelStartRowBeforeInvert / 16) * 16 + 15 - mod(panelStartRowBeforeInvert, 16);
+                                
+                                % Calculate base column for this subpanel
+                                panelStartCol = m * 16 + floor(j / 3) * 8;
+                                
+                                % Pack 8 consecutive pixels from this row into one byte
+                                byte_val = uint8(0);
+                                for p = 0:7  % 8 pixels (columns) in this row
+                                    pixel_val = framein(panelStartRow + 1, panelStartCol + p + 1);
+                                    
+                                    if pixel_val < 0 || pixel_val > 1
+                                        error('Frame values must be 0 or 1 for binary patterns');
+                                    end
+                                    
+                                    % Pack bit into byte
+                                    if pixel_val == 1
+                                        byte_val = bitor(byte_val, bitshift(1, p));
+                                    end
+                                end
+                                
+                                convertedPatternData(n) = byte_val;
                                 n = n + 1;
                             end
                         end
@@ -622,7 +738,7 @@ classdef maDisplayTools < handle
             end
         end
            
-        %% Pattern Preview Tools
+        %% Pattern Loading and Decoding
 
         function img = decode_framevector_gs16(framevec, rows, cols)
             % DECODE_FRAMEVECTOR_GS16 Decode a grayscale (4-bit) frame vector
@@ -650,8 +766,8 @@ classdef maDisplayTools < handle
                             else
                                 byte = framevec(n);
                                 n = n + 1;
-                                tmp1 = bitand(byte, hex2dec('0F'));
-                                tmp2 = bitand(bitshift(byte, -4), hex2dec('0F'));
+                                tmp1 = bitand(byte, 15);
+                                tmp2 = bitand(bitshift(byte, -4), 15);
                                 
                                 % k ranges from 2 to 33, so (k-2) ranges from 0 to 31
                                 % This matches the encoder and Python implementation
@@ -668,7 +784,7 @@ classdef maDisplayTools < handle
                 end
             end
             
-            fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
+            %fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
         end
 
         function img = decode_framevector_binary(framevec, rows, cols)
@@ -678,7 +794,7 @@ classdef maDisplayTools < handle
             %   and width of arena. Returns 2D uint8 image of shape (rows, cols)
             
             numSubpanel = 4;
-            subpanelMsgLength = 9;  % Binary uses 9 bytes per message instead of 33
+            subpanelMsgLength = 9;  % 1 command + 8 row-bytes
             
             panelCol = cols / 16;
             panelRow = rows / 16;
@@ -696,22 +812,23 @@ classdef maDisplayTools < handle
                             else
                                 byte = framevec(n);
                                 n = n + 1;
+                                row_offset = k - 2;   % 0–7 (which row inside 8×8 block)
+
+                                panelStartRowBeforeInvert = i * 16 + mod(j-1, 2) * 8 + row_offset;
+                                panelStartRow = floor(panelStartRowBeforeInvert / 16) * 16 + 15 - mod(panelStartRowBeforeInvert, 16);
+                                panelStartCol = m * 16 + floor(j / 3) * 8;
                                 
                                 % For binary, each bit represents one pixel
                                 % Process 8 pixels per byte
-                                for bit_idx = 0:7
-                                    pixel_val = bitand(bitshift(byte, -bit_idx), 1);
-                                    
-                                    % Calculate pixel position
-                                    % k ranges from 2 to 9, so (k-2) ranges from 0 to 7
-                                    pixel_offset = (k - 2) * 8 + bit_idx;
-                                    panelStartRowBeforeInvert = i * 16 + mod(j-1, 2) * 8 + floor(pixel_offset / 16);
-                                    panelStartRow = floor(panelStartRowBeforeInvert / 16) * 16 + 15 - mod(panelStartRowBeforeInvert, 16);
-                                    panelStartCol = m * 16 + floor(j / 3) * 8 + mod(pixel_offset, 16);
-                                    
-                                    % MATLAB uses 1-based indexing, also check bounds
-                                    if (panelStartRow + 1) <= rows && (panelStartCol + 1) <= cols
-                                        img(panelStartRow + 1, panelStartCol + 1) = pixel_val;
+                                for p = 0:7
+                                    pixel_val = bitand(bitshift(byte, -p), 1);
+
+                                    col = panelStartCol + p;
+                                    row = panelStartRow;
+
+                                    % Bounds safety
+                                    if row+1 <= rows && col+1 <= cols
+                                        img(row+1, col+1) = pixel_val;
                                     end
                                 end
                             end
@@ -720,7 +837,7 @@ classdef maDisplayTools < handle
                 end
             end
             
-            fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
+            %fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
         end
 
         function [frames, meta] = load_pat(filepath)
