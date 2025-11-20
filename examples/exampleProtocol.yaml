@@ -1,0 +1,275 @@
+# ==============================================================================
+# EXAMPLE PROTOCOL - maDisplayTools
+# ==============================================================================
+# This is an example protocol file demonstrating the structure and capabilities
+# of the maDisplayTools experiment framework. It shows how to:
+#   - Define experiment metadata and arena configuration
+#   - Configure plugins for external devices and custom functionality
+#   - Structure experimental conditions with display commands
+#   - Organize pretrial, intertrial, and posttrial sequences
+#
+# Template Version: 1
+# ==============================================================================
+
+version: 1
+
+# ==============================================================================
+# EXPERIMENT METADATA
+# ==============================================================================
+# Basic information about your experiment. Fill in these fields to track
+# experiment details and maintain organized records.
+
+experiment_info:
+  name: "" # Descriptive name for your experiment
+  date_created: "" # Date the protocol was created (YYYY-MM-DD recommended)
+  author: "" # Name of the person who created this protocol
+
+# ==============================================================================
+# ARENA CONFIGURATION
+# ==============================================================================
+# Defines the physical display arena properties. These settings should match
+# your actual hardware configuration.
+
+arena_info:
+  num_rows: 4 # Number of LED panel rows in the arena
+  num_cols: 12 # Number of LED panel columns in the arena
+  generation: "G4" # Generation of the display system (e.g., "G4")
+
+# ==============================================================================
+# PLUGIN DEFINITIONS
+# ==============================================================================
+# Plugins extend the functionality of the experiment framework by interfacing
+# with external hardware or running custom code. Each plugin must have a unique
+# ID that is referenced in the command sequences below.
+#
+# Plugin Types:
+#   - serial_device: Direct serial communication with hardware
+#   - class: Custom class implementation (must exist in maDisplayTools/pyDisplayTools)
+#   - script: External script execution (.m for MATLAB, .py for Python)
+
+plugins:
+  # ----------------------------------------------------------------------------
+  # Serial Device Plugin: Background Light Controller
+  # ----------------------------------------------------------------------------
+  # Controls an RGB LED light via serial commands. Useful for providing
+  # background illumination during experiments.
+
+  - id: "background_light"
+    type: "serial_device"
+    port_windows: "COM4" # Serial port on Windows systems
+    port_posix: "/dev/ttyUSB0" # Serial port on Mac/Linux systems
+    baudrate: 115200 # Communication speed (must match device)
+    commands:
+      activate: "RED 50\nGREEN 0\nBLUE 0\nON 0,0" # Turn on with red light
+      reset: "RESET" # Reset device to defaults
+      off: "OFF" # Turn off all lights
+
+  # ----------------------------------------------------------------------------
+  # Class Plugin: Flyris Iris Controller
+  # ----------------------------------------------------------------------------
+  # Controls a motorized iris diaphragm for precise aperture adjustment.
+  # Requires corresponding class implementation in both MATLAB and Python.
+
+  - id: "flyris"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.Flyris"
+    python:
+      module: "pyDisplayTools.plugins.Flyris"
+      class: "Flyris"
+    config:
+      device: "Flyris01" # Device identifier for the iris controller
+
+  # ----------------------------------------------------------------------------
+  # Script Plugin: Custom Script Execution
+  # ----------------------------------------------------------------------------
+  # Executes a custom script file. The framework automatically appends the
+  # appropriate extension (.py for Python, .m for MATLAB) based on runtime.
+
+  - id: "run_something"
+    type: "script"
+    script: "./user_functions/script_to_run" # Path without extension
+
+# ==============================================================================
+# EXPERIMENT STRUCTURE
+# ==============================================================================
+# Defines how trials are organized and randomized during the experiment.
+
+experiment_structure:
+  repetitions: 3 # Number of times to repeat the entire block of conditions
+  randomization:
+    enabled: true # Whether to randomize the order of conditions
+    seed: null # Random seed for reproducibility (null = random seed)
+    method: "block" # Randomization method: "block" or "trial"
+
+# ==============================================================================
+# EXPERIMENTAL CONDITIONS (MAIN BLOCK)
+# ==============================================================================
+# The core of your experiment. Each condition represents a unique trial type
+# that will be presented to the subject. Conditions are executed in the order
+# specified (or randomized if randomization is enabled).
+
+block:
+  conditions:
+    # --------------------------------------------------------------------------
+    # Condition 1: Background Light Activation with Pattern Display
+    # --------------------------------------------------------------------------
+    # Demonstrates combined device control and pattern presentation.
+    # This condition opens the iris, activates background lighting,
+    # then displays a visual pattern.
+
+    - id: "activate_background"
+      commands:
+        # Open iris to 50mm diameter
+        - plugin: "flyris"
+          method: "open_mm"
+          params:
+            width: "50mm"
+
+        # Activate red background light
+        - plugin: "background_light"
+          command: "activate"
+
+        # Wait for 50ms to allow light to stabilize
+        - type: "wait"
+          duration: 50
+
+        # Turn off background light
+        - plugin: "background_light"
+          command: "off"
+
+        # Adjust iris to 70mm diameter
+        - plugin: "flyris"
+          method: "open_mm"
+          params:
+            width: "70mm"
+
+        # Display a pattern on the LED arena
+        - type: "combined_command"
+          pattern: "./path/to/pattern" # Path to .pat file
+          duration: 2000 # Duration in milliseconds
+          mode: 2 # Display mode (1=position, 2=closed-loop)
+          frame_index: 1 # Starting frame index
+          frame_rate: 60 # Display refresh rate (Hz)
+          gain: 0 # Gain for closed-loop mode
+          offset: 0 # Offset for closed-loop mode
+
+    # --------------------------------------------------------------------------
+    # Condition 2: Pattern Display Without Background Light
+    # --------------------------------------------------------------------------
+    # Simple pattern presentation with background light explicitly off.
+
+    - id: "background_off"
+      commands:
+        # Display pattern on LED arena
+        - type: "combined_command"
+          pattern: "./path/to/pattern"
+          duration: 2000
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+          offset: 0
+
+        # Ensure background light is off
+        - plugin: "background_light"
+          command: "off"
+
+    # --------------------------------------------------------------------------
+    # Condition 3: Blank Pattern Display
+    # --------------------------------------------------------------------------
+    # Displays a blank pattern, useful as a control or baseline condition.
+
+    - id: "blank_pattern"
+      commands:
+        # Display blank pattern
+        - type: "combined_command"
+          pattern: "./path/to/blank.pat"
+          duration: 2000
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+          offset: 0
+
+        # Ensure background light is off
+        - plugin: "background_light"
+          command: "off"
+
+# ==============================================================================
+# PRETRIAL SEQUENCE
+# ==============================================================================
+# Commands executed once at the beginning of the experiment, before any trials.
+# Use this section to initialize hardware, load configurations, and prepare
+# the experimental environment.
+
+pretrial:
+  include: true
+  commands:
+    # Display an initial pattern (e.g., calibration or startup pattern)
+    - type: "combined_command"
+      pattern: "./path/to/pattern"
+      duration: 2000
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+    # Reset background light to default state
+    - plugin: "background_light"
+      command: "reset"
+
+    # Open iris to 100% for initialization
+    - plugin: "flyris"
+      method: "open_perc"
+      width: "100"
+
+# ==============================================================================
+# INTERTRIAL SEQUENCE
+# ==============================================================================
+# Commands executed between each trial. Use this section to reset the arena,
+# provide inter-trial intervals, or prepare for the next condition.
+
+intertrial:
+  include: true
+  commands:
+    # Display a neutral pattern between trials
+    - type: "combined_command"
+      pattern: "path/to/pattern"
+      duration: 2000
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+    # Activate background light during inter-trial period
+    - plugin: "background_light"
+      command: "activate"
+
+# ==============================================================================
+# POSTTRIAL SEQUENCE
+# ==============================================================================
+# Commands executed once after all trials are complete. Use this section to
+# safely shut down hardware, save data, and clean up the experimental environment.
+
+posttrial:
+  include: true
+  commands:
+    # Display final pattern (e.g., end-of-experiment indicator)
+    - type: "combined_command"
+      pattern: "path/to/pattern"
+      duration: 2000
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+    # Turn off background light
+    - plugin: "background_light"
+      command: "off"
+
+    # Run custom cleanup script
+    - plugin: "run_something"

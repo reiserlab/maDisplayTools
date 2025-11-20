@@ -1,0 +1,344 @@
+# ==============================================================================
+# EXAMPLE PROTOCOL WITH EXISTING CALLS - maDisplayTools
+# ==============================================================================
+# This example demonstrates how to use existing plugin calls within an
+# experimental protocol. It shows a simplified workflow without the plugins
+# that were removed (background_light, flyris, run_something).
+#
+# This protocol focuses on basic display commands and pattern presentation,
+# making it a good starting point for simple visual experiments.
+#
+# Template Version: 1
+# ==============================================================================
+
+version: 1
+
+# ==============================================================================
+# EXPERIMENT METADATA
+# ==============================================================================
+# Basic information about your experiment. Fill in these fields to track
+# experiment details and maintain organized records.
+
+experiment_info:
+  name: "" # Descriptive name for your experiment
+  date_created: "" # Date the protocol was created (YYYY-MM-DD recommended)
+  author: "" # Name of the person who created this protocol
+
+# ==============================================================================
+# ARENA CONFIGURATION
+# ==============================================================================
+# Defines the physical display arena properties. These settings should match
+# your actual hardware configuration.
+
+arena_info:
+  num_rows: 4 # Number of LED panel rows in the arena
+  num_cols: 12 # Number of LED panel columns in the arena
+  generation: "G4" # Generation of the display system (e.g., "G4")
+
+# ==============================================================================
+# PLUGIN DEFINITIONS
+# ==============================================================================
+# Plugins extend the functionality of the experiment framework by interfacing
+# with external hardware or running custom code. Each plugin must have a unique
+# ID that is referenced in the command sequences below.
+#
+# Plugin Types:
+#   - serial_device: Direct serial communication with hardware
+#   - class: Custom class implementation (must exist in maDisplayTools/pyDisplayTools)
+#   - script: External script execution (.m for MATLAB, .py for Python)
+#
+# This example demonstrates various plugin types commonly used in experiments.
+
+plugins:
+  # ----------------------------------------------------------------------------
+  # Class Plugin: SimpleBias Camera Control
+  # ----------------------------------------------------------------------------
+  # Controls a camera system via the SimpleBias interface for video capture
+  # and logging during experiments.
+
+  - id: "simple_bias"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.SimpleBias"
+    python:
+      module: "pyDisplayTools.plugins.SimpleBias"
+      class: "SimpleBias"
+    config:
+      ip: "127.0.0.1" # IP address of the SimpleBias server
+      port: 5020 # Port number for communication
+      config_path: "./config/simple_bias_config.json" # Configuration file path
+      video_file: "./data/experiment_video.avi" # Output video file path
+
+  # ----------------------------------------------------------------------------
+  # DAQ Plugin: National Instruments Data Acquisition
+  # ----------------------------------------------------------------------------
+  # Interface for National Instruments DAQ devices to record analog signals
+  # during experiments (e.g., voltage readings, sensor data).
+
+  - id: "ni_daq"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.NIdaq"
+    python:
+      module: "pyDisplayTools.plugins.ni_daq"
+      class: "NIdaq"
+    config:
+      vendor: "ni" # Vendor identifier
+      device: "cDAQ1Mod1" # Device identifier
+      channels: ["ai0"] # List of analog input channels to record
+      sample_rate: 1000 # Sampling rate in Hz
+      duration_seconds: 1 # Duration for each acquisition
+
+  # ----------------------------------------------------------------------------
+  # Class Plugin: Flea3 Camera with BiasControl
+  # ----------------------------------------------------------------------------
+  # Controls a Point Grey Flea3 camera via BiasControl interface for
+  # high-speed imaging during behavioral experiments.
+
+  - id: "flea3_camera"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.Flea3BiasControl"
+    python:
+      module: "pyDisplayTools.plugins.flea3_bias_control"
+      class: "Flea3BiasControl"
+    config:
+      ip: "192.168.1.100" # Camera IP address
+      port: 5010 # Port for BiasControl communication
+      config_file: "./config/flea3_default.json" # Camera configuration file
+
+  # ----------------------------------------------------------------------------
+  # Class Plugin: LED Controller
+  # ----------------------------------------------------------------------------
+  # Controls multi-channel LED lighting systems for infrared and visible
+  # light illumination during experiments.
+
+  - id: "led_controller"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.LEDController"
+    python:
+      module: "pyDisplayTools.plugins.led_controller"
+      class: "LEDController"
+    config:
+      port_windows: "COM6" # Serial port on Windows systems
+      port_posix: "/dev/ttyUSB1" # Serial port on Mac/Linux systems
+
+# ==============================================================================
+# EXPERIMENT STRUCTURE
+# ==============================================================================
+# Defines how trials are organized and randomized during the experiment.
+
+experiment_structure:
+  repetitions: 3 # Number of times to repeat the entire block of conditions
+  randomization:
+    enabled: true # Whether to randomize the order of conditions
+    seed: null # Random seed for reproducibility (null = random seed)
+    method: "block" # Randomization method: "block" or "trial"
+
+# ==============================================================================
+# EXPERIMENTAL CONDITIONS (MAIN BLOCK)
+# ==============================================================================
+# The core of your experiment. Each condition represents a unique trial type
+# that will be presented to the subject. Conditions are executed in the order
+# specified (or randomized if randomization is enabled).
+#
+# This example demonstrates pure visual pattern presentation without external
+# device control, making it suitable for basic visual neuroscience experiments.
+
+block:
+  conditions:
+    # --------------------------------------------------------------------------
+    # Condition 1: Standard Pattern Display
+    # --------------------------------------------------------------------------
+    # Displays a visual pattern with standard parameters. This is the most
+    # common type of trial in visual experiments.
+
+    - id: "pattern_display"
+      commands:
+        # Display pattern on LED arena
+        - type: "combined_command"
+          pattern: "./path/to/pattern" # Path to .pat file
+          duration: 2000 # Duration in milliseconds (2 seconds)
+          mode: 2 # Display mode (1=position, 2=closed-loop)
+          frame_index: 1 # Starting frame index
+          frame_rate: 60 # Display refresh rate (Hz)
+          gain: 0 # Gain for closed-loop mode
+          offset: 0 # Offset for closed-loop mode
+
+    # --------------------------------------------------------------------------
+    # Condition 2: Alternative Pattern Display
+    # --------------------------------------------------------------------------
+    # Displays a different pattern, useful for comparison experiments.
+
+    - id: "stripes"
+      commands:
+        # Display alternative pattern
+        - type: "combined_command"
+          pattern: "./path/to/pattern"
+          duration: 2000
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+          offset: 0
+
+    # --------------------------------------------------------------------------
+    # Condition 3: Blank/Control Condition
+    # --------------------------------------------------------------------------
+    # Displays a blank pattern, serving as a control or baseline condition.
+
+    - id: "starfield"
+      commands:
+        # Display blank pattern for baseline measurement
+        - type: "combined_command"
+          pattern: "./path/to/blank.pat"
+          duration: 2000
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+          offset: 0
+
+# ==============================================================================
+# PRETRIAL SEQUENCE
+# ==============================================================================
+# Commands executed once at the beginning of the experiment, before any trials.
+# Use this section to initialize the display, show calibration patterns, or
+# prepare the experimental environment.
+
+pretrial:
+  include: true
+  commands:
+    # Display an initial calibration or startup pattern
+    - type: "combined_command"
+      pattern: "./path/to/pattern"
+      duration: 2000 # 2 second initialization display
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+    # SimpleBias camera initialization sequence
+    - plugin: "simple_bias"
+      method: "connect"
+    - plugin: "simple_bias"
+      method: "enableLogging"
+    - plugin: "simple_bias"
+      method: "loadConfiguration"
+    - plugin: "simple_bias"
+      method: "setVideoFile"
+      params:
+        filename: "./data/experiment_video.avi"
+    - plugin: "simple_bias"
+      method: "startCapture"
+
+    # Initialize DAQ for data acquisition
+    - plugin: "ni_daq"
+      method: "initialize"
+    - plugin: "ni_daq"
+      method: "read"
+      params:
+        duration_seconds: 1
+
+    # LED Controller initialization
+    - plugin: "led_controller"
+      method: "setIRLEDPower"
+      params:
+        power: 50
+    - plugin: "led_controller"
+      method: "setRedLEDPower"
+      params:
+        power: 5
+        channel: 0
+        pattern: "1010"
+    - plugin: "led_controller"
+      method: "setGreenLEDPower"
+      params:
+        power: 0
+    - plugin: "led_controller"
+      method: "setBlueLEDPower"
+      params:
+        power: 0
+    - plugin: "led_controller"
+      method: "turnOnLED"
+
+    # Flea3 camera initialization sequence
+    - plugin: "flea3_camera"
+      method: "connect"
+    - plugin: "flea3_camera"
+      method: "loadConfiguration"
+    - plugin: "flea3_camera"
+      method: "preview"
+
+# ==============================================================================
+# INTERTRIAL SEQUENCE
+# ==============================================================================
+# Commands executed between each trial. Use this section to reset the arena,
+# provide inter-trial intervals, or prepare for the next condition.
+#
+# A neutral pattern between trials helps maintain consistent baseline conditions
+# and gives subjects time to reset between stimuli.
+
+intertrial:
+  include: true
+  commands:
+    # Display a neutral inter-trial pattern
+    - type: "combined_command"
+      pattern: "path/to/pattern"
+      duration: 2000 # 2 second inter-trial interval
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+# ==============================================================================
+# POSTTRIAL SEQUENCE
+# ==============================================================================
+# Commands executed once after all trials are complete. Use this section to
+# display end-of-experiment indicators or return the arena to a neutral state.
+
+posttrial:
+  include: true
+  commands:
+    # Display final pattern to signal experiment completion
+    - type: "combined_command"
+      pattern: "path/to/pattern"
+      duration: 2000
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+      offset: 0
+
+    # Stop SimpleBias camera capture
+    - plugin: "simple_bias"
+      method: "getFrameCount"
+    - plugin: "simple_bias"
+      method: "stopCapture"
+
+    # Stop Flea3 camera
+    - plugin: "flea3_camera"
+      method: "disableLogging"
+    - plugin: "flea3_camera"
+      method: "stop"
+
+    # Turn off LED controller
+    - plugin: "led_controller"
+      method: "setRedLEDPower"
+      params:
+        power: 0
+    - plugin: "led_controller"
+      method: "setGreenLEDPower"
+      params:
+        power: 0
+    - plugin: "led_controller"
+      method: "setBlueLEDPower"
+      params:
+        power: 0
+    - plugin: "led_controller"
+      method: "turnOffLED"
+    - plugin: "led_controller"
+      method: "delete"
