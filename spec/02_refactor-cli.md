@@ -660,6 +660,8 @@ end
 
 ### Example Implementation: Pattern Create
 
+The command now relies on an `arguments` block for validation instead of `inputParser`.
+
 ```matlab
 % +maDisplayTools/+cli/+pattern/create.m
 function create(varargin)
@@ -680,50 +682,53 @@ function create(varargin)
     %   Stretch (numeric)         Stretch values
     %   OutputDir (string)        Output directory
     %   Preview (logical)         Preview after creation
-    
-    p = inputParser;
-    p.CaseSensitive = false;
-    
-    addParameter(p, 'Array', []);
-    addParameter(p, 'Script', '');
-    addParameter(p, 'Function', []);
-    addParameter(p, 'Name', '', @(x) ~isempty(x));
-    addParameter(p, 'Arena', '');
-    addParameter(p, 'ArenaRows', []);
-    addParameter(p, 'ArenaCols', []);
-    addParameter(p, 'GsMode', 'grayscale');
-    addParameter(p, 'Stretch', []);
-    addParameter(p, 'OutputDir', './patterns');
-    addParameter(p, 'Preview', false);
-    
-    parse(p, varargin{:});
-    opts = p.Results;
-    
-    % Validate name
-    if isempty(opts.Name)
-        error('Name argument is required');
+
+    arguments
+        Array (:,:,:,:) {mustBeNumeric} = []
+        Script (1,:) char = ''
+        Function function_handle = []
+        Name (1,:) char {mustBeNonempty}
+        Arena (1,:) char = ''
+        ArenaRows (1,1) double {mustBePositive} = []
+        ArenaCols (1,1) double {mustBePositive} = []
+        GsMode (1,:) char {mustBeMember(GsMode, ["binary","grayscale"])} = 'grayscale'
+        Stretch (:,:) double = []
+        OutputDir (1,:) char = './patterns'
+        Preview (1,1) logical = false
     end
-    
+
+    opts.Array = Array; %#ok<NASGU>
+    opts.Script = Script;
+    opts.Function = Function;
+    opts.Name = Name;
+    opts.Arena = Arena;
+    opts.ArenaRows = ArenaRows;
+    opts.ArenaCols = ArenaCols;
+    opts.GsMode = GsMode;
+    opts.Stretch = Stretch;
+    opts.OutputDir = OutputDir;
+    opts.Preview = Preview;
+
     % Get frames from Array, Script, or Function
     frames = getFrames(opts);
-    
+
     % Create arena
     arena = createArena(opts);
-    
+
     % Create pattern
     fprintf('Creating pattern "%s"...\n', opts.Name);
     pat = Pattern(frames, arena, opts.GsMode, opts.Stretch);
     pat.name = opts.Name;
-    
+
     % Save
     filepath = PatternFile.save(pat, opts.OutputDir, opts.Name);
-    
+
     % Print summary
     fprintf('Pattern created: %s\n', filepath);
     fprintf('  Size: %dx%d pixels\n', pat.height, pat.width);
     fprintf('  Frames: %d total (%d×%d)\n', pat.totalFrames, pat.numX, pat.numY);
     fprintf('  Mode: %s (%d levels)\n', pat.gsMode, pat.gsVal);
-    
+
     % Preview if requested
     if opts.Preview
         rdt('pattern', 'preview', filepath);
@@ -732,13 +737,13 @@ end
 
 function frames = getFrames(opts)
     % Get frames from Array
-    
+
     if isempty(opts.Array)
         error('Array argument is required');
     end
-    
+
     frames = opts.Array;
-    
+
     if isempty(frames)
         error('Frames array is empty');
     end
@@ -746,7 +751,7 @@ end
 
 function arena = createArena(opts)
     % Create arena from options
-    
+
     if ~isempty(opts.Arena)
         % Use preset
         switch lower(opts.Arena)
@@ -761,11 +766,11 @@ function arena = createArena(opts)
             otherwise
                 error('Unknown arena: %s', opts.Arena);
         end
-        
+
     elseif ~isempty(opts.ArenaRows) && ~isempty(opts.ArenaCols)
         % Custom arena
         arena = Arena.custom(opts.ArenaRows, opts.ArenaCols);
-        
+
     else
         error('Either Arena or both ArenaRows and ArenaCols must be provided');
     end

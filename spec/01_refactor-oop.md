@@ -270,12 +270,23 @@ classdef Pattern
             end
         end
         
-        function frame = getFrame(obj, x, y)
-            % Get single frame at position (x, y)
+        function frame = getFrame(obj, frameOrX, frameY)
+            % Get single frame by subscripts or linear index
             if nargin < 3
-                y = 1;
+                [x, y] = obj.resolveFrameLocation(frameOrX);
+            else
+                [x, y] = obj.resolveFrameLocation(frameOrX, frameY);
             end
             frame = squeeze(obj.frames(:, :, x, y));
+        end
+
+        function n = getNumFrames(obj)
+            n = obj.totalFrames;
+        end
+
+        function stretchVal = getStretch(obj, index)
+            [x, y] = obj.resolveFrameLocation(index);
+            stretchVal = obj.stretch(x, y);
         end
         
         % Dependent property getters
@@ -297,6 +308,28 @@ classdef Pattern
         
         function w = get.width(obj)
             w = size(obj.frames, 2);
+        end
+    end
+
+    methods (Access = private)
+        function [x, y] = resolveFrameLocation(obj, frameOrX, frameY)
+            if nargin < 3
+                idx = double(frameOrX);
+                if isempty(idx) || ~isscalar(idx) || idx < 1 || idx > obj.totalFrames
+                    error('Frame index must be a scalar between 1 and %d.', obj.totalFrames);
+                end
+                x = mod(idx - 1, obj.numX) + 1;
+                y = floor((idx - 1) / obj.numX) + 1;
+            else
+                x = frameOrX;
+                y = frameY;
+                if ~isscalar(x) || ~isscalar(y)
+                    error('Frame subscripts must be scalars.');
+                end
+            end
+            if x < 1 || x > obj.numX || y < 1 || y > obj.numY
+                error('Frame location (%d,%d) is out of bounds (%d x %d).', x, y, obj.numX, obj.numY);
+            end
         end
     end
 end
