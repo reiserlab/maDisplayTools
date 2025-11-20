@@ -2,36 +2,23 @@
 
 ## Executive Summary
 
-This document outlines a command-line interface for `maDisplayTools` that runs **within the MATLAB command window**. Unlike Python's shell-based CLI, this design embraces MATLAB's interactive environment while providing a consistent, discoverable interface for common tasks.
+This document outlines a command-line interface for `maDisplayTools` that runs **within the MATLAB command window**, embracing MATLAB's interactive environment while providing a consistent, discoverable interface for common tasks.
 
 The CLI uses a simple entry point function `rdt()` (short for **R**eiser **D**isplay **T**ools) that dispatches to specialized command functions, leveraging MATLAB's name-value arguments for clean, readable syntax.
 
-**Note**: This CLI should be implemented **after** the OOP refactoring (see `01_refactor-oop.md`), as it builds on the `Arena`, `Pattern`, and `PatternFile` classes.
+This CLI builds on the `Arena`, `Pattern`, and `PatternFile` classes defined in the OOP architecture.
 
 ## Design Philosophy: MATLAB-Native CLI
 
 ### Key Principles
 
-1. **Command Window First**: Designed for MATLAB's interactive environment, not shell scripts
+1. **Command Window First**: Designed for MATLAB's interactive environment
 2. **Name-Value Arguments**: Uses MATLAB's modern `arguments` blocks for validation
 3. **Return Values**: Commands can return data structures for further processing
 4. **Tab Completion**: Compatible with MATLAB's tab completion (R2021b+)
 5. **Help Integration**: Works with MATLAB's `help` command
 6. **Simple Dispatch**: No complex plugin architecture - just function calls
-
-### Why Not a Shell CLI?
-
-MATLAB users work in the command window, not system shells. A shell-based CLI would require:
-- Switching contexts between MATLAB and terminal
-- Complex data passing (files/pipes instead of variables)
-- Separate installation/PATH management
-- Platform-specific shell scripts
-
-Instead, this MATLAB-native CLI:
-- Stays in MATLAB environment
-- Can access workspace variables directly
-- Integrates with MATLAB's help system
-- Works identically on all platforms
+7. **Workspace Integration**: Direct access to workspace variables
 
 ## Command Structure
 
@@ -86,9 +73,7 @@ Create pattern from array, script, or function.
 rdt pattern create (Name, Value, ...)
 
 Name-Value Arguments:
-  Array (numeric)           Pattern array [rows, cols, numX, numY]
-  Script (string)           Path to script that creates 'frames' variable
-  Function (function_handle) Function that returns pattern array
+  Array (numeric)           Pattern array [rows, cols, numX, numY] (required)
   Name (string)             Pattern name (required)
   Arena (string)            Arena preset: "g4-3row", "g4-4row", etc.
   ArenaRows (int)           Custom arena rows (for non-preset)
@@ -105,13 +90,8 @@ Name-Value Arguments:
 frames = rand(64, 192, 96) > 0.5;
 rdt pattern create Array=frames, Name="random", Arena="g4-4row", GsMode="binary"
 
-% From script
-rdt pattern create Script="make_grating.m", Name="grating", Arena="g4-4row"
-
-% From function
-rdt pattern create Function=@makeVerticalBars, Name="vbars", Arena="g4-3row"
-
 % Custom arena
+frames = zeros(80, 128, 12);
 rdt pattern create Array=frames, Name="custom", ArenaRows=5, ArenaCols=8
 
 % Create and preview
@@ -120,27 +100,10 @@ rdt pattern create Array=frames, Name="test", Arena="g4-4row", Preview=true
 % With custom output directory
 rdt pattern create Array=frames, Name="exp1", Arena="g4-4row", ...
     OutputDir="./experiments/exp001/patterns"
-```
 
-**Script Requirements:**
-When using `Script` option, the script must create a variable called `frames`:
-```matlab
-% make_grating.m
-frames = zeros(64, 192, 24);
-for i = 1:24
-    frames(1+2*(i-1):2*i, :, i) = 1;
-end
-```
-
-**Function Requirements:**
-When using `Function` option, function must return the frames array:
-```matlab
-function frames = makeVerticalBars()
-    frames = zeros(64, 192, 12);
-    for i = 1:12
-        frames(:, 1+16*(i-1):16*i, i) = 1;
-    end
-end
+% Grayscale pattern
+frames = randi([0 15], 64, 192, 8, 8);
+rdt pattern create Array=frames, Name="gradient", Arena="g4-4row", GsMode="grayscale"
 ```
 
 #### `rdt pattern info`
@@ -732,35 +695,13 @@ function create(varargin)
 end
 
 function frames = getFrames(opts)
-    % Get frames from Array, Script, or Function
+    % Get frames from Array
     
-    sourceCount = ~isempty(opts.Array) + ~isempty(opts.Script) + ~isempty(opts.Function);
-    
-    if sourceCount == 0
-        error('One of Array, Script, or Function must be provided');
-    elseif sourceCount > 1
-        error('Only one of Array, Script, or Function can be provided');
+    if isempty(opts.Array)
+        error('Array argument is required');
     end
     
-    if ~isempty(opts.Array)
-        frames = opts.Array;
-        
-    elseif ~isempty(opts.Script)
-        % Run script in base workspace
-        fprintf('Loading from script: %s\n', opts.Script);
-        [~, scriptName] = fileparts(opts.Script);
-        evalin('base', scriptName);
-        
-        if evalin('base', 'exist(''frames'', ''var'')')
-            frames = evalin('base', 'frames');
-        else
-            error('Script must create a variable named ''frames''');
-        end
-        
-    else % Function
-        fprintf('Generating from function...\n');
-        frames = opts.Function();
-    end
+    frames = opts.Array;
     
     if isempty(frames)
         error('Frames array is empty');
@@ -891,12 +832,12 @@ rdt pattern preview "patterns/pat0001_horizontal_bars.pat"
 ### Workflow 2: Batch Pattern Creation
 
 ```matlab
-% Create multiple patterns from scripts
-patterns = ["grating", "starfield", "rotation"];
-
-for i = 1:length(patterns)
-    script = sprintf("%s.m", patterns(i));
-    rdt pattern create Script=script, Name=patterns(i), Arena="g4-4row"
+% Create multiple patterns from workspace
+for i = 1:10
+    % Generate different pattern for each iteration
+    frames = generatePattern(i);  % Your custom function
+    name = sprintf("pattern_%02d", i);
+    rdt pattern create Array=frames, Name=name, Arena="g4-4row"
 end
 
 % Validate all
@@ -930,7 +871,8 @@ rdt config set "default_arena", "g4-4row"
 rdt config set "auto_preview", true
 
 % Create pattern (will auto-preview)
-rdt pattern create Function=@makePattern, Name="test", Arena="g4-4row"
+frames = rand(64, 192, 96) > 0.5;
+rdt pattern create Array=frames, Name="test", Arena="g4-4row"
 
 % Get info programmatically
 info = rdt pattern info "patterns/pat0001_test.pat"
@@ -938,6 +880,7 @@ fprintf('Created pattern with %d frames\n', info.numFrames);
 ```
 
 ## Benefits of This Design
+
 
 ### 1. MATLAB-Native
 - Works in command window (no shell switching)
@@ -957,31 +900,11 @@ fprintf('Created pattern with %d frames\n', info.numFrames);
 - Can chain operations
 - Works with MATLAB debugger
 
-### 4. Consistent with Python CLI
-- Same command structure
-- Similar parameter names
-- Compatible workflows
-- Easy to document across both tools
-
-### 5. Extensible
+### 4. Extensible
 - Add new commands by adding functions
 - No central registry to update
 - Self-documenting through help
 - Easy to add options
-
-## Comparison with Python CLI
-
-| Feature | Python (`pdt`) | MATLAB (`rdt`) |
-|---------|----------------|----------------|
-| Entry point | Shell command | MATLAB function |
-| Arguments | `--option value` | `Option=value` |
-| Help | `pdt --help` | `help mdt` |
-| Data passing | Files/stdin | Variables |
-| Return values | Exit codes | Structs |
-| Environment | System shell | MATLAB workspace |
-| Installation | pip/PATH | MATLAB path |
-
-The MATLAB CLI adapts the Python CLI's command structure to MATLAB's idioms, providing a familiar interface while respecting each platform's conventions.
 
 ## Testing Strategy
 
@@ -1011,31 +934,13 @@ results = rdt pattern validate "patterns/pat0001_integration_test.pat", Arena="g
 assert(results.valid);
 ```
 
-## Migration from Old API
-
-Old API:
-```matlab
-maDisplayTools.generate_pattern_from_array(Pats, './patterns', 'mypattern', 16, [], 0);
-```
-
-New CLI:
-```matlab
-rdt pattern create Array=Pats, Name="mypattern", Arena="g4-4row", OutputDir="./patterns"
-```
-
-Benefits:
-- Clearer parameter names
-- No need to remember parameter order
-- Built-in validation
-- Easier to discover options
-
 ## Documentation Requirements
 
 1. **Function Help**: Each command function has detailed help
 2. **Examples**: Each help includes practical examples
 3. **User Guide**: Comprehensive guide with workflows
-4. **Migration Guide**: How to convert from old API
-5. **Quick Reference**: Command summary cheat sheet
+4. **Quick Reference**: Command summary cheat sheet
+5. **Tutorial**: Step-by-step introduction for new users
 
 ## Future Enhancements
 
@@ -1070,10 +975,10 @@ end
 ## Conclusion
 
 This MATLAB-native CLI design provides:
-- **Familiar syntax** for MATLAB users
-- **Compatible commands** with Python CLI
+- **Natural syntax** for MATLAB users
 - **Simple implementation** using standard MATLAB features
 - **Interactive workflow** integration
 - **Extensible architecture** for future commands
+- **Discoverable interface** through help system
 
-The design respects MATLAB's interactive environment while maintaining consistency with the Python implementation's command structure and parameters.
+The design embraces MATLAB's interactive environment and leverages its strengths for a clean, usable command-line interface.

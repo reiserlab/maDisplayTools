@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines a refactoring plan to transform `maDisplayTools` from a static method-based architecture to a cleaner, more maintainable object-oriented design that **feels natural in MATLAB**. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend while maintaining backward compatibility.
+This document outlines the design for `maDisplayTools` as a clean, maintainable object-oriented architecture that **feels natural in MATLAB**. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend.
 
 Unlike the Python implementation (`pyDisplayTools`), this refactoring embraces MATLAB's strengths:
 - Simple, practical class hierarchies (not deep abstract hierarchies)
@@ -11,44 +11,7 @@ Unlike the Python implementation (`pyDisplayTools`), this refactoring embraces M
 - Minimal package nesting (MATLAB's package system is more limited than Python's)
 - Focus on interactive workflow and GUI integration
 
-## Current State Analysis
-
-### Existing Architecture
-
-The current `maDisplayTools.m` is a single class with static methods:
-
-**Pattern Creation:**
-- `generate_pattern_from_array()` - Main entry point
-- `save_pattern_g4()` - Save to .pat file
-- `make_pattern_vector_g4()` - Encode to binary
-
-**Pattern Encoding:**
-- `make_framevector_gs16()` - Encode grayscale frames
-- `make_framevector_binary()` - Encode binary frames
-
-**Pattern Reading:**
-- `load_pat()` - Read .pat file
-- `decode_framevector_gs16()` - Decode grayscale
-- `decode_framevector_binary()` - Decode binary
-
-**Preview & Utilities:**
-- `preview_pat()` - Launch preview GUI
-- `get_pattern_id()` - Auto-assign IDs
-- Various helper functions
-
-**Experiment Builder:**
-- `create_experiment_folder_g41()` - Build experiment from YAML
-
-### Key Issues
-
-1. **Code Duplication**: Encoding/decoding logic is split between multiple functions with shared validation and dimension calculations
-2. **Scattered Parameters**: Pattern metadata (dimensions, grayscale mode, ID) passed separately instead of bundled
-3. **Hard to Extend**: Adding G4.1 or G6 support would require duplicating all encoding functions
-4. **Magic Numbers**: Panel size (16), grayscale values (2, 16) scattered throughout
-5. **Inconsistent Error Handling**: Some functions validate, others don't
-6. **No Intermediate Representation**: Jump directly from array to binary file
-
-## Proposed Architecture
+## Architecture
 
 ### Design Philosophy: MATLAB-Native OOP
 
@@ -58,7 +21,6 @@ The current `maDisplayTools.m` is a single class with static methods:
 3. **Shallow Hierarchies**: Prefer composition over deep inheritance trees
 4. **Simple Packages**: Use `+package` for organization, not complex namespace hierarchies
 5. **Progressive Enhancement**: Keep simple things simple, add complexity only where needed
-6. **Backward Compatible**: Old API continues to work during transition
 
 ### Package Structure
 
@@ -73,8 +35,6 @@ The current `maDisplayTools.m` is a single class with static methods:
     ├── EncoderG41.m       % G4.1 encoding/decoding (future)
     └── PatternUtils.m     % Shared utilities
 ```
-
-Root directory keeps `maDisplayTools.m` for backward compatibility.
 
 ## Core Classes
 
@@ -223,17 +183,6 @@ classdef Pattern
                 gsMode = 'grayscale';
             end
             
-            % Convert numeric gs_val to mode string
-            if isnumeric(gsMode)
-                if gsMode == 2
-                    gsMode = 'binary';
-                elseif gsMode == 16
-                    gsMode = 'grayscale';
-                else
-                    error('gs_val must be 2 or 16');
-                end
-            end
-            
             % Ensure 4D
             if ndims(frames) == 3
                 frames = reshape(frames, size(frames,1), size(frames,2), ...
@@ -315,15 +264,6 @@ classdef Pattern
         
         function w = get.width(obj)
             w = size(obj.frames, 2);
-        end
-        
-        function gv = get.gsVal(obj)
-            % Backward compatibility
-            if strcmp(obj.gsMode, 'binary')
-                gv = 2;
-            else
-                gv = 16;
-            end
         end
     end
 end
@@ -530,7 +470,11 @@ classdef EncoderG4 < handle
             header(5:6) = typecast(uint16(pattern.numY), 'uint8');
             header(7:8) = typecast(uint16(pattern.height), 'uint8');
             header(9:10) = typecast(uint16(pattern.width), 'uint8');
-            header(11) = pattern.gsVal;
+            if strcmp(pattern.gsMode, 'binary')
+                header(11) = 2;
+            else
+                header(11) = 16;
+            end
             % Bytes 12-39 remain zero
             
             % Encode frames
@@ -543,7 +487,7 @@ classdef EncoderG4 < handle
                     frame = pattern.getFrame(x, y);
                     stretchVal = pattern.stretch(x, y);
                     
-                    if pattern.gsVal == 16
+                    if strcmp(pattern.gsMode, 'grayscale')
                         frameVectors{idx} = encodeFrameGS16(frame, stretchVal);
                     else
                         frameVectors{idx} = encodeFrameBinary(frame, stretchVal);
@@ -686,70 +630,7 @@ function [frame, stretch] = decodeFrameBinary(frameVec, rows, cols)
 end
 ```
 
-## Migration Strategy
-
-### Phase 1: Implement New Classes (No Breaking Changes)
-
-1. Create `+maDisplayTools` package directory
-2. Implement `Arena.m`, `Pattern.m`, `PatternFile.m`
-3. Create `+maDisplayTools/+internal` for encoders
-4. Move `PatternPreview.m` into package (keep copy at root)
-5. Keep existing `maDisplayTools.m` unchanged
-
-**Result**: Both APIs work simultaneously
-
-### Phase 2: Update Static Methods to Delegate
-
-Update `maDisplayTools.m` to use new classes internally:
-
-```matlab
-classdef maDisplayTools < handle
-    methods (Static)
-        function generate_pattern_from_array(Pats, save_dir, patName, gs_val, stretch, arena_pitch)
-            % DEPRECATED - Use Pattern and PatternFile classes
-            % This wrapper maintains backward compatibility
-            
-            warning('off', 'backtrace');
-            warning('maDisplayTools:deprecated', ...
-                ['generate_pattern_from_array is deprecated.\n' ...
-                 'Use: pat = Pattern(frames, arena, ''grayscale''); ' ...
-                 'PatternFile.save(pat, dir, name);']);
-            warning('on', 'backtrace');
-            
-            % Delegate to new API
-            if nargin < 4, gs_val = 16; end
-            if nargin < 5, stretch = []; end
-            if nargin < 6, arena_pitch = 0; end
-            
-            % Determine arena from dimensions
-            [height, width, ~, ~] = size(Pats);
-            numRows = height / 16;
-            numCols = width / 16;
-            
-            if numRows == 4 && numCols == 12
-                arena = Arena.G4_4Row();
-            elseif numRows == 3 && numCols == 12
-                arena = Arena.G4_3Row();
-            else
-                arena = Arena.custom(numRows, numCols);
-            end
-            
-            % Create pattern
-            pat = Pattern(Pats, arena, gs_val, stretch);
-            pat.name = patName;
-            
-            % Save
-            PatternFile.save(pat, save_dir, patName);
-        end
-        
-        % Similar wrappers for other functions...
-    end
-end
-```
-
-### Phase 3: Documentation and Examples
-
-Create comprehensive examples showing new API:
+## Usage Examples
 
 ```matlab
 % Example 1: Simple pattern creation
@@ -773,32 +654,25 @@ PatternFile.save(pat, './patterns', 'modified');
 PatternPreview.show(pat);  % or pat.preview() if we add method
 ```
 
-## Benefits Over Python-Style Design
+## Design Rationale
 
-### 1. Simpler Mental Model
-- No abstract base classes to understand
-- No deep package hierarchies (`maDisplayTools.io.protocols.G4V1Codec`)
-- Classes do one thing well
-
-### 2. Natural MATLAB Workflow
-- Structs where users expect them (arena config feels like a struct)
-- Value semantics for data (Pattern is copyable)
-- Handle semantics for GUIs (PatternPreview)
-
-### 3. Less Boilerplate
-- No need for ProtocolRegistry singleton
-- No separate Reader/Writer classes
-- Static methods for file I/O (MATLAB convention)
-
-### 4. Easier to Learn
+### 1. Simple, Practical Design
+- No abstract base classes or deep hierarchies
 - Three main classes: Arena, Pattern, PatternFile
 - Clear progression: create pattern → save pattern → load pattern
 - Internal complexity hidden in `+internal` package
 
-### 5. Better IDE Support
-- MATLAB's autocomplete works better with simpler hierarchies
+### 2. MATLAB-Native Patterns
+- Structs where appropriate (arena config is simple data)
+- Value semantics for data (Pattern is copyable)
+- Handle semantics for GUIs (PatternPreview)
+- Static methods for utilities (MATLAB convention)
+
+### 3. Developer Experience
+- MATLAB's autocomplete works well with simple hierarchies
 - Properties show up clearly in workspace
-- Help documentation more straightforward
+- Straightforward help documentation
+- Less boilerplate code
 
 ## Testing Strategy
 
@@ -831,10 +705,9 @@ assert(isequal(loaded.frames, pat.frames));
 
 ## Documentation Plan
 
-1. **Migration Guide**: Step-by-step conversion examples
-2. **API Reference**: Complete class documentation
-3. **Examples Gallery**: Common patterns and workflows
-4. **Design Rationale**: Why we chose this approach over alternatives
+1. **API Reference**: Complete class documentation
+2. **Examples Gallery**: Common patterns and workflows
+3. **Design Rationale**: Architecture decisions and best practices
 
 ## Future Extensions
 
@@ -879,13 +752,14 @@ end
 
 ## Conclusion
 
-This refactoring prioritizes **MATLAB idioms over Python paradigms**:
+This architecture prioritizes **MATLAB idioms and simplicity**:
 
-- ✅ Simpler class hierarchies
+- ✅ Simple class hierarchies (no deep inheritance)
 - ✅ Struct-like configuration objects
 - ✅ Value vs. handle semantics used appropriately  
 - ✅ Static methods for utilities
 - ✅ Shallow package nesting
 - ✅ Clear, predictable API
+- ✅ Easy to extend with new display generations
 
-The result is a codebase that feels natural to MATLAB users while still being well-organized, maintainable, and extensible.
+The result is maintainable, extensible code that feels natural to MATLAB developers while remaining well-organized and easy to extend.
