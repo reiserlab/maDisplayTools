@@ -484,177 +484,129 @@ end
 
 ### 4. Encoder Classes (Internal)
 
-**Design Decision**: Keep encoding implementation separate and generation-specific.
-Users don't interact with these directly - they're internal to PatternFile.
+**Design Decision**: Use an abstract base class with the Template Method pattern to avoid code duplication while keeping encoding logic separate and generation-specific. **This design explicitly preserves the G4 binary protocol for backward compatibility.**
+
+#### Abstract Base Class: `Encoder`
+
+This class defines the template for the encoding/decoding algorithm.
 
 ```matlab
-% +maDisplayTools/+internal/EncoderG4.m
-classdef EncoderG4 < handle
-    % ENCODERG4 G4 pattern encoding/decoding
-    %   Internal class - users should use PatternFile instead
-    
+% +maDisplayTools/+internal/Encoder.m
+classdef (Abstract) Encoder < handle
+    % Defines the interface for all pattern encoders/decoders.
+
     methods
-        function binaryData = encode(~, pattern)
-            % Encode Pattern to G4 binary format
-            % Note: Pattern ID is not stored in the binary data for G4,
-            % it is only used in the filename
+        function binaryData = encode(self, patternObj, arenaConfigObj)
+            % ENCODE - Main method to convert a Pattern object to binary data.
+            header = self.getHeader(patternObj, arenaConfigObj);
             
-            % Build 7-byte header (G4 format)
-            % Format: 2 uint16 (NumPatsX, NumPatsY) + 3 uint8 (gs_val, RowN, ColN)
+            frameSize = self.getFrameSizeInBytes(arenaConfigObj);
+            numFrames = patternObj.getNumFrames();
+            binaryData = zeros(1, numel(header) + numFrames * frameSize, 'uint8');
+            binaryData(1:numel(header)) = header;
+
+            currentPos = numel(header) + 1;
+            for i = 1:numFrames
+                frameData = patternObj.getFrame(i);
+                stretchVal = patternObj.getStretch(i);
+                
+                encodedFrame = self.encodeFrame(frameData, stretchVal);
+                
+                binaryData(currentPos : currentPos + frameSize - 1) = encodedFrame;
+                currentPos = currentPos + frameSize;
+            end
+        end
+
+        function patternObj = decode(self, binaryData)
+            % DECODE - Main method to convert binary data to a Pattern object.
+            [headerInfo, arenaConfigObj] = self.decodeHeader(binaryData);
+            
+            frameSize = self.getFrameSizeInBytes(arenaConfigObj);
+            numFrames = headerInfo.numX * headerInfo.numY;
+            
+            frames = zeros(arenaConfigObj.totalHeight, arenaConfigObj.totalWidth, numFrames, 'uint8');
+            stretches = zeros(numFrames, 1, 'uint8');
+            
+            offset = self.getHeaderSize() + 1;
+            for i = 1:numFrames
+                frameVec = binaryData(offset : offset + frameSize - 1);
+                [frame, stretch] = self.decodeFrame(frameVec, arenaConfigObj.totalHeight, arenaConfigObj.totalWidth);
+                frames(:,:,i) = frame;
+                stretches(i) = stretch;
+                offset = offset + frameSize;
+            end
+            
+            patternObj = maDisplayTools.Pattern(frames, arenaConfigObj, 'stretch', stretches);
+        end
+    end
+
+    % --- Abstract methods for subclasses ---
+    methods (Abstract, Access = protected)
+        header = getHeader(self, patternObj, arenaConfigObj);
+        [headerInfo, arenaConfig] = decodeHeader(self, binaryData);
+        encodedFrame = encodeFrame(self, frameData, stretchVal);
+        [frame, stretch] = decodeFrame(self, frameVec, height, width);
+        byteCount = getFrameSizeInBytes(self, arenaConfigObj);
+        sz = getHeaderSize(self);
+    end
+end
+```
+
+#### Concrete Subclass: `Grayscale4Encoder`
+
+This class implements the 4-bit grayscale protocol, reusing the original logic.
+
+```matlab
+% +maDisplayTools/+internal/Grayscale4Encoder.m
+classdef Grayscale4Encoder < maDisplayTools.internal.Encoder
+    methods (Access = protected)
+        function header = getHeader(self, pattern, arena)
             header = zeros(1, 7, 'uint8');
             header(1:2) = typecast(uint16(pattern.numX), 'uint8');
             header(3:4) = typecast(uint16(pattern.numY), 'uint8');
-            if strcmp(pattern.gsMode, 'binary')
-                header(5) = 2;
-            else
-                header(5) = 16;
+            header(5) = 16; % 4-bit grayscale
+            header(6) = uint8(arena.numRows);
+            header(7) = uint8(arena.numCols);
+        end
+
+        function [info, arena] = decodeHeader(self, binaryData)
+            info.numX = typecast(uint8(binaryData(1:2)), 'uint16');
+            info.numY = typecast(uint8(binaryData(3:4)), 'uint16');
+            numRows = binaryData(6);
+            numCols = binaryData(7);
+            arena = maDisplayTools.Arena.custom(numRows, numCols, 'G4');
+        end
+
+        function encoded = encodeFrame(self, frame, stretch)
+            pixels = numel(frame);
+            packed = zeros(1, ceil(pixels/2), 'uint8');
+            for i = 1:2:pixels
+                byte = bitor(bitand(uint8(frame(i)), 15), bitshift(bitand(uint8(frame(i+1)), 15), 4));
+                packed((i+1)/2) = byte;
             end
-            header(6) = uint8(pattern.arena.numRows);
-            header(7) = uint8(pattern.arena.numCols);
-            
-            % Encode frames
-            numFrames = pattern.numX * pattern.numY;
-            frameVectors = cell(numFrames, 1);
-            idx = 1;
-            
-            for y = 1:pattern.numY
-                for x = 1:pattern.numX
-                    frame = pattern.getFrame(x, y);
-                    stretchVal = pattern.stretch(x, y);
-                    
-                    if strcmp(pattern.gsMode, 'grayscale')
-                        frameVectors{idx} = encodeFrameGS16(frame, stretchVal);
-                    else
-                        frameVectors{idx} = encodeFrameBinary(frame, stretchVal);
-                    end
-                    idx = idx + 1;
-                end
+            encoded = [packed, uint8(stretch)];
+        end
+
+        function [frame, stretch] = decodeFrame(self, frameVec, rows, cols)
+            stretch = frameVec(end);
+            packed = frameVec(1:end-1);
+            pixels = zeros(rows * cols, 1, 'uint8');
+            for i = 1:numel(pixels)
+                byteIdx = floor((i-1)/2) + 1;
+                pixels(i) = bitand(bitshift(packed(byteIdx), -4 * mod(i-1, 2)), 15);
             end
-            
-            % Combine
-            binaryData = [header, cell2mat(frameVectors)];
+            frame = reshape(pixels, rows, cols);
         end
         
-        function pattern = decode(obj, binaryData)
-            % Decode G4 binary to Pattern object
-            
-            % Parse 7-byte header (G4 format)
-            header = binaryData(1:7);
-            numX = typecast(uint8(header(1:2)), 'uint16');
-            numY = typecast(uint8(header(3:4)), 'uint16');
-            gsVal = header(5);
-            numRows = header(6);
-            numCols = header(7);
-            
-            % Create arena from header info
-            arena = Arena.custom(numRows, numCols, 'G4');
-            height = arena.totalHeight;
-            width = arena.totalWidth;
-            
-            % Decode frames
-            frames = zeros(height, width, numX, numY, 'uint8');
-            stretch = zeros(numX, numY, 'uint8');
-            
-            frameSize = obj.getFrameSize(height, width, gsVal);
-            offset = 8;  % Start after 7-byte header
-            
-            for y = 1:numY
-                for x = 1:numX
-                    frameVec = binaryData(offset:offset+frameSize-1);
-                    
-                    if gsVal == 16
-                        [frame, stretchVal] = decodeFrameGS16(frameVec, height, width);
-                    else
-                        [frame, stretchVal] = decodeFrameBinary(frameVec, height, width);
-                    end
-                    
-                    frames(:, :, x, y) = frame;
-                    stretch(x, y) = stretchVal;
-                    offset = offset + frameSize;
-                end
-            end
-            
-            % Create Pattern
-            pattern = Pattern(frames, arena, gsVal, stretch);
+        function byteCount = getFrameSizeInBytes(self, arena)
+            byteCount = ceil(arena.totalHeight * arena.totalWidth / 2) + 1;
         end
-        
-        function size = getFrameSize(~, height, width, gsVal)
-            pixels = height * width;
-            if gsVal == 16
-                size = ceil(pixels / 2) + 1;  % 4 bits per pixel + stretch
-            else
-                size = ceil(pixels / 8) + 1;  % 1 bit per pixel + stretch
-            end
-        end
-    end
-end
 
-% Frame encoding/decoding functions stay similar to current implementation
-% but are methods of this class instead of static methods in main class
-function encoded = encodeFrameGS16(frame, stretch)
-    [rows, cols] = size(frame);
-    pixels = rows * cols;
-    packed = zeros(1, ceil(pixels/2), 'uint8');
-    
-    for i = 1:2:pixels
-        byte = 0;
-        byte = bitor(byte, bitand(uint8(frame(i)), 15));
-        if i < pixels
-            byte = bitor(byte, bitshift(bitand(uint8(frame(i+1)), 15), 4));
-        end
-        packed((i+1)/2) = byte;
+        function sz = getHeaderSize(self), sz = 7; end
     end
-    
-    encoded = [packed, uint8(stretch)];
-end
-
-function [frame, stretch] = decodeFrameGS16(frameVec, rows, cols)
-    stretch = frameVec(end);
-    packed = frameVec(1:end-1);
-    pixels = zeros(rows * cols, 1, 'uint8');
-    
-    for i = 1:length(pixels)
-        byteIdx = floor((i-1)/2) + 1;
-        if mod(i, 2) == 1
-            pixels(i) = bitand(packed(byteIdx), 15);
-        else
-            pixels(i) = bitshift(packed(byteIdx), -4);
-        end
-    end
-    
-    frame = reshape(pixels, rows, cols);
-end
-
-function encoded = encodeFrameBinary(frame, stretch)
-    [rows, cols] = size(frame);
-    pixels = rows * cols;
-    packed = zeros(1, ceil(pixels/8), 'uint8');
-    
-    for i = 1:pixels
-        if frame(i)
-            byteIdx = floor((i-1)/8) + 1;
-            bitPos = mod(i-1, 8);
-            packed(byteIdx) = bitor(packed(byteIdx), bitshift(uint8(1), bitPos));
-        end
-    end
-    
-    encoded = [packed, uint8(stretch)];
-end
-
-function [frame, stretch] = decodeFrameBinary(frameVec, rows, cols)
-    stretch = frameVec(end);
-    packed = frameVec(1:end-1);
-    pixels = zeros(rows * cols, 1, 'uint8');
-    
-    for i = 1:length(pixels)
-        byteIdx = floor((i-1)/8) + 1;
-        bitPos = mod(i-1, 8);
-        pixels(i) = bitand(bitshift(packed(byteIdx), -bitPos), 1);
-    end
-    
-    frame = reshape(pixels, rows, cols);
 end
 ```
+*(A similar implementation would be created for `BinaryEncoder`)*
 
 ## Usage Examples (After Refactoring)
 
