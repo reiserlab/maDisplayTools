@@ -414,17 +414,16 @@ end
 
 ## CLI Integration
 
-Add commands to work with panel maps:
+Panel maps are set as properties on Arena objects when using the programmatic API. The CLI does not provide special commands for panel maps - users must work with Arena objects directly in their MATLAB scripts:
 
 ```matlab
-% Create arena with custom panel map
-pdt arena create Rows=4, Cols=12, PanelMap=myMap
+% Create arena with custom panel map (programmatic API)
+arena = Arena.custom(4, 12);
+arena.panelMap = myMap;
 
-% Show panel map for a pattern
-pdt pattern info "test.pat" --show-panel-map
-
-% Validate panel map
-pdt arena validate PanelMap=myMap, Rows=4, Cols=12
+% Then use this arena when creating patterns
+pat = Pattern(frames, arena, 'binary');
+PatternFile.save(pat, './patterns', 'myPattern');
 ```
 
 ## Validation Rules

@@ -84,8 +84,8 @@ The existing `maDisplayTools` implementation that will be replaced is a single c
 
 ### 1. Arena Configuration
 
-**Design Decision**: Use a simple class with preset factory methods, not enums.
-MATLAB enums are less ergonomic than Python's, and most users want simple presets.
+**Design Decision**: Use a simple class with a single `custom()` factory method, not enums or preset methods.
+MATLAB enums are less ergonomic than Python's. Users must specify the arena dimensions and generation explicitly using `Arena.custom(numRows, numCols, generation)`.
 
 ```matlab
 classdef Arena < handle

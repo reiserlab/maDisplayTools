@@ -65,7 +65,7 @@ pdt <command> <subcommand> (Name, Value, ...)
 Commands return data structures when useful, allowing:
 ```matlab
 % Use command for side effects (save file)
-pdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", ArenaRows=4, ArenaCols=12, Generation="G4"
 
 % Capture return value for further use
 info = pdt pattern info "pattern.pat"
@@ -85,9 +85,6 @@ pdt
 │   ├── create        Create experiment folder from YAML
 │   ├── validate      Validate experiment protocol
 │   └── info          Show experiment details
-├── arena
-│   ├── list          List available arena presets
-│   └── info          Show arena details
 └── config
     ├── show          Show current configuration
     ├── set           Set configuration value
@@ -111,9 +108,9 @@ pdt pattern create (Name, Value, ...)
 Name-Value Arguments:
   Array (numeric)           Pattern array [rows, cols, numX, numY] (required)
   Name (string)             Pattern name (required)
-  Arena (string)            Arena preset: "g4-3row", "g4-4row", etc.
-  ArenaRows (int)           Custom arena rows (for non-preset)
-  ArenaCols (int)           Custom arena cols (for non-preset)
+  ArenaRows (int)           Arena rows (required)
+  ArenaCols (int)           Arena columns (required)
+  Generation (string)       Display generation: "G4", "G41", "G6" [default: "G4"]
   GsMode (string)           "binary" or "grayscale" [default: "grayscale"]
   Stretch (numeric)         Stretch values [numX, numY]
   OutputDir (string)        Output directory [default: "./patterns"]
@@ -122,21 +119,26 @@ Name-Value Arguments:
 
 **Examples:**
 ```matlab
-% From array in workspace
+% From array in workspace (4 rows, 12 columns, G4 generation)
 frames = rand(64, 192, 96) > 0.5;
-pdt pattern create Array=frames, Name="random", Arena="g4-4row", GsMode="binary"
+pdt pattern create Array=frames, Name="random", ArenaRows=4, ArenaCols=12, ...
+    Generation="G4", GsMode="binary"
 
-% Custom arena
+% Custom arena dimensions
 frames = zeros(80, 128, 12);
 pdt pattern create Array=frames, Name="custom", ArenaRows=5, ArenaCols=8
 
 % Create and preview
-pdt pattern create Array=frames, Name="test", Arena="g4-4row", Preview=true
+pdt pattern create Array=frames, Name="test", ArenaRows=4, ArenaCols=12, Preview=true
 
 % With custom output directory
-pdt pattern create Array=frames, Name="exp1", Arena="g4-4row", ...
+pdt pattern create Array=frames, Name="exp1", ArenaRows=4, ArenaCols=12, ...
     OutputDir="./experiments/exp001/patterns"
 
+% G4.1 generation arena
+frames = rand(48, 192, 24);
+pdt pattern create Array=frames, Name="g41_test", ArenaRows=3, ArenaCols=12, ...
+    Generation="G41"
 ```
 
 #### `pdt pattern info`
@@ -245,33 +247,32 @@ Arguments:
   PatternFiles (string|cell) One or more .pat files
 
 Name-Value Arguments:
-  Arena (string)            Expected arena type
-  ArenaRows (int)           Expected arena rows
-  ArenaCols (int)           Expected arena cols
+  ArenaRows (int)           Expected arena rows (required)
+  ArenaCols (int)           Expected arena columns (required)
+  Generation (string)       Expected generation [default: "G4"]
   Strict (logical)          Fail on warnings [default: false]
 ```
 
 **Examples:**
 ```matlab
-% Validate single file
-pdt pattern validate "patterns/pat0001_test.pat", Arena="g4-4row"
+% Validate single file against 4x12 G4 arena
+pdt pattern validate "patterns/pat0001_test.pat", ArenaRows=4, ArenaCols=12
 
 % Output:
 %   ✓ pat0001_test.pat: Valid
-%     Dimensions: 64 x 192 (matches g4-4row)
+%     Dimensions: 64 x 192 (4 rows × 12 cols, G4)
 %     Frames: 96
 
 % Validate multiple files
 files = ["patterns/pat0001.pat", "patterns/pat0002.pat"];
-pdt pattern validate files, Arena="g4-4row"
+pdt pattern validate files, ArenaRows=4, ArenaCols=12
 
-% Validate all patterns in directory
-% (Note: MATLAB's dir() doesn't support wildcards in path argument directly,
-% but you can filter results)
-results = pdt pattern validate "patterns/*.pat", ArenaRows=4, ArenaCols=12
+% Validate all patterns in directory with G4.1 generation
+results = pdt pattern validate "patterns/*.pat", ArenaRows=3, ArenaCols=12, ...
+    Generation="G41"
 
 % Strict mode (warnings become errors)
-pdt pattern validate "patterns/*.pat", Arena="g4-4row", Strict=true
+pdt pattern validate "patterns/*.pat", ArenaRows=4, ArenaCols=12, Strict=true
 ```
 
 **Returned Structure:**
@@ -295,7 +296,6 @@ pdt experiment create (Name, Value, ...)
 Name-Value Arguments:
   Protocol (string)         YAML protocol file (required)
   Output (string)           Output directory (required)
-  Arena (string)            Override arena type from YAML
   Force (logical)           Overwrite existing [default: false]
   DryRun (logical)          Show plan without executing [default: false]
   Verbose (logical)         Show detailed output [default: true]
@@ -311,9 +311,6 @@ pdt experiment create Protocol="protocol.yaml", Output="./exp001", DryRun=true
 
 % Force overwrite
 pdt experiment create Protocol="protocol.yaml", Output="./exp001", Force=true
-
-% Override arena type
-pdt experiment create Protocol="protocol.yaml", Output="./exp001", Arena="g41-4row"
 
 % Quiet mode
 pdt experiment create Protocol="protocol.yaml", Output="./exp001", Verbose=false
@@ -383,7 +380,7 @@ pdt experiment info "protocol.yaml"
 
 % Output:
 %   Experiment Protocol
-%   Arena: g4-4row
+%   Arena: 4 rows × 12 cols (G4)
 %   Patterns: 12
 %   Conditions: 4
 %   Duration: ~45 minutes
@@ -394,79 +391,6 @@ pdt experiment info "protocol.yaml", ShowPatterns=true
 % Get info structure
 info = pdt experiment info "protocol.yaml"
 fprintf('Experiment uses %d patterns\n', info.numPatterns);
-```
-
-### Arena Commands
-
-#### `pdt arena list`
-
-List available arena presets.
-
-**Syntax:**
-```matlab
-arenas = pdt arena list (Name, Value, ...)
-
-Name-Value Arguments:
-  Verbose (logical)         Show detailed specs [default: false]
-
-Returns:
-  arenas (struct array)     Arena configurations
-```
-
-**Examples:**
-```matlab
-% List arenas
-pdt arena list
-
-% Output:
-%   Available Arenas:
-%   1. g4-3row    (G4,  3 rows × 12 cols =  48 panels,  48 × 192 pixels)
-%   2. g4-4row    (G4,  4 rows × 12 cols =  48 panels,  64 × 192 pixels)
-%   3. g41-3row   (G41, 3 rows × 12 cols =  48 panels,  48 × 192 pixels)
-%   4. g41-4row   (G41, 4 rows × 12 cols =  48 panels,  64 × 192 pixels)
-
-% Detailed list
-pdt arena list Verbose=true
-
-% Get arena list
-arenas = pdt arena list
-for i = 1:length(arenas)
-    fprintf('%s: %dx%d pixels\n', arenas(i).name, arenas(i).height, arenas(i).width);
-end
-```
-
-#### `pdt arena info`
-
-Show detailed arena configuration.
-
-**Syntax:**
-```matlab
-arena = pdt arena info (ArenaName, Name, Value, ...)
-
-Arguments:
-  ArenaName (string)        Arena preset name
-
-Returns:
-  arena (struct)            Arena configuration
-```
-
-**Examples:**
-```matlab
-% Show arena details
-pdt arena info "g4-4row"
-
-% Output:
-%   Arena: g4-4row
-%   Generation: G4
-%   Configuration:
-%     Rows: 4 panels (64 pixels)
-%     Cols: 12 panels (192 pixels)
-%     Total: 48 panels (12,288 pixels)
-%   Panel Size: 16 × 16 pixels
-
-% Get arena object
-arena = pdt arena info "g4-4row"
-fprintf('Total pixels: %d\n', arena.width * arena.height);
 ```
 
 ### Configuration Commands
@@ -490,14 +414,13 @@ pdt config show
 
 % Output:
 %   Configuration:
-%     default_arena: g4-4row
 %     default_output_dir: ./patterns
 %     default_gs_mode: grayscale
 %     auto_preview: false
 
 % Get config
 config = pdt config show
-fprintf('Default arena: %s\n', config.default_arena);
+fprintf('Default output dir: %s\n', config.default_output_dir);
 ```
 
 #### `pdt config set`
@@ -515,9 +438,6 @@ Arguments:
 
 **Examples:**
 ```matlab
-% Set default arena
-pdt config set "default_arena", "g4-4row"
-
 % Set default output directory
 pdt config set "default_output_dir", "./my_patterns"
 
@@ -529,7 +449,6 @@ pdt config set "auto_preview", true
 ```
 
 **Available Keys:**
-- `default_arena` - Default arena type (string)
 - `default_output_dir` - Default output directory (string)
 - `default_gs_mode` - Default grayscale mode: "binary" or "grayscale"
 - `auto_preview` - Auto-preview after creation (logical)
@@ -579,9 +498,6 @@ maDisplayTools/
 │       │   ├── create.m
 │       │   ├── validate.m
 │       │   └── info.m
-│       ├── +arena/
-│       │   ├── list.m
-│       │   └── info.m
 │       ├── +config/
 │       │   ├── show.m
 │       │   ├── set.m
@@ -603,21 +519,18 @@ function varargout = pdt(command, subcommand, varargin)
     % Commands:
     %   pattern       Pattern creation and management
     %   experiment    Experiment folder management
-    %   arena         Arena configuration information
     %   config        Configuration management
     %
     % Examples:
-    %   pdt pattern create Array=frames, Name="test", Arena="g4-4row"
+    %   pdt pattern create Array=frames, Name="test", ArenaRows=4, ArenaCols=12
     %   pdt pattern info "pattern.pat"
     %   pdt pattern preview "pattern.pat"
     %   pdt experiment create Protocol="protocol.yaml", Output="./exp001"
-    %   pdt arena list
     %   pdt config show
     %
     % For help on specific commands:
     %   help pdt_pattern_create
     %   help pdt_experiment_create
-    %   help pdt_arena_list
     
     % Handle no arguments - show help
     if nargin == 0
@@ -676,22 +589,22 @@ function create(varargin)
     %   Script (string)           Path to script
     %   Function (function_handle) Function returning array
     %   Name (string)             Pattern name (required)
-    %   Arena (string)            Arena preset
-    %   ArenaRows (int)           Custom arena rows
-    %   ArenaCols (int)           Custom arena cols
+    %   ArenaRows (int)           Arena rows (required)
+    %   ArenaCols (int)           Arena columns (required)
+    %   Generation (string)       Display generation: "G4", "G41", "G6"
     %   GsMode (string)           "binary" or "grayscale"
-    %   Stretch (numeric)         Stretch values
+    %   Stretch (numeric)         Stretch values [numX, numY]
     %   OutputDir (string)        Output directory
-    %   Preview (logical)         Preview after creation
+    %   Preview (logical)         Launch preview after creation
 
     arguments
         Array (:,:,:,:) {mustBeNumeric} = []
         Script (1,:) char = ''
         Function function_handle = []
         Name (1,:) char {mustBeNonempty}
-        Arena (1,:) char = ''
-        ArenaRows (1,1) double {mustBePositive} = []
-        ArenaCols (1,1) double {mustBePositive} = []
+        ArenaRows (1,1) double {mustBePositive, mustBeNonempty}
+        ArenaCols (1,1) double {mustBePositive, mustBeNonempty}
+        Generation (1,:) char {mustBeMember(Generation, ["G4","G41","G6"])} = 'G4'
         GsMode (1,:) char {mustBeMember(GsMode, ["binary","grayscale"])} = 'grayscale'
         Stretch (:,:) double = []
         OutputDir (1,:) char = './patterns'
@@ -702,9 +615,9 @@ function create(varargin)
     opts.Script = Script;
     opts.Function = Function;
     opts.Name = Name;
-    opts.Arena = Arena;
     opts.ArenaRows = ArenaRows;
     opts.ArenaCols = ArenaCols;
+    opts.Generation = Generation;
     opts.GsMode = GsMode;
     opts.Stretch = Stretch;
     opts.OutputDir = OutputDir;
@@ -753,29 +666,7 @@ end
 
 function arena = createArena(opts)
     % Create arena from options
-
-    if ~isempty(opts.Arena)
-        % Use preset
-        switch lower(opts.Arena)
-            case 'g4-3row'
-                arena = Arena.custom(3, 12, 'G4');
-            case 'g4-4row'
-                arena = Arena.custom(4, 12, 'G4');
-            case 'g41-3row'
-                arena = Arena.custom(3, 12, 'G41');
-            case 'g41-4row'
-                arena = Arena.custom(4, 12, 'G41');
-            otherwise
-                error('Unknown arena: %s', opts.Arena);
-        end
-
-    elseif ~isempty(opts.ArenaRows) && ~isempty(opts.ArenaCols)
-        % Custom arena
-        arena = Arena.custom(opts.ArenaRows, opts.ArenaCols);
-
-    else
-        error('Either Arena or both ArenaRows and ArenaCols must be provided');
-    end
+    arena = Arena.custom(opts.ArenaRows, opts.ArenaCols, opts.Generation);
 end
 ```
 
@@ -806,7 +697,6 @@ classdef ConfigManager < handle
         
         function config = defaults()
             config = struct();
-            config.default_arena = 'g4-4row';
             config.default_output_dir = './patterns';
             config.default_gs_mode = 'grayscale';
             config.auto_preview = false;
@@ -865,8 +755,8 @@ for i = 1:24
     frames(1+2*(i-1):2*i, :, i) = 15;
 end
 
-% Create pattern
-pdt pattern create Array=frames, Name="horizontal_bars", Arena="g4-4row"
+% Create pattern (4 rows, 12 cols, G4 generation)
+pdt pattern create Array=frames, Name="horizontal_bars", ArenaRows=4, ArenaCols=12
 
 % Preview
 pdt pattern preview "patterns/pat0001_horizontal_bars.pat"
@@ -882,14 +772,14 @@ for i = 1:10
     % Generate different pattern for each iteration
     frames = generatePattern(i);  % Your custom function
     name = sprintf("pattern_%02d", i);
-    pdt pattern create Array=frames, Name=name, Arena="g4-4row"
+    pdt pattern create Array=frames, Name=name, ArenaRows=4, ArenaCols=12
 end
 
 % Validate all
 files = dir("patterns/*.pat");
 for i = 1:length(files)
     filepath = fullfile(files(i).folder, files(i).name);
-    pdt pattern validate filepath, Arena="g4-4row"
+    pdt pattern validate filepath, ArenaRows=4, ArenaCols=12
 end
 ```
 
@@ -912,12 +802,11 @@ end
 
 ```matlab
 % Configure environment
-pdt config set "default_arena", "g4-4row"
 pdt config set "auto_preview", true
 
 % Create pattern (will auto-preview)
 frames = rand(64, 192, 96) > 0.5;
-pdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", ArenaRows=4, ArenaCols=12
 
 % Get info programmatically
 info = pdt pattern info "patterns/pat0001_test.pat"
@@ -946,7 +835,7 @@ The refactored implementation adds configuration management (default arena, outp
 ```matlab
 % Test pattern creation
 frames = ones(64, 192, 4);
-pdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", ArenaRows=4, ArenaCols=12
 assert(exist("patterns/pat0001_test.pat", "file") > 0);
 
 % Test info
@@ -954,17 +843,19 @@ info = pdt pattern info "patterns/pat0001_test.pat"
 assert(info.numFrames == 4);
 
 % Test config
-pdt config set "default_arena", "g4-3row"
+pdt config set "default_gs_mode", "binary"
 config = pdt config show
-assert(strcmp(config.default_arena, "g4-3row"));
+assert(strcmp(config.default_gs_mode, "binary"));
 ```
 
 ### Integration Tests
 ```matlab
 % Full workflow test
-pdt pattern create Array=ones(64,192,4), Name="integration_test", Arena="g4-4row"
+pdt pattern create Array=ones(64,192,4), Name="integration_test", ...
+    ArenaRows=4, ArenaCols=12
 info = pdt pattern info "patterns/pat0001_integration_test.pat"
-results = pdt pattern validate "patterns/pat0001_integration_test.pat", Arena="g4-4row"
+results = pdt pattern validate "patterns/pat0001_integration_test.pat", ...
+    ArenaRows=4, ArenaCols=12
 assert(results.valid);
 ```
 
@@ -991,9 +882,13 @@ end
 
 ### Default Arguments from Config
 ```matlab
-% If Arena not specified, use config default
-if isempty(opts.Arena)
-    opts.Arena = maDisplayTools.cli.ConfigManager.get('default_arena');
+% Example: Use config defaults for output directory or grayscale mode
+if isempty(opts.OutputDir)
+    opts.OutputDir = maDisplayTools.cli.ConfigManager.get('default_output_dir');
+end
+
+if isempty(opts.GsMode)
+    opts.GsMode = maDisplayTools.cli.ConfigManager.get('default_gs_mode');
 end
 ```
 
