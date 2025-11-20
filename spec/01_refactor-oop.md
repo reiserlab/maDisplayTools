@@ -2,14 +2,14 @@
 
 ## Executive Summary
 
-This document outlines a refactoring of the existing `maDisplayTools` codebase into a clean, maintainable object-oriented architecture that **feels natural in MATLAB**. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend while replacing the current static method-based implementation.
+This document outlines a refactoring of the existing `maDisplayTools` codebase into a clean, maintainable object-oriented architecture that feels MATLAB *native*. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend while replacing the current static method-based implementation.
 
 Unlike the Python implementation (`pyDisplayTools`), this refactoring embraces MATLAB's strengths:
 - Simple, practical class hierarchies (not deep abstract hierarchies)
 - Struct-based configurations where appropriate (MATLAB developers expect structs)
 - Handle classes where state matters, value classes for data containers
 - Minimal package nesting (MATLAB's package system is more limited than Python's)
-- Focus on interactive workflow and GUI integration
+- Focus on interactive workflow and MATLAB GUI integration
 
 ## Current Implementation (To Be Refactored)
 
@@ -59,6 +59,7 @@ The existing `maDisplayTools` implementation that will be replaced is a single c
 ### Design Philosophy: MATLAB-Native OOP
 
 **Key Principles:**
+
 1. **Structs for Configuration**: Use structs for immutable configuration data (MATLAB users expect this)
 2. **Classes for Behavior**: Use classes when you need methods and state management
 3. **Shallow Hierarchies**: Prefer composition over deep inheritance trees
@@ -91,9 +92,8 @@ classdef Arena < handle
     % ARENA LED display arena configuration
     %
     % Examples:
-    %   arena = Arena.G4_4Row();           % Most common
-    %   arena = Arena.G4_3Row();
-    %   arena = Arena.custom(4, 12);       % 4 rows, 12 cols
+    %   arena = Arena.custom(4, 12);       % 4 rows, 12 cols (G4, most common)
+    %   arena = Arena.custom(3, 12);       % 3 rows, 12 cols (G4)
     %   arena = Arena.custom(3, 8, 'G41'); % Custom G4.1 arena
     
     properties (SetAccess = private)
@@ -111,16 +111,6 @@ classdef Arena < handle
     end
     
     methods (Static)
-        function obj = G4_4Row()
-            % Standard 4-row G4 arena (most common)
-            obj = Arena.custom(4, 12, 'G4');
-        end
-        
-        function obj = G4_3Row()
-            % Standard 3-row G4 arena
-            obj = Arena.custom(3, 12, 'G4');
-        end
-        
         function obj = custom(numRows, numCols, generation)
             % Create custom arena configuration
             %   generation: 'G4' (default), 'G41', or 'G6'
@@ -177,11 +167,11 @@ classdef Pattern
     % Examples:
     %   % Create from array
     %   frames = rand(64, 192, 96) > 0.5;  % 96 binary frames
-    %   pat = Pattern(frames, Arena.G4_4Row(), 'binary');
+    %   pat = Pattern(frames, Arena.custom(4, 12), 'binary');
     %
     %   % Create grayscale pattern
     %   frames = randi([0 15], 64, 192, 8, 8);  % 8x8 grid
-    %   pat = Pattern(frames, Arena.G4_4Row(), 'grayscale');
+    %   pat = Pattern(frames, Arena.custom(4, 12), 'grayscale');
     %
     %   % Set metadata
     %   pat.name = 'stripes';
@@ -374,8 +364,8 @@ classdef PatternFile
             % Get encoder for this generation
             encoder = PatternFile.getEncoder(pattern.arena.generation);
             
-            % Encode
-            binaryData = encoder.encode(pattern, patID);
+            % Encode (patID not stored in G4 binary format, only in filename)
+            binaryData = encoder.encode(pattern);
             
             % Generate filename
             filename = sprintf('pat%04d_%s.pat', patID, name);
@@ -420,17 +410,18 @@ classdef PatternFile
             if fid == -1
                 error('Could not open file: %s', filepath);
             end
-            header = fread(fid, 40, '*uint8')';
+            header = fread(fid, 7, '*uint8')';
             fclose(fid);
             
-            % Parse header (G4 format)
+            % Parse 7-byte header (G4 format)
             info = struct();
-            info.id = typecast(uint8(header(1:2)), 'uint16');
-            info.numX = typecast(uint8(header(3:4)), 'uint16');
-            info.numY = typecast(uint8(header(5:6)), 'uint16');
-            info.height = typecast(uint8(header(7:8)), 'uint16');
-            info.width = typecast(uint8(header(9:10)), 'uint16');
-            info.gsVal = header(11);
+            info.numX = typecast(uint8(header(1:2)), 'uint16');
+            info.numY = typecast(uint8(header(3:4)), 'uint16');
+            info.gsVal = header(5);
+            info.numRows = header(6);
+            info.numCols = header(7);
+            info.height = info.numRows * 16;
+            info.width = info.numCols * 16;
         end
         
         function nextID = getNextID(saveDir)
@@ -503,22 +494,23 @@ classdef EncoderG4 < handle
     %   Internal class - users should use PatternFile instead
     
     methods
-        function binaryData = encode(~, pattern, patID)
+        function binaryData = encode(~, pattern)
             % Encode Pattern to G4 binary format
+            % Note: Pattern ID is not stored in the binary data for G4,
+            % it is only used in the filename
             
-            % Build 40-byte header
-            header = zeros(1, 40, 'uint8');
-            header(1:2) = typecast(uint16(patID), 'uint8');
-            header(3:4) = typecast(uint16(pattern.numX), 'uint8');
-            header(5:6) = typecast(uint16(pattern.numY), 'uint8');
-            header(7:8) = typecast(uint16(pattern.height), 'uint8');
-            header(9:10) = typecast(uint16(pattern.width), 'uint8');
+            % Build 7-byte header (G4 format)
+            % Format: 2 uint16 (NumPatsX, NumPatsY) + 3 uint8 (gs_val, RowN, ColN)
+            header = zeros(1, 7, 'uint8');
+            header(1:2) = typecast(uint16(pattern.numX), 'uint8');
+            header(3:4) = typecast(uint16(pattern.numY), 'uint8');
             if strcmp(pattern.gsMode, 'binary')
-                header(11) = 2;
+                header(5) = 2;
             else
-                header(11) = 16;
+                header(5) = 16;
             end
-            % Bytes 12-39 remain zero
+            header(6) = uint8(pattern.arena.numRows);
+            header(7) = uint8(pattern.arena.numCols);
             
             % Encode frames
             numFrames = pattern.numX * pattern.numY;
@@ -546,33 +538,25 @@ classdef EncoderG4 < handle
         function pattern = decode(obj, binaryData)
             % Decode G4 binary to Pattern object
             
-            % Parse header
-            header = binaryData(1:40);
-            patID = typecast(uint8(header(1:2)), 'uint16');
-            numX = typecast(uint8(header(3:4)), 'uint16');
-            numY = typecast(uint8(header(5:6)), 'uint16');
-            height = typecast(uint8(header(7:8)), 'uint16');
-            width = typecast(uint8(header(9:10)), 'uint16');
-            gsVal = header(11);
+            % Parse 7-byte header (G4 format)
+            header = binaryData(1:7);
+            numX = typecast(uint8(header(1:2)), 'uint16');
+            numY = typecast(uint8(header(3:4)), 'uint16');
+            gsVal = header(5);
+            numRows = header(6);
+            numCols = header(7);
             
-            % Determine arena
-            numRows = height / 16;
-            numCols = width / 16;
-            
-            if numRows == 4 && numCols == 12
-                arena = Arena.G4_4Row();
-            elseif numRows == 3 && numCols == 12
-                arena = Arena.G4_3Row();
-            else
-                arena = Arena.custom(numRows, numCols, 'G4');
-            end
+            % Create arena from header info
+            arena = Arena.custom(numRows, numCols, 'G4');
+            height = arena.totalHeight;
+            width = arena.totalWidth;
             
             % Decode frames
             frames = zeros(height, width, numX, numY, 'uint8');
             stretch = zeros(numX, numY, 'uint8');
             
             frameSize = obj.getFrameSize(height, width, gsVal);
-            offset = 41;
+            offset = 8;  % Start after 7-byte header
             
             for y = 1:numY
                 for x = 1:numX
@@ -592,7 +576,6 @@ classdef EncoderG4 < handle
             
             % Create Pattern
             pattern = Pattern(frames, arena, gsVal, stretch);
-            pattern.id = patID;
         end
         
         function size = getFrameSize(~, height, width, gsVal)
@@ -677,7 +660,7 @@ end
 
 ```matlab
 % Example 1: Simple pattern creation
-arena = Arena.G4_4Row();
+arena = Arena.custom(4, 12);  % 4 rows, 12 cols (standard G4)
 frames = rand(64, 192, 96) > 0.5;  % 96 binary frames
 pat = Pattern(frames, arena, 'binary');
 pat.name = 'random_flicker';
@@ -713,7 +696,7 @@ The refactoring eliminates duplicated encoding/decoding logic between grayscale 
 ### Unit Tests
 ```matlab
 % Test arena creation
-arena = Arena.G4_4Row();
+arena = Arena.custom(4, 12);
 assert(arena.totalHeight == 64);
 assert(arena.totalWidth == 192);
 
@@ -752,18 +735,14 @@ assert(isequal(loaded.frames, pat.frames));
 % Just add new encoder class
 classdef EncoderG41 < handle
     methods
-        function binaryData = encode(~, pattern, patID)
+        function binaryData = encode(~, pattern)
             % G4.1-specific encoding
         end
     end
 end
 
-% And new arena preset
-methods (Static)
-    function obj = G41_4Row()
-        obj = Arena.custom(4, 12, 'G41');
-    end
-end
+% Use with custom() method
+arena = Arena.custom(4, 12, 'G41');
 ```
 
 **Pattern Transformations:**

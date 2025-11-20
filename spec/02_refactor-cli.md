@@ -751,9 +751,9 @@ function arena = createArena(opts)
         % Use preset
         switch lower(opts.Arena)
             case 'g4-3row'
-                arena = Arena.G4_3Row();
+                arena = Arena.custom(3, 12, 'G4');
             case 'g4-4row'
-                arena = Arena.G4_4Row();
+                arena = Arena.custom(4, 12, 'G4');
             case 'g41-3row'
                 arena = Arena.custom(3, 12, 'G41');
             case 'g41-4row'
