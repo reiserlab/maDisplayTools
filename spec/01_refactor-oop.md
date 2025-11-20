@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the design for `maDisplayTools` as a clean, maintainable object-oriented architecture that **feels natural in MATLAB**. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend.
+This document outlines a refactoring of the existing `maDisplayTools` codebase into a clean, maintainable object-oriented architecture that **feels natural in MATLAB**. The goal is to improve code organization, reduce duplication, and make the codebase easier to extend while replacing the current static method-based implementation.
 
 Unlike the Python implementation (`pyDisplayTools`), this refactoring embraces MATLAB's strengths:
 - Simple, practical class hierarchies (not deep abstract hierarchies)
@@ -11,7 +11,50 @@ Unlike the Python implementation (`pyDisplayTools`), this refactoring embraces M
 - Minimal package nesting (MATLAB's package system is more limited than Python's)
 - Focus on interactive workflow and GUI integration
 
-## Architecture
+## Current Implementation (To Be Refactored)
+
+The existing `maDisplayTools` implementation that will be replaced is a single class with static methods organized into functional groups:
+
+**Pattern Creation and Encoding:**
+- `generate_pattern_from_array()` - Main user-facing function for creating patterns
+- `save_pattern_g4()` - Saves pattern structure to .pat binary file
+- `make_pattern_vector_g4()` - Generates binary pattern vector from pattern structure
+- `make_framevector_gs16()` - Encodes individual grayscale frames (4 bits/pixel)
+- `make_framevector_binary()` - Encodes individual binary frames (1 bit/pixel)
+- `pack_uint16_le()` - Utility for little-endian encoding
+
+**Pattern Loading and Decoding:**
+- `load_pat()` - Loads and decodes all frames from .pat file
+- `decode_framevector_gs16()` - Decodes grayscale frame vectors
+- `decode_framevector_binary()` - Decodes binary frame vectors
+- `preview_pat()` - Launches interactive preview GUI
+- `read_header_and_raw()` - Reads pattern file header and raw data
+
+**Experiment Management:**
+- `create_experiment_folder_g41()` - Creates experiment folder from YAML protocol
+- `collect_pattern_paths()` - Collects pattern paths from experiment YAML
+- `generate_new_filename()` - Generates renumbered pattern filenames
+- `update_pattern_paths_in_yaml()` - Updates pattern references in YAML
+- `validate_all_patterns()` - Validates patterns against arena dimensions
+
+**Pattern Utilities:**
+- `get_pattern_id()` - Auto-assigns next available pattern ID
+- `frame_size_bytes()` - Calculates frame size in bytes
+- `get_pattern_dimensions()` - Extracts dimensions without loading full pattern
+- `validate_pattern_dimensions()` - Validates pattern against expected dimensions
+
+**Separate GUI Class:**
+- `PatternPreview.m` - Standalone handle class providing interactive pattern preview with sliders for frame navigation
+
+**Characteristics:**
+- All parameters (dimensions, gs_val, stretch) passed separately as function arguments
+- Pattern data represented as raw arrays, not objects
+- Encoding/decoding logic duplicated between grayscale and binary variants
+- Arena configuration implicit (inferred from dimensions)
+- No intermediate representation between array and binary file
+- GUI preview is separate file in root directory
+
+## Refactored Architecture
 
 ### Design Philosophy: MATLAB-Native OOP
 
@@ -630,7 +673,7 @@ function [frame, stretch] = decodeFrameBinary(frameVec, rows, cols)
 end
 ```
 
-## Usage Examples
+## Usage Examples (After Refactoring)
 
 ```matlab
 % Example 1: Simple pattern creation
@@ -654,25 +697,16 @@ PatternFile.save(pat, './patterns', 'modified');
 PatternPreview.show(pat);  % or pat.preview() if we add method
 ```
 
-## Design Rationale
+## Design Rationale for Refactoring
 
 ### 1. Simple, Practical Design
-- No abstract base classes or deep hierarchies
-- Three main classes: Arena, Pattern, PatternFile
-- Clear progression: create pattern → save pattern → load pattern
-- Internal complexity hidden in `+internal` package
+The refactoring consolidates scattered functionality into three main classes (Arena, Pattern, PatternFile) with a clear progression: create pattern → save pattern → load pattern. This replaces the current approach of passing multiple parameters separately through static methods.
 
 ### 2. MATLAB-Native Patterns
-- Structs where appropriate (arena config is simple data)
-- Value semantics for data (Pattern is copyable)
-- Handle semantics for GUIs (PatternPreview)
-- Static methods for utilities (MATLAB convention)
+The refactoring introduces proper object-oriented patterns while respecting MATLAB conventions: value classes for pattern data, handle classes for GUIs, and static methods for utilities. This replaces the current implicit approach where arena configuration is inferred from dimensions.
 
-### 3. Developer Experience
-- MATLAB's autocomplete works well with simple hierarchies
-- Properties show up clearly in workspace
-- Straightforward help documentation
-- Less boilerplate code
+### 3. Reduced Duplication and Better Developer Experience
+The refactoring eliminates duplicated encoding/decoding logic between grayscale and binary variants by encapsulating format-specific code in encoder classes. This improves IDE support and reduces the boilerplate currently needed to create patterns.
 
 ## Testing Strategy
 
@@ -752,7 +786,7 @@ end
 
 ## Conclusion
 
-This architecture prioritizes **MATLAB idioms and simplicity**:
+This refactoring transforms the existing static method-based implementation into an architecture that prioritizes **MATLAB idioms and simplicity**:
 
 - ✅ Simple class hierarchies (no deep inheritance)
 - ✅ Struct-like configuration objects
@@ -762,4 +796,4 @@ This architecture prioritizes **MATLAB idioms and simplicity**:
 - ✅ Clear, predictable API
 - ✅ Easy to extend with new display generations
 
-The result is maintainable, extensible code that feels natural to MATLAB developers while remaining well-organized and easy to extend.
+The refactored codebase will be more maintainable and extensible than the current implementation while feeling natural to MATLAB developers.

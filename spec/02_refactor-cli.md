@@ -2,11 +2,47 @@
 
 ## Executive Summary
 
-This document outlines a command-line interface for `maDisplayTools` that runs **within the MATLAB command window**, embracing MATLAB's interactive environment while providing a consistent, discoverable interface for common tasks.
+This document outlines a command-line interface to be added as part of the `maDisplayTools` refactoring. The CLI runs **within the MATLAB command window**, embracing MATLAB's interactive environment while providing a consistent, discoverable interface for common tasks.
 
 The CLI uses a simple entry point function `rdt()` (short for **R**eiser **D**isplay **T**ools) that dispatches to specialized command functions, leveraging MATLAB's name-value arguments for clean, readable syntax.
 
-This CLI builds on the `Arena`, `Pattern`, and `PatternFile` classes defined in the OOP architecture.
+This CLI builds on the `Arena`, `Pattern`, and `PatternFile` classes defined in the OOP refactoring specification.
+
+## Current Implementation (To Be Replaced)
+
+The existing `maDisplayTools` implementation that will be replaced provides only a programmatic API through static methods:
+
+**Pattern Creation:**
+```matlab
+% Create pattern from 4D array
+maDisplayTools.generate_pattern_from_array(Pats, save_dir, patName, gs_val, stretch, arena_pitch);
+```
+
+**Pattern Loading and Preview:**
+```matlab
+% Load pattern file
+[frames, meta] = maDisplayTools.load_pat(filepath);
+
+% Preview with GUI
+[frames, meta] = maDisplayTools.preview_pat(filepath);
+```
+
+**Experiment Creation:**
+```matlab
+% Create experiment folder from YAML
+maDisplayTools.create_experiment_folder_g41(yaml_file_path, experiment_folder_path);
+```
+
+**Characteristics:**
+- Primarily programmatic API (function calls with positional/optional arguments)
+- No command-line style interface within MATLAB
+- Users must remember parameter order and available options
+- Limited discoverability (must read documentation or source code)
+- Pattern creation requires multiple parameters passed separately
+- No interactive help for individual operations
+- No configuration management
+
+The refactored implementation will add a discoverable, self-documenting command interface while maintaining the ability to use the underlying classes programmatically.
 
 ## Design Philosophy: MATLAB-Native CLI
 
@@ -811,7 +847,7 @@ help rdt_pattern_create
 
 This leverages MATLAB's built-in help system rather than building a custom one.
 
-## Usage Workflows
+## Usage Workflows (After Refactoring)
 
 ### Workflow 1: Create Pattern from Workspace
 
@@ -879,32 +915,20 @@ info = rdt pattern info "patterns/pat0001_test.pat"
 fprintf('Created pattern with %d frames\n', info.numFrames);
 ```
 
-## Benefits of This Design
+## Benefits of Refactored Design
 
 
 ### 1. MATLAB-Native
-- Works in command window (no shell switching)
-- Uses MATLAB's name-value argument syntax
-- Integrates with MATLAB's help system
-- Returns data structures for further processing
+The refactored CLI works in the command window (no shell switching), uses MATLAB's name-value argument syntax, and integrates with MATLAB's help system. This replaces the current approach of calling static methods with positional arguments.
 
-### 2. Simple Implementation
-- No complex plugin architecture
-- Just function calls and dispatching
-- Easy to understand and maintain
-- Straightforward testing
+### 2. Improved Discoverability
+Unlike the current implementation where users must read documentation to discover available options, the refactored CLI provides self-documenting commands through MATLAB's help system and clear command hierarchy.
 
 ### 3. Interactive Workflow
-- Can pass workspace variables directly
-- Can capture return values
-- Can chain operations
-- Works with MATLAB debugger
+The refactored design allows passing workspace variables directly, capturing return values, and chaining operations. This builds on the current programmatic API while making it more accessible.
 
-### 4. Extensible
-- Add new commands by adding functions
-- No central registry to update
-- Self-documenting through help
-- Easy to add options
+### 4. Configuration Management
+The refactored implementation adds configuration management (default arena, output directory, etc.) which does not exist in the current implementation.
 
 ## Testing Strategy
 
@@ -974,11 +998,11 @@ end
 
 ## Conclusion
 
-This MATLAB-native CLI design provides:
-- **Natural syntax** for MATLAB users
+This refactoring adds a MATLAB-native CLI to the codebase that provides:
+- **Natural syntax** replacing positional arguments with name-value pairs
 - **Simple implementation** using standard MATLAB features
-- **Interactive workflow** integration
+- **Interactive workflow** integration with workspace variables
 - **Extensible architecture** for future commands
-- **Discoverable interface** through help system
+- **Discoverable interface** through help system (unlike current implementation)
 
-The design embraces MATLAB's interactive environment and leverages its strengths for a clean, usable command-line interface.
+The refactored CLI will complement the object-oriented classes while making the toolkit more accessible and easier to use than the current static method implementation.
