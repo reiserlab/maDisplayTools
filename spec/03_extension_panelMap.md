@@ -418,13 +418,13 @@ Add commands to work with panel maps:
 
 ```matlab
 % Create arena with custom panel map
-rdt arena create Rows=4, Cols=12, PanelMap=myMap
+pdt arena create Rows=4, Cols=12, PanelMap=myMap
 
 % Show panel map for a pattern
-rdt pattern info "test.pat" --show-panel-map
+pdt pattern info "test.pat" --show-panel-map
 
 % Validate panel map
-rdt arena validate PanelMap=myMap, Rows=4, Cols=12
+pdt arena validate PanelMap=myMap, Rows=4, Cols=12
 ```
 
 ## Validation Rules

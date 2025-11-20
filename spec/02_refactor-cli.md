@@ -4,7 +4,7 @@
 
 This document outlines a command-line interface to be added as part of the `maDisplayTools` refactoring. The CLI runs **within the MATLAB command window**, embracing MATLAB's interactive environment while providing a consistent, discoverable interface for common tasks.
 
-The CLI uses a simple entry point function `rdt()` (short for **R**eiser **D**isplay **T**ools) that dispatches to specialized command functions, leveraging MATLAB's name-value arguments for clean, readable syntax.
+The CLI uses a simple entry point function `pdt()` (short for **P**anel **D**isplay **T**ools) that dispatches to specialized command functions, leveraging MATLAB's name-value arguments for clean, readable syntax.
 
 This CLI builds on the `Arena`, `Pattern`, and `PatternFile` classes defined in the OOP refactoring specification.
 
@@ -59,23 +59,23 @@ The refactored implementation will add a discoverable, self-documenting command 
 ## Command Structure
 
 ```matlab
-rdt <command> <subcommand> (Name, Value, ...)
+pdt <command> <subcommand> (Name, Value, ...)
 ```
 
 Commands return data structures when useful, allowing:
 ```matlab
 % Use command for side effects (save file)
-rdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", Arena="g4-4row"
 
 % Capture return value for further use
-info = rdt pattern info "pattern.pat"
+info = pdt pattern info "pattern.pat"
 fprintf('Pattern has %d frames\n', info.numFrames);
 ```
 
 ## Command Hierarchy
 
 ```
-rdt
+pdt
 ├── pattern
 │   ├── create        Create new pattern from array/script/function
 │   ├── info          Show pattern metadata
@@ -94,19 +94,19 @@ rdt
     └── reset         Reset to defaults
 ```
 
-Help is integrated: `help rdt`, `help rdt_pattern_create`, etc.
+Help is integrated: `help pdt`, `help pdt_pattern_create`, etc.
 
 ## Detailed Command Specifications
 
 ### Pattern Commands
 
-#### `rdt pattern create`
+#### `pdt pattern create`
 
 Create pattern from array, script, or function.
 
 **Syntax:**
 ```matlab
-rdt pattern create (Name, Value, ...)
+pdt pattern create (Name, Value, ...)
 
 Name-Value Arguments:
   Array (numeric)           Pattern array [rows, cols, numX, numY] (required)
@@ -124,31 +124,28 @@ Name-Value Arguments:
 ```matlab
 % From array in workspace
 frames = rand(64, 192, 96) > 0.5;
-rdt pattern create Array=frames, Name="random", Arena="g4-4row", GsMode="binary"
+pdt pattern create Array=frames, Name="random", Arena="g4-4row", GsMode="binary"
 
 % Custom arena
 frames = zeros(80, 128, 12);
-rdt pattern create Array=frames, Name="custom", ArenaRows=5, ArenaCols=8
+pdt pattern create Array=frames, Name="custom", ArenaRows=5, ArenaCols=8
 
 % Create and preview
-rdt pattern create Array=frames, Name="test", Arena="g4-4row", Preview=true
+pdt pattern create Array=frames, Name="test", Arena="g4-4row", Preview=true
 
 % With custom output directory
-rdt pattern create Array=frames, Name="exp1", Arena="g4-4row", ...
+pdt pattern create Array=frames, Name="exp1", Arena="g4-4row", ...
     OutputDir="./experiments/exp001/patterns"
 
-% Grayscale pattern
-frames = randi([0 15], 64, 192, 8, 8);
-rdt pattern create Array=frames, Name="gradient", Arena="g4-4row", GsMode="grayscale"
 ```
 
-#### `rdt pattern info`
+#### `pdt pattern info`
 
 Display pattern file metadata.
 
 **Syntax:**
 ```matlab
-info = rdt pattern info (PatternFile, Name, Value, ...)
+info = pdt pattern info (PatternFile, Name, Value, ...)
 
 Arguments:
   PatternFile (string)      Path to .pat file
@@ -163,7 +160,7 @@ Returns:
 **Examples:**
 ```matlab
 % Display info
-rdt pattern info "patterns/pat0001_test.pat"
+pdt pattern info "patterns/pat0001_test.pat"
 
 % Output:
 %   Pattern: pat0001_test.pat
@@ -174,11 +171,11 @@ rdt pattern info "patterns/pat0001_test.pat"
 %   Generation: G4
 
 % Get info structure
-info = rdt pattern info "patterns/pat0001_test.pat"
+info = pdt pattern info "patterns/pat0001_test.pat"
 fprintf('Pattern has %d frames\n', info.numFrames);
 
 % Detailed info
-rdt pattern info "patterns/pat0001_test.pat", Verbose=true
+pdt pattern info "patterns/pat0001_test.pat", Verbose=true
 ```
 
 **Returned Structure:**
@@ -196,13 +193,13 @@ info.generation   % "G4", "G41", etc.
 info.fileSize     % Size in bytes
 ```
 
-#### `rdt pattern preview`
+#### `pdt pattern preview`
 
 Launch interactive pattern preview.
 
 **Syntax:**
 ```matlab
-rdt pattern preview (PatternFile, Name, Value, ...)
+pdt pattern preview (PatternFile, Name, Value, ...)
 
 Arguments:
   PatternFile (string)      Path to .pat file
@@ -218,31 +215,31 @@ Name-Value Arguments:
 **Examples:**
 ```matlab
 % Launch preview GUI
-rdt pattern preview "patterns/pat0001_test.pat"
+pdt pattern preview "patterns/pat0001_test.pat"
 
 % Start at specific frame
-rdt pattern preview "patterns/pat0001_test.pat", StartFrame=10
+pdt pattern preview "patterns/pat0001_test.pat", StartFrame=10
 
 % Export as animated GIF
-rdt pattern preview "patterns/pat0001_test.pat", Export="gif", ...
+pdt pattern preview "patterns/pat0001_test.pat", Export="gif", ...
     ExportPath="animation.gif"
 
 % Export all frames as PNG images
-rdt pattern preview "patterns/pat0001_test.pat", Export="frames", ...
+pdt pattern preview "patterns/pat0001_test.pat", Export="frames", ...
     ExportPath="./frames/"
 
 % Export frames as TIFF
-rdt pattern preview "patterns/pat0001_test.pat", Export="frames", ...
+pdt pattern preview "patterns/pat0001_test.pat", Export="frames", ...
     ExportPath="./frames/", ExportFormat="tiff"
 ```
 
-#### `rdt pattern validate`
+#### `pdt pattern validate`
 
 Validate pattern file(s) against arena configuration.
 
 **Syntax:**
 ```matlab
-results = rdt pattern validate (PatternFiles, Name, Value, ...)
+results = pdt pattern validate (PatternFiles, Name, Value, ...)
 
 Arguments:
   PatternFiles (string|cell) One or more .pat files
@@ -257,7 +254,7 @@ Name-Value Arguments:
 **Examples:**
 ```matlab
 % Validate single file
-rdt pattern validate "patterns/pat0001_test.pat", Arena="g4-4row"
+pdt pattern validate "patterns/pat0001_test.pat", Arena="g4-4row"
 
 % Output:
 %   ✓ pat0001_test.pat: Valid
@@ -266,13 +263,15 @@ rdt pattern validate "patterns/pat0001_test.pat", Arena="g4-4row"
 
 % Validate multiple files
 files = ["patterns/pat0001.pat", "patterns/pat0002.pat"];
-rdt pattern validate files, Arena="g4-4row"
+pdt pattern validate files, Arena="g4-4row"
 
-% Get results structure
-results = rdt pattern validate "patterns/*.pat", ArenaRows=4, ArenaCols=12
+% Validate all patterns in directory
+% (Note: MATLAB's dir() doesn't support wildcards in path argument directly,
+% but you can filter results)
+results = pdt pattern validate "patterns/*.pat", ArenaRows=4, ArenaCols=12
 
 % Strict mode (warnings become errors)
-rdt pattern validate "patterns/*.pat", Arena="g4-4row", Strict=true
+pdt pattern validate "patterns/*.pat", Arena="g4-4row", Strict=true
 ```
 
 **Returned Structure:**
@@ -285,13 +284,13 @@ results(i).warnings   % Cell array of warnings
 
 ### Experiment Commands
 
-#### `rdt experiment create`
+#### `pdt experiment create`
 
 Create experiment folder from YAML protocol.
 
 **Syntax:**
 ```matlab
-rdt experiment create (Name, Value, ...)
+pdt experiment create (Name, Value, ...)
 
 Name-Value Arguments:
   Protocol (string)         YAML protocol file (required)
@@ -305,28 +304,28 @@ Name-Value Arguments:
 **Examples:**
 ```matlab
 % Create experiment
-rdt experiment create Protocol="protocol.yaml", Output="./experiments/exp001"
+pdt experiment create Protocol="protocol.yaml", Output="./experiments/exp001"
 
 % Dry run (show what would happen)
-rdt experiment create Protocol="protocol.yaml", Output="./exp001", DryRun=true
+pdt experiment create Protocol="protocol.yaml", Output="./exp001", DryRun=true
 
 % Force overwrite
-rdt experiment create Protocol="protocol.yaml", Output="./exp001", Force=true
+pdt experiment create Protocol="protocol.yaml", Output="./exp001", Force=true
 
 % Override arena type
-rdt experiment create Protocol="protocol.yaml", Output="./exp001", Arena="g41-4row"
+pdt experiment create Protocol="protocol.yaml", Output="./exp001", Arena="g41-4row"
 
 % Quiet mode
-rdt experiment create Protocol="protocol.yaml", Output="./exp001", Verbose=false
+pdt experiment create Protocol="protocol.yaml", Output="./exp001", Verbose=false
 ```
 
-#### `rdt experiment validate`
+#### `pdt experiment validate`
 
 Validate experiment protocol file.
 
 **Syntax:**
 ```matlab
-results = rdt experiment validate (ProtocolFile, Name, Value, ...)
+results = pdt experiment validate (ProtocolFile, Name, Value, ...)
 
 Arguments:
   ProtocolFile (string)     YAML protocol file
@@ -341,7 +340,7 @@ Returns:
 **Examples:**
 ```matlab
 % Validate protocol
-rdt experiment validate "protocol.yaml"
+pdt experiment validate "protocol.yaml"
 
 % Output:
 %   ✓ Protocol is valid
@@ -349,22 +348,22 @@ rdt experiment validate "protocol.yaml"
 %   Conditions: 4
 
 % Get results
-results = rdt experiment validate "protocol.yaml"
+results = pdt experiment validate "protocol.yaml"
 if results.isValid
-    fprintf('Ready to create experiment\n');
+    fprintf('Protocol is valid!\n');
 end
 
 % Detailed validation
-rdt experiment validate "protocol.yaml", Verbose=true
+pdt experiment validate "protocol.yaml", Verbose=true
 ```
 
-#### `rdt experiment info`
+#### `pdt experiment info`
 
 Show experiment protocol information.
 
 **Syntax:**
 ```matlab
-info = rdt experiment info (ProtocolFile, Name, Value, ...)
+info = pdt experiment info (ProtocolFile, Name, Value, ...)
 
 Arguments:
   ProtocolFile (string)     YAML protocol file
@@ -380,7 +379,7 @@ Returns:
 **Examples:**
 ```matlab
 % Basic info
-rdt experiment info "protocol.yaml"
+pdt experiment info "protocol.yaml"
 
 % Output:
 %   Experiment Protocol
@@ -390,22 +389,22 @@ rdt experiment info "protocol.yaml"
 %   Duration: ~45 minutes
 
 % Show pattern details
-rdt experiment info "protocol.yaml", ShowPatterns=true
+pdt experiment info "protocol.yaml", ShowPatterns=true
 
 % Get info structure
-info = rdt experiment info "protocol.yaml"
+info = pdt experiment info "protocol.yaml"
 fprintf('Experiment uses %d patterns\n', info.numPatterns);
 ```
 
 ### Arena Commands
 
-#### `rdt arena list`
+#### `pdt arena list`
 
 List available arena presets.
 
 **Syntax:**
 ```matlab
-arenas = rdt arena list (Name, Value, ...)
+arenas = pdt arena list (Name, Value, ...)
 
 Name-Value Arguments:
   Verbose (logical)         Show detailed specs [default: false]
@@ -417,7 +416,7 @@ Returns:
 **Examples:**
 ```matlab
 % List arenas
-rdt arena list
+pdt arena list
 
 % Output:
 %   Available Arenas:
@@ -427,22 +426,22 @@ rdt arena list
 %   4. g41-4row   (G41, 4 rows × 12 cols =  48 panels,  64 × 192 pixels)
 
 % Detailed list
-rdt arena list Verbose=true
+pdt arena list Verbose=true
 
 % Get arena list
-arenas = rdt arena list
+arenas = pdt arena list
 for i = 1:length(arenas)
     fprintf('%s: %dx%d pixels\n', arenas(i).name, arenas(i).height, arenas(i).width);
 end
 ```
 
-#### `rdt arena info`
+#### `pdt arena info`
 
 Show detailed arena configuration.
 
 **Syntax:**
 ```matlab
-arena = rdt arena info (ArenaName, Name, Value, ...)
+arena = pdt arena info (ArenaName, Name, Value, ...)
 
 Arguments:
   ArenaName (string)        Arena preset name
@@ -454,7 +453,7 @@ Returns:
 **Examples:**
 ```matlab
 % Show arena details
-rdt arena info "g4-4row"
+pdt arena info "g4-4row"
 
 % Output:
 %   Arena: g4-4row
@@ -466,19 +465,19 @@ rdt arena info "g4-4row"
 %   Panel Size: 16 × 16 pixels
 
 % Get arena object
-arena = rdt arena info "g4-4row"
+arena = pdt arena info "g4-4row"
 fprintf('Total pixels: %d\n', arena.width * arena.height);
 ```
 
 ### Configuration Commands
 
-#### `rdt config show`
+#### `pdt config show`
 
 Display current configuration.
 
 **Syntax:**
 ```matlab
-config = rdt config show
+config = pdt config show
 
 Returns:
   config (struct)           Current configuration
@@ -487,7 +486,7 @@ Returns:
 **Examples:**
 ```matlab
 % Show config
-rdt config show
+pdt config show
 
 % Output:
 %   Configuration:
@@ -497,17 +496,17 @@ rdt config show
 %     auto_preview: false
 
 % Get config
-config = rdt config show
+config = pdt config show
 fprintf('Default arena: %s\n', config.default_arena);
 ```
 
-#### `rdt config set`
+#### `pdt config set`
 
 Set configuration value.
 
 **Syntax:**
 ```matlab
-rdt config set (Key, Value)
+pdt config set (Key, Value)
 
 Arguments:
   Key (string)              Configuration key
@@ -517,16 +516,16 @@ Arguments:
 **Examples:**
 ```matlab
 % Set default arena
-rdt config set "default_arena", "g4-4row"
+pdt config set "default_arena", "g4-4row"
 
 % Set default output directory
-rdt config set "default_output_dir", "./my_patterns"
+pdt config set "default_output_dir", "./my_patterns"
 
 % Set default grayscale mode
-rdt config set "default_gs_mode", "grayscale"
+pdt config set "default_gs_mode", "grayscale"
 
 % Enable auto-preview
-rdt config set "auto_preview", true
+pdt config set "auto_preview", true
 ```
 
 **Available Keys:**
@@ -535,13 +534,13 @@ rdt config set "auto_preview", true
 - `default_gs_mode` - Default grayscale mode: "binary" or "grayscale"
 - `auto_preview` - Auto-preview after creation (logical)
 
-#### `rdt config reset`
+#### `pdt config reset`
 
 Reset configuration to defaults.
 
 **Syntax:**
 ```matlab
-rdt config reset (Name, Value, ...)
+pdt config reset (Name, Value, ...)
 
 Name-Value Arguments:
   Confirm (logical)         Skip confirmation [default: false]
@@ -550,10 +549,10 @@ Name-Value Arguments:
 **Examples:**
 ```matlab
 % Reset (with confirmation)
-rdt config reset
+pdt config reset
 
 % Reset without confirmation
-rdt config reset Confirm=true
+pdt config reset Confirm=true
 ```
 
 ## Implementation Architecture
@@ -562,7 +561,7 @@ rdt config reset Confirm=true
 
 ```
 maDisplayTools/
-├── rdt.m                          % Main entry point
+├── pdt.m                          % Main entry point
 ├── +maDisplayTools/
 │   ├── Arena.m                    % From OOP refactor
 │   ├── Pattern.m                  % From OOP refactor
@@ -587,17 +586,19 @@ maDisplayTools/
 │       │   ├── show.m
 │       │   ├── set.m
 │       │   └── reset.m
-│       └── ConfigManager.m        % Persistent config storage
+│       └── ConfigManager.m
+├── examples/
+└── spec/
 ```
 
 ### Main Entry Point
 
 ```matlab
-% rdt.m
-function varargout = rdt(command, subcommand, varargin)
-    % RDT Reiser Display Tools command-line interface
+% pdt.m
+function varargout = pdt(command, subcommand, varargin)
+    % PDT Panel Display Tools command-line interface
     %
-    %   rdt <command> <subcommand> (Name, Value, ...)
+    %   pdt <command> <subcommand> (Name, Value, ...)
     %
     % Commands:
     %   pattern       Pattern creation and management
@@ -606,21 +607,21 @@ function varargout = rdt(command, subcommand, varargin)
     %   config        Configuration management
     %
     % Examples:
-    %   rdt pattern create Array=frames, Name="test", Arena="g4-4row"
-    %   rdt pattern info "pattern.pat"
-    %   rdt pattern preview "pattern.pat"
-    %   rdt experiment create Protocol="protocol.yaml", Output="./exp001"
-    %   rdt arena list
-    %   rdt config show
+    %   pdt pattern create Array=frames, Name="test", Arena="g4-4row"
+    %   pdt pattern info "pattern.pat"
+    %   pdt pattern preview "pattern.pat"
+    %   pdt experiment create Protocol="protocol.yaml", Output="./exp001"
+    %   pdt arena list
+    %   pdt config show
     %
     % For help on specific commands:
-    %   help rdt_pattern_create
-    %   help rdt_experiment_create
-    %   help rdt_arena_list
+    %   help pdt_pattern_create
+    %   help pdt_experiment_create
+    %   help pdt_arena_list
     
     % Handle no arguments - show help
     if nargin == 0
-        help rdt
+        help pdt
         return
     end
     
@@ -633,7 +634,7 @@ function varargout = rdt(command, subcommand, varargin)
     
     % Require subcommand
     if nargin < 2
-        error('Subcommand required. Type: help rdt_%s_<subcommand>', command);
+        error('Subcommand required. Type: help pdt_%s_<subcommand>', command);
     end
     
     % Dispatch to appropriate handler
@@ -652,7 +653,7 @@ function varargout = rdt(command, subcommand, varargin)
     catch ME
         % Enhance error message
         fprintf(2, 'Error in %s %s: %s\n', command, subcommand, ME.message);
-        fprintf(2, 'For help, type: help rdt_%s_%s\n', lower(command), lower(subcommand));
+        fprintf(2, 'For help, type: help pdt_%s_%s\n', lower(command), lower(subcommand));
         rethrow(ME);
     end
 end
@@ -668,7 +669,7 @@ function create(varargin)
     % CREATE Create pattern from array, script, or function
     %
     % Usage:
-    %   rdt pattern create (Name, Value, ...)
+    %   pdt pattern create (Name, Value, ...)
     %
     % Name-Value Arguments:
     %   Array (numeric)           Pattern array
@@ -731,9 +732,10 @@ function create(varargin)
 
     % Preview if requested
     if opts.Preview
-        rdt('pattern', 'preview', filepath);
+        pdt('pattern', 'preview', filepath);
     end
 end
+```
 
 function frames = getFrames(opts)
     % Get frames from Array
@@ -785,7 +787,7 @@ classdef ConfigManager < handle
     % CONFIGMANAGER Persistent configuration storage
     
     properties (Constant)
-        CONFIG_FILE = fullfile(prefdir, 'rdt_config.mat');
+        CONFIG_FILE = fullfile(prefdir, 'pdt_config.mat');
     end
     
     methods (Static)
@@ -840,12 +842,12 @@ Each command function has comprehensive help documentation:
 
 ```matlab
 % User types:
-help rdt
+help pdt
 
 % Shows main help
 
 % User types:
-help rdt_pattern_create
+help pdt_pattern_create
 
 % Shows detailed help for pattern create command
 ```
@@ -864,10 +866,12 @@ for i = 1:24
 end
 
 % Create pattern
-rdt pattern create Array=frames, Name="horizontal_bars", Arena="g4-4row"
+pdt pattern create Array=frames, Name="horizontal_bars", Arena="g4-4row"
 
 % Preview
-rdt pattern preview "patterns/pat0001_horizontal_bars.pat"
+pdt pattern preview "patterns/pat0001_horizontal_bars.pat"
+
+% Info shows grayscale mode and arena config
 ```
 
 ### Workflow 2: Batch Pattern Creation
@@ -878,14 +882,14 @@ for i = 1:10
     % Generate different pattern for each iteration
     frames = generatePattern(i);  % Your custom function
     name = sprintf("pattern_%02d", i);
-    rdt pattern create Array=frames, Name=name, Arena="g4-4row"
+    pdt pattern create Array=frames, Name=name, Arena="g4-4row"
 end
 
 % Validate all
 files = dir("patterns/*.pat");
 for i = 1:length(files)
     filepath = fullfile(files(i).folder, files(i).name);
-    rdt pattern validate filepath, Arena="g4-4row"
+    pdt pattern validate filepath, Arena="g4-4row"
 end
 ```
 
@@ -893,11 +897,11 @@ end
 
 ```matlab
 % First, validate protocol
-results = rdt experiment validate "protocol.yaml"
+results = pdt experiment validate "protocol.yaml"
 
 if results.isValid
     % Create experiment
-    rdt experiment create Protocol="protocol.yaml", Output="./experiments/exp001"
+    pdt experiment create Protocol="protocol.yaml", Output="./experiments/exp001"
 else
     fprintf('Protocol has errors:\n');
     disp(results.errors);
@@ -908,16 +912,17 @@ end
 
 ```matlab
 % Configure environment
-rdt config set "default_arena", "g4-4row"
-rdt config set "auto_preview", true
+pdt config set "default_arena", "g4-4row"
+pdt config set "auto_preview", true
 
 % Create pattern (will auto-preview)
 frames = rand(64, 192, 96) > 0.5;
-rdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", Arena="g4-4row"
 
 % Get info programmatically
-info = rdt pattern info "patterns/pat0001_test.pat"
+info = pdt pattern info "patterns/pat0001_test.pat"
 fprintf('Created pattern with %d frames\n', info.numFrames);
+
 ```
 
 ## Benefits of Refactored Design
@@ -941,25 +946,25 @@ The refactored implementation adds configuration management (default arena, outp
 ```matlab
 % Test pattern creation
 frames = ones(64, 192, 4);
-rdt pattern create Array=frames, Name="test", Arena="g4-4row"
+pdt pattern create Array=frames, Name="test", Arena="g4-4row"
 assert(exist("patterns/pat0001_test.pat", "file") > 0);
 
 % Test info
-info = rdt pattern info "patterns/pat0001_test.pat"
+info = pdt pattern info "patterns/pat0001_test.pat"
 assert(info.numFrames == 4);
 
 % Test config
-rdt config set "default_arena", "g4-3row"
-config = rdt config show
+pdt config set "default_arena", "g4-3row"
+config = pdt config show
 assert(strcmp(config.default_arena, "g4-3row"));
 ```
 
 ### Integration Tests
 ```matlab
 % Full workflow test
-rdt pattern create Array=ones(64,192,4), Name="integration_test", Arena="g4-4row"
-info = rdt pattern info "patterns/pat0001_integration_test.pat"
-results = rdt pattern validate "patterns/pat0001_integration_test.pat", Arena="g4-4row"
+pdt pattern create Array=ones(64,192,4), Name="integration_test", Arena="g4-4row"
+info = pdt pattern info "patterns/pat0001_integration_test.pat"
+results = pdt pattern validate "patterns/pat0001_integration_test.pat", Arena="g4-4row"
 assert(results.valid);
 ```
 
@@ -976,9 +981,9 @@ assert(results.valid);
 ### Tab Completion (R2021b+)
 ```matlab
 % Register tab completion
-matlab.internal.addCompletions('rdt', @rdtCompletions);
+matlab.internal.addCompletions('pdt', @pdtCompletions);
 
-function completions = rdtCompletions(text, pos)
+function completions = pdtCompletions(text, pos)
     % Provide context-aware completions
     completions = {'pattern', 'experiment', 'arena', 'config'};
 end
@@ -995,9 +1000,9 @@ end
 ### Command Aliases
 ```matlab
 % Short aliases
-function varargout = rdtp(varargin)
-    % Alias for rdt pattern
-    [varargout{1:nargout}] = rdt('pattern', varargin{:});
+function varargout = pdtp(varargin)
+    % Alias for pdt pattern
+    [varargout{1:nargout}] = pdt('pattern', varargin{:});
 end
 ```
 
