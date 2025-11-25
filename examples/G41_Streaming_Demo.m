@@ -3,11 +3,11 @@ num_trials = 5;
 aox = 0;
 aoy = 0;
 patShift = 5;
-pat_gs = 16;
+pat_gs = 16; % 2 for binary, 16 for grayscale
 %% Load/create initial pattern
 
 % Define pattern dimensions
-rows = 48;  % 48 for 3 row arena, 64 for 4 row arena
+rows = 48;  % 16 for 1 row arena, 32 for 2 row arena ,48 for 3 row arena, 64 for 4 row arena
 cols = 192;
 
 % Create the pattern array
