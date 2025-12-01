@@ -782,18 +782,17 @@ classdef PanelsController < handle
             end                                    
         end
         
-%         % TODO: not fully working yet.
-%         function rtn = streamFrame(self, aox, aoy, frame)
-%             rtn = false;
-%             cmdData = char([50]); % 0x32
-%             frLength = length(frame);
-%             fullCmd = [cmdData dec2char(frLength, 2) dec2char(aox, 2) dec2char(aoy, 2) frame];
-%             self.write([fullCmd]);
-%             resp = self.expectResponse(0, 50, [], 0.1); 
-%             if ~isempty(resp)
-%                 rtn = true;
-%             end
-%         end
+        function rtn = streamFrame(self, aox, aoy, frame)
+            rtn = false;
+            cmdData = char([50]); % 0x32
+            frLength = length(frame);
+            fullCmd = [cmdData dec2char(frLength, 2) dec2char(aox, 2) dec2char(aoy, 2) frame];
+            self.write([fullCmd]);
+            resp = self.expectResponse(0, 50, [], 0.1); 
+            if ~isempty(resp)
+                rtn = true;
+            end
+        end
         
         function rtn = combinedCommand(self, ...
                 controlMode, patternID, functionID,...
@@ -970,7 +969,7 @@ classdef PanelsController < handle
         %use mex function to speed up the Matlab version getFrameCmd16
         function frameCmd = getFrameCmd16Mex(self,frame)
             stretchF = min(self.stretch, 20);
-            frameOut = maDisplayTools.make_framevector_gs16(frame,stretchF);
+            frameOut = make_framevector_gs16(frame,stretchF);
             frameCmd = [ 50, signed_16Bit_to_char(length(frameOut)), ... 
                 signed_16Bit_to_char(0), signed_16Bit_to_char(0), frameOut];
 
@@ -1028,7 +1027,7 @@ classdef PanelsController < handle
         %use mex function to speed up the Matlab version getFrameCmd2
         function frameCmd = getFrameCmd2Mex(self,frame)
             stretchF = min(self.stretch, 107);
-            frameOut = maDisplayTools.make_framevector_binary(frame, stretchF);
+            frameOut = make_framevector_gs2(frame, stretchF);
             frameCmd = [ 50, signed_16Bit_to_char(length(frameOut)), ... 
                 signed_16Bit_to_char(0), signed_16Bit_to_char(0), frameOut];
 
