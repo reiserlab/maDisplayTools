@@ -303,6 +303,7 @@ classdef maDisplayTools < handle
                     end
                 end
             end
+            convertedPatternData = convertedPatternData'; %Transpose for compatibility with panelsController
         end
 
         function convertedPatternData = make_framevector_binary(framein, stretch)
@@ -383,6 +384,7 @@ classdef maDisplayTools < handle
                     end
                 end
             end
+            convertedPatternData = convertedPatternData'; %Transpose for compatibility with panelsController
         end
 
         function bytes = pack_uint16_le(val)

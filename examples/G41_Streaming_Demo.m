@@ -30,7 +30,7 @@ for row = 1:rows
 end
 
 %% Initialize Panels Controller and other hardware
-panelsController = PanelsController('192.168.10.62');
+panelsController = PanelsController('10.102.40.61');
 panelsController.open(false);
 
 %% Execute any pre-experiment hardware preparations
@@ -45,7 +45,8 @@ elseif pat_gs == 16 || pat_gs == 4
 else
     error('pat_gs value invalid. 2 for binary or 16 for grayscale, deprecated values of 1 and 4 also accepted');
 end
-PanelsController.streamFrame(aox,aoy,pattern);
+panelsController.streamFrame(aox,aoy,pattern);
+pause(5);
 
 for trial = 2:num_trials
     %shift pattern in some way
@@ -58,9 +59,9 @@ for trial = 2:num_trials
         error('pat_gs value invalid. 2 for binary or 16 for grayscale, deprecated values of 1 and 4 also accepted');
     end
     % update any other parameters or hardware
-
     %stream the pattern
-    PanelsController.streamFrame(aox,aoy,pattern);
+    panelsController.streamFrame(aox,aoy,pattern);
+    pause(5);
 
 end
 
