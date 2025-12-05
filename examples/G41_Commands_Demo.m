@@ -11,7 +11,8 @@ success = panelsController.allOn();
 if success == 1
     disp("All on demo complete. Moving to All off.");
 else
-    disp("All on was not successful.");
+    disp("All on was not successful. Please check firmware state or reboot arena.");
+    return;
 end
 
 %% All off
@@ -20,7 +21,8 @@ success = panelsController.allOff();
 if success == 1
     disp("All of demo complete. Moving to streaming mode.");
 else
-    disp("All off was not successful.");
+    disp("All off was not successful. Please check firmware state or reboot arena.");
+    return;
 end
 
 %% Streaming mode
@@ -71,7 +73,8 @@ pause(static_duration);
 if success == 1
     disp("Stream frame demo finished. Moving on to stop display.");
 else
-    disp("Streaming mode was not successful.");
+    disp("Streaming mode was not successful. Please check firmware state or reboot arena.");
+    return;
 end
 
 %% Stop Display
@@ -80,21 +83,23 @@ success = panelsController.stopDisplay();
 if success == 1
     disp("Stop display demo finished. moving on to display reset");
 else
-    disp("Stop display was not successful");
+    disp("Stop display was not successful. Please check firmware state or reboot arena.");
+    return;
 end
 
-%% Display Reset
+% %% Display Reset - commented out because it is crashing the firmware -
+% need to investigate.
+% 
+% success = panelsController.sendDisplayReset();
+% if success == 1
+%     disp('Display reset demo finished. Moving on to getEthernetIPAddress');
+% else
+%     disp('Display reset was unsuccessful.');
+% end
 
-success = panelsController.sendDisplayReset();
-if success == 1
-    disp('Display reset demo finished. Moving on to getEthernetIPAddress');
-else
-    disp('Display reset was unsuccessful.');
-end
+%% Get Ethernet IP Address - will implement in PanelsController
 
-%% Get Ethernet IP Address
-
-disp("Get ethernet IP address not yet implemented in matlab wrapper but this" + ...
+disp("Get ethernet IP address not yet implemented in matlab wrapper but this " + ...
     "demo will send the command via pnet and read the response.")
 
 cmdData = uint8([1 102]);
@@ -129,9 +134,9 @@ end
 disp(['IP address: ' ipAddress]);
 disp("ethernet IP demo finished. Moving on to set refresh rate.");
 
-%% Set Refresh rate
+%% Set Refresh rate - Will implement in PanelsController
 
-disp("Set refresh rate is not yet implemented in panels controller, but I will" + ...
+disp("Set refresh rate is not yet implemented in panels controller, but I will " + ...
     "send the command via pnet");
 cmdData = uint8([3 22]);
 refreshRate = 20;
@@ -142,16 +147,13 @@ disp("Refresh rate demo finsihed. Moving on to set frame position.");
 %% Set Frame position
 
 posX = 1;
-success = panelsController.setPositionX(posX);
-if success == 1
-    disp("Frame position successfully set. Moving on to clean up.");
-else
-    disp("Set frame position was not successful.");
-end
+panelsController.setPositionX(posX);
+disp("Set frame position currently does not return a success value. Will add in future versions.");
+disp("Set frame position successful. Moving on to clean up.");
 
 
 %% Clean up. Always run these when you're done with the arena.
 
 panelsController.stopDisplay();
-panelsController.close(true);
-clc;
+panelsController.close();
+clear;
