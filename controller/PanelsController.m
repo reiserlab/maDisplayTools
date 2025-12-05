@@ -782,7 +782,16 @@ classdef PanelsController < handle
             end                                    
         end
 
-        function rtn = setG41TrialParams(self, mode, patID, frameRate, posX, gain, dur)
+        function rtn = startG41Trial(self, mode, patID, posX, dur, frameRate, gain)
+            arguments
+                self (1,1) PanelsController
+                mode (1,1) {mustBeInteger, mustBeInRange(mode, 2, 4)}
+                patID (1,1) {mustBeInteger}
+                posX (1,1) {mustBeInteger}
+                dur (1,1) {mustBeInteger}                 
+                frameRate (1,1) {mustBeInteger} = 1      % Optional
+                gain (1,1) {mustBeInteger} = 0            % Optional
+            end
 
             rtn = false;
             if mode < 2 || mode > 4
