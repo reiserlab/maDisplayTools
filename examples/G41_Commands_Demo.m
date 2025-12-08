@@ -151,6 +151,16 @@ panelsController.setPositionX(posX);
 disp("Set frame position currently does not return a success value. Will add in future versions.");
 disp("Set frame position successful. Moving on to clean up.");
 
+%% Switch grayscale - I forgot to add this one at first and havent' tested it yet
+% 
+% gs_val = 2;
+% success = panelsController.setColorDepth(self, gs_val);
+% if success == 1
+%     disp("Grayscale switch successful. Moving on to clean up.");
+% else
+%     disp("Grayscale swithc not successfull. Please check firmware state or boot arena.");
+%     return;
+% end
 
 %% Clean up. Always run these when you're done with the arena.
 
