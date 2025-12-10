@@ -27,6 +27,6 @@ panelsController.open(false);
 
 for pat = 1:length(patIDS)
     patID = patIDs{pat};
-    panelsController.startG41Trial(self, mode, patID, frameRate, posX, gain, dur*10)
+    panelsController.startG41Trial(self, mode, patID,  posX,  dur*10, frameRate, gain);
     pause(dur);
 end

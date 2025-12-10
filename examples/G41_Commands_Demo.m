@@ -64,8 +64,8 @@ end
 % Set duration to stream static frame in seconds: 
 static_duration = 5;
 % set parameters
-aox = 1;
-aoy = 1;
+aox = 0;
+aoy = 0;
 
 success = panelsController.streamFrame(aox,aoy,pattern);
 pause(static_duration);
