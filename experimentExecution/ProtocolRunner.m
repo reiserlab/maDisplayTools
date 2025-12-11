@@ -58,7 +58,7 @@ classdef ProtocolRunner < handle
             self.validateEnvironment();
             self.parseProtocol();
             self.validateProtocolStructure();
-            self.extractPatternMapping();
+            %self.extractPatternMapping();
         end
         
         function run(self)
@@ -167,24 +167,38 @@ classdef ProtocolRunner < handle
         end
         
         function parseProtocol(self)
-            % PARSEPROTOCOL Load and parse YAML protocol file
+            % Instantiate ProtocolParser to parse yaml file and return
+            % experiment data. Resulting data is structured as follows: 
+            % self.protocolData is a struct with the following fields: 
+            %    - version: the yaml file version
+            %    - experimentInfo: a struct with three fields, "name",
+            %     "date_created", and "author" 
+            %     - arenaConfig: struct with three fields, "num_rows",
+            %     "num_cols", and "generation"
+            %     - plugins: cell array of structs. Each struct has a
+            %     "name" and "type" field plus additional fields depending
+            %     on type. Possible types are "serial_device", "class", and
+            %     "script"
+            %     - experimentStructure: struct with two fields,
+            %     "repetitions", and "randomization", which is another
+            %     small struct
+            %     - pretrialCommands: A cell array of commands, each a
+            %     struct with type, name, and other type dependent fields
+            %     - blockConditions: a
+            %     struct array. So blockConditions(1) is a struct with two
+            %     fields, "id", and "commands", a  cell array of structs
+            %     - intertrialCommands: cell array of commands for
+            %     intertrial
+            %     - posttrialCommands: cell array of commands for posttrial
+            %     - filepath: path to the yaml file
             
             if self.verbose
                 fprintf('Parsing protocol: %s\n', self.protocolFilePath);
             end
-            self.parser = ProtocolParser('verbose', false);
-            protocol = self.parser.parse(self.protocolFilePath);
-            
-            % TODO: Parse YAML file
-            % This requires a YAML parser (e.g., yamlmatlab from File Exchange)
-            % For now, placeholder:
+            self.parser = ProtocolParser('verbose', self.verbose);
+
             try
-                % self.protocolData = yaml.ReadYaml(self.protocolFilePath);
-                % OR
-                % self.protocolData = ReadYaml(self.protocolFilePath);
-                
-                % Placeholder - replace with actual YAML parsing
-                error('YAML parsing not yet implemented - add YAML parser');
+                self.protocolData = self.parser.parse(self.protocolFilePath);
                 
             catch ME
                 error('Failed to parse protocol file: %s', ME.message);
@@ -192,7 +206,7 @@ classdef ProtocolRunner < handle
         end
         
         function validateProtocolStructure(self)
-            % VALIDATEPROTOCOLSTRUCTURE Check protocol has all required fields
+            % Check protocol has all required fields
             
             if self.verbose
                 fprintf('Validating protocol structure...\n');
@@ -204,7 +218,7 @@ classdef ProtocolRunner < handle
             end
             
             % Check required sections
-            requiredFields = {'experiment_info', 'arena_info', 'experiment_structure', 'block'};
+            requiredFields = {'experimentInfo', 'arenaConfig', 'experimentStructure', 'blockConditions'};
             for i = 1:length(requiredFields)
                 if ~isfield(self.protocolData, requiredFields{i})
                     error('Protocol missing required section: %s', requiredFields{i});
@@ -235,45 +249,46 @@ classdef ProtocolRunner < handle
             end
         end
         
-        function extractPatternMapping(self)
-            % EXTRACTPATTERNMAPPING Extract pattern path -> ID mapping
+        %function extractPatternMapping(self)
+            % Extract pattern path -> ID mapping
             
-            self.patternIDMap = containers.Map();
-            
-            if isfield(self.protocolData, 'pattern_mapping')
-                if self.verbose
-                    fprintf('Extracting pattern ID mapping...\n');
-                end
-                
-                % Convert pattern_mapping struct to containers.Map
-                mapping = self.protocolData.pattern_mapping;
-                paths = fieldnames(mapping);
-                
-                for i = 1:length(paths)
-                    path = paths{i};
-                    id = mapping.(path);
-                    self.patternIDMap(path) = id;
-                    
-                    if self.verbose
-                        fprintf('  Pattern ID %d: %s\n', id, path);
-                    end
-                end
-                
-                if self.verbose
-                    fprintf('  ✓ Loaded %d pattern mappings\n', self.patternIDMap.Count);
-                end
-            else
-                warning('No pattern_mapping found in protocol');
-            end
-        end
+        %     self.patternIDMap = containers.Map();
+        % 
+        %     if isfield(self.protocolData, 'pattern_mapping')
+        %         if self.verbose
+        %             fprintf('Extracting pattern ID mapping...\n');
+        %         end
+        % 
+        %         % Convert pattern_mapping struct to containers.Map
+        %         mapping = self.protocolData.pattern_mapping;
+        %         paths = fieldnames(mapping);
+        % 
+        %         for i = 1:length(paths)
+        %             path = paths{i};
+        %             id = mapping.(path);
+        %             self.patternIDMap(path) = id;
+        % 
+        %             if self.verbose
+        %                 fprintf('  Pattern ID %d: %s\n', id, path);
+        %             end
+        %         end
+        % 
+        %         if self.verbose
+        %             fprintf('  ✓ Loaded %d pattern mappings\n', self.patternIDMap.Count);
+        %         end
+        %     else
+        %         warning('No pattern_mapping found in protocol');
+        %     end
+        % end
         
         function initializeExperiment(self)
             % Initialize all components for execution
             
             fprintf('\n=== Initializing Experiment ===\n');
             
-            % Create experiment directory
-            self.createExperimentDirectory();
+            % Get experiment directory - assumes yaml was already saved in
+            % experiment directory.
+            self.getExperimentDirectory();
             
             % Initialize logger
             self.initializeLogger();
@@ -300,32 +315,33 @@ classdef ProtocolRunner < handle
             fprintf('=== Initialization Complete ===\n\n');
         end
         
-        function createExperimentDirectory(self)
-            % Create timestamped output directory
-            
-            % Create timestamped directory name
-            timestamp = datestr(now, 'yyyymmdd_HHMMSS');
-            expName = self.protocolData.experiment_info.name;
-            expName = strrep(expName, ' ', '_');  % Replace spaces
-            dirName = sprintf('%s_%s', timestamp, expName);
-            
-            self.experimentDir = fullfile(self.outputDir, dirName);
-            
-            % Create directories
-            if ~exist(self.experimentDir, 'dir')
-                mkdir(self.experimentDir);
-            end
-            mkdir(fullfile(self.experimentDir, 'data'));
-            mkdir(fullfile(self.experimentDir, 'logs'));
-            
-            if self.verbose
-                fprintf('Created experiment directory: %s\n', self.experimentDir);
-            end
-            
-            % Copy protocol file to experiment directory
-            [~, filename, ext] = fileparts(self.protocolFilePath);
-            copyfile(self.protocolFilePath, ...
-                    fullfile(self.experimentDir, [filename ext]));
+        function getExperimentDirectory(self)
+            [self.experimentDir, ~] = fileparts(self.protocolFilePath);
+            % % Create timestamped output directory
+            % 
+            % % Create timestamped directory name
+            % timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+            % expName = self.protocolData.experiment_info.name;
+            % expName = strrep(expName, ' ', '_');  % Replace spaces
+            % dirName = sprintf('%s_%s', timestamp, expName);
+            % 
+            % self.experimentDir = fullfile(self.outputDir, dirName);
+            % 
+            % % Create directories
+            % if ~exist(self.experimentDir, 'dir')
+            %     mkdir(self.experimentDir);
+            % end
+            % mkdir(fullfile(self.experimentDir, 'data'));
+            % mkdir(fullfile(self.experimentDir, 'logs'));
+            % 
+            % if self.verbose
+            %     fprintf('Created experiment directory: %s\n', self.experimentDir);
+            % end
+            % 
+            % % Copy protocol file to experiment directory
+            % [~, filename, ext] = fileparts(self.protocolFilePath);
+            % copyfile(self.protocolFilePath, ...
+            %         fullfile(self.experimentDir, [filename ext]));
         end
         
         function initializeLogger(self)

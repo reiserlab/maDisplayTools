@@ -89,7 +89,7 @@ experiment_structure:
   randomization:
     enabled: true
     seed: null  # null = random seed; set to integer for reproducibility
-    method: "block"  # "block" or "trial"
+    method: "block"  # "block" is only option right now
 
 # ============================================================================
 # PRETRIAL - Execute once before any trials

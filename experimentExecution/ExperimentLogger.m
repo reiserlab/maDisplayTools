@@ -18,15 +18,15 @@ classdef ExperimentLogger < handle
     
     methods (Access = public)
         function self = ExperimentLogger(logFile, verbose, logLevel)
-            % EXPERIMENTLOGGER Constructor
+            % Constructor
             %
             % Input Arguments:
             %   logFile - Path to log file
-            %   verbose - Echo logs to console (default: true)
+            %   verbose - Echo logs to console (default: false)
             %   logLevel - Minimum level to log (default: 'DEBUG')
             
             if nargin < 2
-                verbose = true;
+                verbose = false;
             end
             if nargin < 3
                 logLevel = 'DEBUG';
@@ -56,6 +56,7 @@ classdef ExperimentLogger < handle
             end
             
             % Create timestamp
+            %% TODO: Update this 
             timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
             
             % Format log entry
@@ -82,7 +83,7 @@ classdef ExperimentLogger < handle
         end
         
         function logCommand(self, commandType, parameters)
-            % LOGCOMMAND Log command execution with parameters
+            % Log command execution with parameters
             %
             % Input Arguments:
             %   commandType - Type of command
@@ -94,7 +95,7 @@ classdef ExperimentLogger < handle
         end
         
         function logTrial(self, trialNum, conditionID, duration)
-            % LOGTRIAL Log trial completion
+            % Log trial completion
             %
             % Input Arguments:
             %   trialNum - Trial number
@@ -148,7 +149,7 @@ classdef ExperimentLogger < handle
         end
         
         function writeHeader(self)
-            % WRITEHEADER Write log file header
+            % Write log file header
             
             fprintf(self.fileID, '=== EXPERIMENT LOG ===\n');
             fprintf(self.fileID, 'Created: %s\n', datestr(now));
