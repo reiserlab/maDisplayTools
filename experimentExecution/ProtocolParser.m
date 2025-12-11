@@ -17,6 +17,16 @@ classdef ProtocolParser < handle
         verbose         % Whether to print parsing progress
         filepath        % Path to protocol file being parsed
     end
+
+    properties (Constant)
+        SUPPORTED_VERSIONS = [1];
+        REQUIRED_YAML_SECTIONS = {'experiment_info', 'arena_info', 'experiment_structure', 'block'};
+        REQUIRED_ARENA_FIELDS = {'num_rows', 'num_cols', 'generation'};
+        SUPPORTED_GENERATIONS = {'G4', 'G4.1', 'G6'};
+        SUPPORTED_RANDOMIZATION_METHODS = {'block'};
+        SUPPORTED_PLUGIN_TYPES = {'serial_device', 'class', 'script'};
+
+    end
     
     methods (Access = public)
         function self = ProtocolParser(varargin)
@@ -44,6 +54,30 @@ classdef ProtocolParser < handle
             %
             % Returns:
             %   protocol - Struct containing all parsed protocol data
+            %   The struct fields are: 
+            %     - version:  Just a number keeping track of yaml versions
+            %     - experiment_info: a struct with three fields, "name",
+            %     "date_created", and "author" 
+            %     - arena_info: struct with three fields, "num_rows",
+            %     "num_cols", and "generation"
+            %     - plugins: cell array of structs. Each struct has a
+            %     "name" and "type" field plus additional fields depending
+            %     on type. Possible types are "serial_device", "class", and
+            %     "script"
+            %     - experiment_structure: struct with two fields,
+            %     "repetitions", and "randomization", which is another
+            %     small struct
+            %     - pretrial: struct with two fields, "include" (1 for yes,
+            %     0 for no), and "commands", a cell array of structs - one
+            %     for each command. 
+            %     - block: has just one field, "conditions", which is a
+            %     struct array. So rawData.block.conditions(1) has two
+            %     fields, "id", and "commands", a  cell array of structs
+            %     - intertrial: struct with two fields, "include", and
+            %     "commands", a cell array of structs
+            %     - posttrial: struct with two fields, "include" and
+            %     "commands", a cell array of structs
+
             %
             % Example:
             %   protocol = parser.parse('./protocols/experiment.yaml');
@@ -61,8 +95,8 @@ classdef ProtocolParser < handle
             end
             
             try
-                % Read YAML file using ReadYaml
-                rawData = ReadYaml(filepath);
+                % Read YAML file using yamlread found in yamlSupport
+                rawData = yamlread(filepath);
                 
                 if self.verbose
                     fprintf('  YAML file loaded successfully\n');
@@ -93,11 +127,18 @@ classdef ProtocolParser < handle
                 end
             end
         end
+    
+
+        %% Getters to be used by other classes
+    
+        function output = get_supported_versions(self)
+            output = self.SUPPORTED_VERSIONS;
+        end
     end
     
     methods (Access = private)
         function validateProtocol(self, data)
-            % VALIDATEPROTOCOL Check that protocol has required structure
+            % Check that protocol has required structure
             %
             % Input Arguments:
             %   data - Raw parsed YAML data
@@ -108,15 +149,17 @@ classdef ProtocolParser < handle
             end
             
             % Check version is supported
-            if data.version ~= 1
-                self.throwValidationError('Unsupported protocol version: %d (expected 1)', ...
-                                         data.version);
+            if ~ismember(data.version, self.SUPPORTED_VERSIONS)
+                self.throwValidationError(...
+                    'Unsupported protocol version: %d (supported versions: %s)', ...
+                    data.version, ...
+                    mat2str(self.SUPPORTED_VERSIONS));
             end
             
+            
             % Check major sections exist
-            requiredSections = {'experiment_info', 'arena_info', 'experiment_structure'};
-            for i = 1:length(requiredSections)
-                section = requiredSections{i};
+            for i = 1:length(self.REQUIRED_YAML_SECTIONS)
+                section = self.REQUIRED_YAML_SECTIONS{i};
                 if ~isfield(data, section)
                     self.throwValidationError('Protocol missing required "%s" section', section);
                 end
@@ -145,7 +188,7 @@ classdef ProtocolParser < handle
         end
         
         function validateExperimentInfo(self, experimentInfo)
-            % VALIDATEEXPERIMENTINFO Validate experiment_info section
+            % Validate experiment_info section
             
             if ~isfield(experimentInfo, 'name')
                 self.throwValidationError('experiment_info missing required "name" field');
@@ -157,12 +200,11 @@ classdef ProtocolParser < handle
         end
         
         function validateArenaInfo(self, arenaInfo)
-            % VALIDATEARENAINFO Validate arena_info section
+            % Validate arena_info section
             
             % Check required fields
-            arenaRequired = {'num_rows', 'num_cols', 'generation'};
-            for i = 1:length(arenaRequired)
-                field = arenaRequired{i};
+            for i = 1:length(self.REQUIRED_ARENA_FIELDS)
+                field = self.REQUIRED_ARENA_FIELDS{i};
                 if ~isfield(arenaInfo, field)
                     self.throwValidationError('arena_info missing required "%s" field', field);
                 end
@@ -179,15 +221,14 @@ classdef ProtocolParser < handle
             end
             
             % Validate generation
-            validGenerations = {'G4', 'G4.1', 'G6'};
-            if ~ismember(arenaInfo.generation, validGenerations)
+            if ~ismember(arenaInfo.generation, self.SUPPORTED_GENERATIONS)
                 self.throwValidationError('arena_info.generation must be one of: %s', ...
-                                         strjoin(validGenerations, ', '));
+                                         strjoin(self.SUPPORTED_GENERATIONS, ', '));
             end
         end
         
         function validateExperimentStructure(self, experimentStructure)
-            % VALIDATEEXPERIMENTSTRUCTURE Validate experiment_structure section
+            % Validate experiment_structure section
             
             if ~isfield(experimentStructure, 'repetitions')
                 self.throwValidationError('experiment_structure missing required "repetitions" field');
@@ -207,16 +248,15 @@ classdef ProtocolParser < handle
                         self.throwValidationError('randomization.method required when randomization enabled');
                     end
                     
-                    validMethods = {'block', 'trial'};
-                    if ~ismember(rand.method, validMethods)
-                        self.throwValidationError('randomization.method must be "block" or "trial"');
+                    if ~ismember(rand.method, self.SUPPORTED_RANDOMIZATION_METHODS)
+                        self.throwValidationError('randomization.method not supported');
                     end
                 end
             end
         end
         
         function validatePlugins(self, plugins)
-            % VALIDATEPLUGINS Validate plugins section
+            % Validate plugins section
             
             if ~iscell(plugins)
                 self.throwValidationError('plugins must be a list (cell array)');
@@ -236,11 +276,10 @@ classdef ProtocolParser < handle
                 end
                 
                 % Validate plugin type
-                validTypes = {'serial_device', 'class', 'script'};
-                if ~ismember(plugin.type, validTypes)
+                if ~ismember(plugin.type, self.SUPPORTED_PLUGIN_TYPES)
                     self.throwValidationError('Plugin "%s" has invalid type "%s" (must be: %s)', ...
                                              plugin.name, plugin.type, ...
-                                             strjoin(validTypes, ', '));
+                                             strjoin(self.SUPPORTED_PLUGIN_TYPES, ', '));
                 end
                 
                 % Type-specific validation
@@ -256,7 +295,7 @@ classdef ProtocolParser < handle
         end
         
         function validateSerialPlugin(self, plugin)
-            % VALIDATESERIAL Validate serial_device plugin
+            % Validate serial_device plugin
             
             requiredFields = {'baudrate', 'commands'};
             for i = 1:length(requiredFields)
@@ -275,7 +314,7 @@ classdef ProtocolParser < handle
         end
         
         function validateClassPlugin(self, plugin)
-            % VALIDATECLASSPLUGIN Validate class plugin
+            % Validate class plugin
             
             % Must have matlab and/or python implementation
             if ~isfield(plugin, 'matlab') && ~isfield(plugin, 'python')
@@ -305,7 +344,7 @@ classdef ProtocolParser < handle
         end
         
         function validateScriptPlugin(self, plugin)
-            % VALIDATESCRIPTPLUGIN Validate script plugin
+            % Validate script plugin
             
             if ~isfield(plugin, 'script')
                 self.throwValidationError('Script plugin "%s" missing required "script" field', ...
@@ -314,7 +353,7 @@ classdef ProtocolParser < handle
         end
         
         function validateTrialSections(self, data)
-            % VALIDATETRIALSECTIONS Validate pretrial, block, intertrial, posttrial
+            % Validate pretrial, block, intertrial, posttrial
             
             % Block is required and must have conditions
             if ~isfield(data, 'block')
@@ -325,13 +364,13 @@ classdef ProtocolParser < handle
                 self.throwValidationError('block section missing required "conditions" field');
             end
             
-            if ~iscell(data.block.conditions) || isempty(data.block.conditions)
+            if ~isstruct(data.block.conditions) || isempty(data.block.conditions)
                 self.throwValidationError('block.conditions must be a non-empty list');
             end
             
             % Validate each condition
             for i = 1:length(data.block.conditions)
-                condition = data.block.conditions{i};
+                condition = data.block.conditions(i);
                 
                 if ~isfield(condition, 'id')
                     self.throwValidationError('Block condition %d missing required "id" field', i);
@@ -363,7 +402,7 @@ classdef ProtocolParser < handle
         end
         
         function validateOptionalSection(self, section, sectionName)
-            % VALIDATEOPTIONALSECTION Validate pretrial/intertrial/posttrial
+            % Validate pretrial/intertrial/posttrial
             
             if ~isfield(section, 'include')
                 self.throwValidationError('%s section missing required "include" field', sectionName);
@@ -390,7 +429,7 @@ classdef ProtocolParser < handle
         end
         
         function validateCommands(self, commands, context)
-            % VALIDATECOMMANDS Validate a list of commands
+            % Validate a list of commands
             %
             % Input Arguments:
             %   commands - Cell array of command structs
@@ -421,7 +460,7 @@ classdef ProtocolParser < handle
         end
         
         function validateControllerCommand(self, command, context, index)
-            % VALIDATECONTROLLERCOMMAND Validate controller command
+            % Validate controller command
             
             if ~isfield(command, 'command_name')
                 self.throwValidationError('%s controller command %d missing "command_name" field', ...
@@ -433,7 +472,7 @@ classdef ProtocolParser < handle
         end
         
         function validateWaitCommand(self, command, context, index)
-            % VALIDATEWAITCOMMAND Validate wait command
+            % Validate wait command
             
             if ~isfield(command, 'duration')
                 self.throwValidationError('%s wait command %d missing "duration" field', ...
@@ -447,7 +486,7 @@ classdef ProtocolParser < handle
         end
         
         function validatePluginCommand(self, command, context, index)
-            % VALIDATEPLUGINCOMMAND Validate plugin command
+            % Validate plugin command
             
             if ~isfield(command, 'plugin_name')
                 self.throwValidationError('%s plugin command %d missing "plugin_name" field', ...
@@ -459,7 +498,7 @@ classdef ProtocolParser < handle
         end
         
         function protocol = extractProtocol(self, data)
-            % EXTRACTPROTOCOL Extract all protocol sections into structured format
+            % Extract all protocol sections into structured format
             %
             % Input Arguments:
             %   data - Raw parsed YAML data
@@ -532,7 +571,7 @@ classdef ProtocolParser < handle
         end
         
         function commands = extractOptionalSection(self, data, sectionName)
-            % EXTRACTOPTIONALSECTION Extract commands from optional section
+            % Extract commands from optional section
             %
             % Returns empty array if section not included
             
@@ -548,7 +587,7 @@ classdef ProtocolParser < handle
         end
         
         function printProtocolSummary(self, protocol)
-            % PRINTPROTOCOLSUMMARY Print summary of parsed protocol
+            % Print summary of parsed protocol
             
             fprintf('\n=== Protocol Summary ===\n');
             fprintf('Experiment: %s\n', protocol.experimentInfo.name);
@@ -578,14 +617,29 @@ classdef ProtocolParser < handle
                 end
             end
             
+            num_conds = length(protocol.blockConditions);
+            reps = protocol.experimentStructure.repetitions;
+            pre = 0;
+            inter = 0;
+            post = 0;
+            if ~isempty(protocol.pretrialCommands)
+                pre = 1;
+            end
+            if ~isempty(protocol.intertrialCommands)
+                inter = 1;
+            end
+            if ~isempty(protocol.posttrialCommands)
+                post = 1;
+            end
+            total_trials = (num_conds*reps) + inter*((num_conds*reps)-1) + pre + post;
+
             fprintf('Conditions: %d\n', length(protocol.blockConditions));
-            fprintf('Total trials: %d\n', ...
-                    length(protocol.blockConditions) * protocol.experimentStructure.repetitions);
+            fprintf('Total trials: %d\n', total_trials);
             fprintf('========================\n\n');
         end
         
         function throwValidationError(self, varargin)
-            % THROWVALIDATIONERROR Throw validation error with context
+            % Throw validation error with context
             
             % Format error message
             msg = sprintf(varargin{:});
