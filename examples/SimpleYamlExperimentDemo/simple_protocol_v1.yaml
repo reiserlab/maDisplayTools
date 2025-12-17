@@ -1,0 +1,197 @@
+# Protocol Version 1 - Complete Example
+# This example demonstrates all features of the protocol specification
+
+version: 1
+
+# ============================================================================
+# EXPERIMENT METADATA
+# ============================================================================
+experiment_info:
+  name: "Simple arena-only experiment"
+  date_created: "12-15-2025"
+  author: "Lisa F"
+
+# ============================================================================
+# ARENA CONFIGURATION
+# ============================================================================
+arena_info:
+  num_rows: 2
+  num_cols: 12
+  generation: "G4.1"
+
+# ============================================================================
+# PLUGIN DEFINITIONS
+# ============================================================================
+plugins:
+
+  # Script Plugin - Post-trial analysis
+  - name: "analysis"
+    type: "script"
+    script_path: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/test_analysis_script.m"
+    script_type: "function"
+# ============================================================================
+# EXPERIMENT STRUCTURE
+# ============================================================================
+experiment_structure:
+  repetitions: 3
+  randomization:
+    enabled: true
+    seed: null  # null = random seed; set to integer for reproducibility
+    method: "block"  # "block" is only option right now
+
+# ============================================================================
+# PRETRIAL - Execute once before any trials
+# Used for hardware initialization and setup
+# ============================================================================
+pretrial:
+  include: true
+  commands:
+   
+    # Display a test pattern to verify arena
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat"
+      duration: 2  # 2 seconds
+      mode: 2  # position mode
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+    
+    - type: "wait"
+      duration: .5  # 0.5 second pause
+
+# ============================================================================
+# BLOCK - Main experimental conditions
+# These are the core trials that will be repeated and/or randomized
+# ============================================================================
+block:
+  conditions:
+    # Condition 1: Vertical bars moving right
+    - id: "condition 1"
+      commands:
+       
+        # Display pattern
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat"
+          duration: 5  # 5 seconds
+          mode: 2  # closed-loop mode
+          frame_index: 1
+          frame_rate: 60
+          gain: 0  # degrees per second
+
+    
+    # Condition 2: Horizontal bars moving up
+    - id: "condition 2"
+      commands:
+        
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002_2row_gs2_sqGrate.pat"
+          duration: 5 # 5 seconds
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+    
+    # Condition 3: Checkerboard pattern (static)
+    - id: "condition 3"
+      commands:
+        
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003_2row_gs2_sqGrate.pat"
+          duration: 3  # 3 seconds
+          mode: 2  # position mode (static)
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+    
+    # Condition 4: Dark (no stimulus)
+    - id: "dark_control"
+      commands:
+
+        # Turn off arena
+        - type: "controller"
+          command_name: "allOff"
+
+        - type: "wait" 
+          duration: 3  # 3 second pause
+
+
+# ============================================================================
+# INTERTRIAL - Execute between each trial
+# Used for baseline periods and resetting hardware state
+# ============================================================================
+intertrial:
+  include: true
+  commands:
+    # Reset to baseline pattern
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat"
+      duration: 2  # 2 second inter-trial interval
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+    
+# ============================================================================
+# POSTTRIAL - Execute once after all trials complete
+# Used for cleanup, data saving, and shutdown
+# ============================================================================
+posttrial:
+  include: true
+  commands:
+   
+    # Display posttrial pattern
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat"
+      duration: 2
+      mode: 2
+      frame_index: 1
+      frame_rate: 60
+      gain: 0
+
+      # Run test script plugin
+    - type: "plugin"
+      plugin_name: "analysis"
+    
+    # Final wait before shutdown
+    - type: "wait"
+      duration: 1  # 1 second
+
+# ============================================================================
+# CONTROLLER COMMANDS REFERENCE
+# ============================================================================
+# Available controller commands and their parameters:
+#
+# allOn - Turn all arena panels on
+#   Parameters: (none)
+#
+# allOff - Turn all arena panels off
+#   Parameters: (none)
+# 
+# stopDisplay - stop displaying pattern
+#   Parameters: (none)
+#
+# setPositionX - set the starting frame when displaying a pattern (default 1)
+#   Parameters: posX: integer between 1 and number of frames in pattern
+#
+# setColorDepth - change the arena's accepted grayscale value 
+#   Parameters: gs_val: 2 or 16
+#
+# startG41Trial - start displaying a trial on the G4.1 system
+#   Parameters: mode: integer 2-4 
+#               patID: integer from 1 - number of patterns available  
+#               posX: integer, starting frame number  
+#               dur: duration of the experiment in seconds (converted to deciseconds at runtime) 
+#               frameRate: Frames per second, mode 2 only
+#               gain: integer, mode 4 only
+#
+#
+# Note: streamFrame is also available but should not be used via yaml. 
+#
+#
+# ============================================================================

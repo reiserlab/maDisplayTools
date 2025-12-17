@@ -10,6 +10,7 @@ classdef ProtocolRunner < handle
     
     properties (Access = private)
         protocolFilePath        % Path to YAML protocol file
+        arenaIP
         protocolData            % Parsed protocol structure
         pluginManager           % PluginManager instance
         arenaController         % Arena hardware controller
@@ -25,7 +26,7 @@ classdef ProtocolRunner < handle
     end
     
     methods (Access = public)
-        function self = ProtocolRunner(protocolFilePath, varargin)
+        function self = ProtocolRunner(protocolFilePath, arenaIP, varargin)
             % PROTOCOLRUNNER Constructor
             %
             % Syntax:
@@ -43,21 +44,23 @@ classdef ProtocolRunner < handle
             % Parse inputs
             p = inputParser;
             addRequired(p, 'protocolFilePath', @ischar);
+            addRequired(p, 'arenaIP', @ischar);
             addParameter(p, 'OutputDir', './experiments', @ischar);
             addParameter(p, 'Verbose', true, @islogical);
             addParameter(p, 'DryRun', false, @islogical);
-            parse(p, protocolFilePath, varargin{:});
+            parse(p, protocolFilePath, arenaIP, varargin{:});
             
             % Store configuration
             self.protocolFilePath = p.Results.protocolFilePath;
             self.outputDir = p.Results.OutputDir;
             self.verbose = p.Results.Verbose;
             self.dryRun = p.Results.DryRun;
+            self.arenaIP = p.Results.arenaIP;
             
             % Initialize (validation only at construction)
             self.validateEnvironment();
             self.parseProtocol();
-            self.validateProtocolStructure();
+
             %self.extractPatternMapping();
         end
         
@@ -97,7 +100,7 @@ classdef ProtocolRunner < handle
                 
                 % === Finalize ===
                 self.finalizeExperiment();
-                
+
             catch ME
                 self.logger.log('ERROR', sprintf('Experiment failed: %s', ME.message));
                 self.cleanup();
@@ -106,7 +109,7 @@ classdef ProtocolRunner < handle
         end
         
         function cleanup(self)
-            % CLEANUP Emergency cleanup of all resources
+            % Emergency cleanup of all resources
             %
             % Called on error or at end of experiment
             
@@ -115,7 +118,8 @@ classdef ProtocolRunner < handle
             % Stop arena hardware
             if ~isempty(self.arenaController)
                 try
-                    % TODO: Call arena all_off or stop methods
+                    self.arenaController.stopDisplay();
+                    self.arenaController.close();
                     fprintf('  - Stopping arena hardware\n');
                 catch ME
                     fprintf(2, '  - Warning: Could not stop arena: %s\n', ME.message);
@@ -205,49 +209,6 @@ classdef ProtocolRunner < handle
             end
         end
         
-        function validateProtocolStructure(self)
-            % Check protocol has all required fields
-            
-            if self.verbose
-                fprintf('Validating protocol structure...\n');
-            end
-            
-            % Check version
-            if ~isfield(self.protocolData, 'version') || self.protocolData.version ~= 1
-                error('Protocol must specify version: 1');
-            end
-            
-            % Check required sections
-            requiredFields = {'experimentInfo', 'arenaConfig', 'experimentStructure', 'blockConditions'};
-            for i = 1:length(requiredFields)
-                if ~isfield(self.protocolData, requiredFields{i})
-                    error('Protocol missing required section: %s', requiredFields{i});
-                end
-            end
-            
-            % Validate arena_info
-            arenaFields = {'num_rows', 'num_cols', 'generation'};
-            for i = 1:length(arenaFields)
-                if ~isfield(self.protocolData.arena_info, arenaFields{i})
-                    error('arena_info missing required field: %s', arenaFields{i});
-                end
-            end
-            
-            % Validate block has conditions
-            if ~isfield(self.protocolData.block, 'conditions') || ...
-               isempty(self.protocolData.block.conditions)
-                error('Protocol must define at least one condition in block');
-            end
-            
-            % TODO: Add more validation
-            % - Check condition IDs are unique
-            % - Check plugin IDs are unique if plugins exist
-            % - Validate command structures
-            
-            if self.verbose
-                fprintf('  ✓ Protocol structure is valid\n');
-            end
-        end
         
         %function extractPatternMapping(self)
             % Extract pattern path -> ID mapping
@@ -308,7 +269,6 @@ classdef ProtocolRunner < handle
             self.commandExecutor = CommandExecutor(...
                 self.arenaController, ...
                 self.pluginManager, ...
-                self.patternIDMap, ...
                 self.logger);
             
             self.logger.log('INFO', 'Initialization complete');
@@ -316,43 +276,20 @@ classdef ProtocolRunner < handle
         end
         
         function getExperimentDirectory(self)
+
             [self.experimentDir, ~] = fileparts(self.protocolFilePath);
-            % % Create timestamped output directory
-            % 
-            % % Create timestamped directory name
-            % timestamp = datestr(now, 'yyyymmdd_HHMMSS');
-            % expName = self.protocolData.experiment_info.name;
-            % expName = strrep(expName, ' ', '_');  % Replace spaces
-            % dirName = sprintf('%s_%s', timestamp, expName);
-            % 
-            % self.experimentDir = fullfile(self.outputDir, dirName);
-            % 
-            % % Create directories
-            % if ~exist(self.experimentDir, 'dir')
-            %     mkdir(self.experimentDir);
-            % end
-            % mkdir(fullfile(self.experimentDir, 'data'));
-            % mkdir(fullfile(self.experimentDir, 'logs'));
-            % 
-            % if self.verbose
-            %     fprintf('Created experiment directory: %s\n', self.experimentDir);
-            % end
-            % 
-            % % Copy protocol file to experiment directory
-            % [~, filename, ext] = fileparts(self.protocolFilePath);
-            % copyfile(self.protocolFilePath, ...
-            %         fullfile(self.experimentDir, [filename ext]));
+
         end
         
         function initializeLogger(self)
-            % INITIALIZELOGGER Create experiment logger
+            % Create experiment logger
             
             logFile = fullfile(self.experimentDir, 'logs', 'experiment.log');
             self.logger = ExperimentLogger(logFile, self.verbose);
         end
         
         function initializePlugins(self)
-            % INITIALIZEPLUGINS Initialize all plugins defined in protocol
+            % Initialize all plugins defined in protocol
             
             if ~isfield(self.protocolData, 'plugins')
                 self.logger.log('INFO', 'No plugins defined in protocol');
@@ -370,10 +307,10 @@ classdef ProtocolRunner < handle
                 try
                     self.pluginManager.initializePlugin(pluginDef);
                     self.logger.log('INFO', sprintf('  ✓ Initialized plugin: %s', ...
-                                                  pluginDef.id));
+                                                  pluginDef.name));
                 catch ME
                     self.logger.log('ERROR', sprintf('  ✗ Failed to initialize plugin %s: %s', ...
-                                                   pluginDef.id, ME.message));
+                                                   pluginDef.name, ME.message));
                     error('Plugin initialization failed');
                 end
             end
@@ -382,24 +319,31 @@ classdef ProtocolRunner < handle
         end
         
         function initializeArenaHardware(self)
-            % INITIALIZEARENAHARDWARE Connect to and configure arena
+            % Connect to and configure arena
             
             self.logger.log('INFO', 'Initializing arena hardware...');
             
-            generation = self.protocolData.arena_info.generation;
-            numRows = self.protocolData.arena_info.num_rows;
-            numCols = self.protocolData.arena_info.num_cols;
+            generation = self.protocolData.arenaConfig.generation;
+            numRows = self.protocolData.arenaConfig.num_rows;
+            numCols = self.protocolData.arenaConfig.num_cols;
             
-            % TODO: Initialize appropriate controller based on generation
-            % For now, placeholder for G4.1
-            if strcmp(generation, 'G4') || strcmp(generation, 'G4.1')
-                % self.arenaController = G4Controller();  % Create actual controller
-                % self.arenaController.connect();
-                % self.arenaController.configure(numRows, numCols);
-                
+            if strcmp(generation, 'G4.1')
+                try
+                    self.arenaController = PanelsController(self.arenaIP);  % Create actual controller   
+                    self.arenaController.open(false);
+                catch ME
+                    self.logger.log('ERROR', sprintf(' call to create PanelsController object failed.'));
+                    error('Call to create PanelsController object failed.');
+                end
+                % try                 
+                %     self.arenaController.open(false);
+                % catch ME
+                %     self.logger.log('ERROR', sprintf(' attempt to open the controller failed.'));
+                %     error('Call to open function in PanelsController failed.');
+                % end
+                % 
                 self.logger.log('INFO', sprintf('  Arena: %s (%dx%d panels)', ...
                                               generation, numRows, numCols));
-                self.logger.log('WARNING', 'Arena controller not yet implemented');
             else
                 error('Unsupported arena generation: %s', generation);
             end
@@ -408,24 +352,19 @@ classdef ProtocolRunner < handle
         %% ================= Section 2: Trial Order Generation =================
         
         function generateTrialOrder(self)
-            % GENERATETRIALORDER Create trial execution sequence
+            % Create trial execution sequence
             
             self.logger.log('INFO', 'Generating trial order...');
             
             % Extract configuration
-            conditions = self.protocolData.block.conditions;
-            reps = self.protocolData.experiment_structure.repetitions;
+            conditions = self.protocolData.blockConditions;
+            reps = self.protocolData.experimentStructure.repetitions;
             
             % Get randomization settings
-            if isfield(self.protocolData.experiment_structure, 'randomization')
-                randSettings = self.protocolData.experiment_structure.randomization;
-            else
-                % Backward compatibility with old format
-                randSettings.enabled = self.protocolData.experiment_structure.randomize;
-                randSettings.seed = [];
-                randSettings.method = 'block';
-            end
-            
+            randSettings.enabled = self.protocolData.experimentStructure.randomization.enabled;
+            randSettings.seed = self.protocolData.experimentStructure.randomization.seed;
+            randSettings.method = self.protocolData.experimentStructure.randomization.method;
+              
             % Create base condition list
             numConditions = length(conditions);
             conditionIDs = cell(1, numConditions);
@@ -434,7 +373,8 @@ classdef ProtocolRunner < handle
             end
             
             % Replicate for repetitions
-            totalTrials = numConditions * reps;
+            totalTrials = ProtocolParser.get_total_trials(self.protocolData);
+            totalConditionTrials = length(self.protocolData.blockConditions)*reps;
             self.trialExecutionOrder = struct('trialNumber', {}, ...
                                             'conditionID', {}, ...
                                             'repetition', {}, ...
@@ -470,9 +410,9 @@ classdef ProtocolRunner < handle
                     % Trial randomization: shuffle all trials together
                     allConditionIDs = repmat(conditionIDs, 1, reps);
                     allReps = repelem(1:reps, numConditions);
-                    shuffledIndices = randperm(totalTrials);
+                    shuffledIndices = randperm(totalConditionTrials);
                     
-                    for i = 1:totalTrials
+                    for i = 1:totalConditionTrials
                         trialCounter = trialCounter + 1;
                         idx = shuffledIndices(i);
                         self.trialExecutionOrder(trialCounter).trialNumber = trialCounter;
@@ -516,10 +456,10 @@ classdef ProtocolRunner < handle
         %% ================= Section 3: Execution Phases =================
         
         function executePretrialPhase(self)
-            % EXECUTEPRETRIALPHASE Execute pretrial commands
+            % Execute pretrial commands
             
-            if ~isfield(self.protocolData, 'pretrial') || ...
-               ~self.protocolData.pretrial.include
+            if ~isfield(self.protocolData, 'pretrialCommands') || ...
+               isempty(self.protocolData.pretrialCommands)
                 self.logger.log('INFO', 'No pretrial phase defined');
                 return;
             end
@@ -527,15 +467,14 @@ classdef ProtocolRunner < handle
             self.logger.log('INFO', '=== PRETRIAL PHASE START ===');
             fprintf('\n=== Executing Pretrial ===\n');
             
-            pretrial = self.protocolData.pretrial;
-            commands = pretrial.commands;
+            commands = self.protocolData.pretrialCommands;
             
             for i = 1:length(commands)
                 self.logger.log('INFO', sprintf('Executing pretrial command %d/%d', ...
                                               i, length(commands)));
                 
                 try
-                    self.commandExecutor.execute(commands(i));
+                    self.commandExecutor.execute(commands{i});
                 catch ME
                     self.logger.log('ERROR', sprintf('Pretrial command %d failed: %s', ...
                                                    i, ME.message));
@@ -548,7 +487,7 @@ classdef ProtocolRunner < handle
         end
         
         function executeMainTrialLoop(self)
-            % EXECUTEMAINTRIALLOOP Execute all experimental trials
+            % Execute all experimental trials
             
             self.logger.log('INFO', '=== MAIN TRIAL LOOP START ===');
             fprintf('\n=== Starting Main Trials ===\n');
@@ -556,8 +495,8 @@ classdef ProtocolRunner < handle
             numTrials = length(self.trialExecutionOrder);
             
             % Check if intertrial is defined
-            hasIntertrial = isfield(self.protocolData, 'intertrial') && ...
-                           self.protocolData.intertrial.include;
+            hasIntertrial = isfield(self.protocolData, 'intertrialCommands') && ...
+                           ~isempty(self.protocolData.intertrialCommands);
             
             for trialIdx = 1:numTrials
                 % Get trial metadata
@@ -586,9 +525,9 @@ classdef ProtocolRunner < handle
         end
         
         function conditionDef = findConditionByID(self, conditionID)
-            % FINDCONDITIONBYID Find condition definition by ID
+            % Find condition definition by ID
             
-            conditions = self.protocolData.block.conditions;
+            conditions = self.protocolData.blockConditions;
             for i = 1:length(conditions)
                 if strcmp(conditions(i).id, conditionID)
                     conditionDef = conditions(i);
@@ -599,7 +538,7 @@ classdef ProtocolRunner < handle
         end
         
         function executeTrial(self, trialMetadata, conditionDef)
-            % EXECUTETRIAL Execute commands for a single trial
+            % Execute commands for a single trial
             
             startTime = tic;
             
@@ -607,7 +546,7 @@ classdef ProtocolRunner < handle
             
             for i = 1:length(commands)
                 try
-                    self.commandExecutor.execute(commands(i));
+                    self.commandExecutor.execute(commands{i});
                 catch ME
                     self.logger.log('ERROR', sprintf('Trial %d command %d failed: %s', ...
                                                    trialMetadata.trialNumber, i, ME.message));
@@ -621,14 +560,13 @@ classdef ProtocolRunner < handle
         end
         
         function executeIntertrialPhase(self)
-            % EXECUTEINTERTRIALPHASE Execute intertrial commands
+            % Execute intertrial commands
             
-            intertrial = self.protocolData.intertrial;
-            commands = intertrial.commands;
+            commands = self.protocolData.intertrialCommands;
             
             for i = 1:length(commands)
                 try
-                    self.commandExecutor.execute(commands(i));
+                    self.commandExecutor.execute(commands{i});
                 catch ME
                     self.logger.log('ERROR', sprintf('Intertrial command %d failed: %s', ...
                                                    i, ME.message));
@@ -638,10 +576,10 @@ classdef ProtocolRunner < handle
         end
         
         function executePosttrialPhase(self)
-            % EXECUTEPOSTTRIALPHASE Execute posttrial commands
+            % Execute posttrial commands
             
-            if ~isfield(self.protocolData, 'posttrial') || ...
-               ~self.protocolData.posttrial.include
+            if ~isfield(self.protocolData, 'posttrialCommands') || ...
+               isempty(self.protocolData.posttrialCommands)
                 self.logger.log('INFO', 'No posttrial phase defined');
                 return;
             end
@@ -649,15 +587,14 @@ classdef ProtocolRunner < handle
             self.logger.log('INFO', '=== POSTTRIAL PHASE START ===');
             fprintf('\n=== Executing Posttrial ===\n');
             
-            posttrial = self.protocolData.posttrial;
-            commands = posttrial.commands;
+            commands = self.protocolData.posttrialCommands;
             
             for i = 1:length(commands)
                 self.logger.log('INFO', sprintf('Executing posttrial command %d/%d', ...
                                               i, length(commands)));
                 
                 try
-                    self.commandExecutor.execute(commands(i));
+                    self.commandExecutor.execute(commands{i});
                 catch ME
                     self.logger.log('ERROR', sprintf('Posttrial command %d failed: %s', ...
                                                    i, ME.message));
@@ -671,12 +608,15 @@ classdef ProtocolRunner < handle
         end
         
         function finalizeExperiment(self)
-            % FINALIZEEXPERIMENT Save data and close resources
+            % Save data and close resources
             
             self.logger.log('INFO', 'Finalizing experiment...');
             
             % Save trial execution order
             trialOrder = self.trialExecutionOrder;
+            if ~exist(fullfile(self.experimentDir, 'data'),'dir')
+                mkdir(fullfile(self.experimentDir, 'data'));
+            end
             save(fullfile(self.experimentDir, 'data', 'trial_order.mat'), 'trialOrder');
             
             % TODO: Save any additional data collected during experiment
@@ -687,32 +627,32 @@ classdef ProtocolRunner < handle
             % Clean shutdown
             self.cleanup();
             
-            self.logger.log('INFO', '=== EXPERIMENT COMPLETE ===');
+%            self.logger.log('INFO', '=== EXPERIMENT COMPLETE ===');
         end
         
         function generateExperimentSummary(self)
-            % GENERATEEXPERIMENTSUMMARY Create experiment summary file
+            % Create experiment summary file
             
             summaryFile = fullfile(self.experimentDir, 'summary.txt');
             fid = fopen(summaryFile, 'w');
             
             fprintf(fid, 'EXPERIMENT SUMMARY\n');
             fprintf(fid, '==================\n\n');
-            fprintf(fid, 'Experiment: %s\n', self.protocolData.experiment_info.name);
+            fprintf(fid, 'Experiment: %s\n', self.protocolData.experimentInfo.name);
             fprintf(fid, 'Date: %s\n', datestr(now));
             fprintf(fid, 'Protocol: %s\n\n', self.protocolFilePath);
             
             fprintf(fid, 'Arena Configuration:\n');
-            fprintf(fid, '  Generation: %s\n', self.protocolData.arena_info.generation);
+            fprintf(fid, '  Generation: %s\n', self.protocolData.arenaConfig.generation);
             fprintf(fid, '  Dimensions: %dx%d panels\n', ...
-                    self.protocolData.arena_info.num_rows, ...
-                    self.protocolData.arena_info.num_cols);
+                    self.protocolData.arenaConfig.num_rows, ...
+                    self.protocolData.arenaConfig.num_cols);
             fprintf(fid, '\n');
             
             fprintf(fid, 'Experimental Design:\n');
-            fprintf(fid, '  Conditions: %d\n', length(self.protocolData.block.conditions));
-            fprintf(fid, '  Repetitions: %d\n', self.protocolData.experiment_structure.repetitions);
-            fprintf(fid, '  Total Trials: %d\n', length(self.trialExecutionOrder));
+            fprintf(fid, '  Conditions: %d\n', length(self.protocolData.blockConditions));
+            fprintf(fid, '  Repetitions: %d\n', self.protocolData.experimentStructure.repetitions);
+            fprintf(fid, '  Total Trials: %d\n', ProtocolParser.get_total_trials(self.protocolData));
             fprintf(fid, '\n');
             
             % TODO: Add more summary statistics

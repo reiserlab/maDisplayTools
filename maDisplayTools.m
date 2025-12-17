@@ -538,7 +538,7 @@ classdef maDisplayTools < handle
         end
         
         function pattern_paths = collect_pattern_paths(experiment_data)
-        % COLLECT_PATTERN_PATHS Collect all pattern paths from YAML in order
+        % Collect all pattern paths from YAML in order
         %
         % INPUTS:
         %   experiment_data - Parsed YAML data structure
@@ -552,9 +552,14 @@ classdef maDisplayTools < handle
             if isfield(experiment_data, 'pretrial') && ...
                isfield(experiment_data.pretrial, 'include') && ...
                experiment_data.pretrial.include
-                if isfield(experiment_data.pretrial, 'command_inputs') && ...
-                   isfield(experiment_data.pretrial.command_inputs, 'pattern')
-                    pattern_paths{end+1} = char(experiment_data.pretrial.command_inputs.pattern);
+                if ~isempty(experiment_data.pretrial.commands)
+                    for c = 1:length(experiment_data.pretrial.commands)
+                        if isfield(experiment_data.pretrial.commands{c}, 'pattern') && ...
+                                ~isempty(experiment_data.pretrial.commands{c}.pattern)
+
+                            pattern_paths{end+1} = char(experiment_data.pretrial.commands{c}.pattern);
+                        end
+                    end
                 end
             end
             
@@ -565,9 +570,13 @@ classdef maDisplayTools < handle
                 
                 for idx = 1:length(conditions)
                     condition = conditions{idx};
-                    if isfield(condition, 'command_inputs') && ...
-                       isfield(condition.command_inputs, 'pattern')
-                        pattern_paths{end+1} = char(condition.command_inputs.pattern);
+                    if isfield(condition, 'commands') && ~isempty(condition.commands)
+                        for c = 1:length(condition.commands)
+                            if isfield(condition.commands{c}, 'pattern') && ...
+                                    ~isempty(condition.commands{c}.pattern)
+                                pattern_paths{end+1} = char(condition.commands{c}.pattern);
+                            end
+                        end
                     end
                 end
             end
@@ -576,9 +585,15 @@ classdef maDisplayTools < handle
             if isfield(experiment_data, 'intertrial') && ...
                isfield(experiment_data.intertrial, 'include') && ...
                experiment_data.intertrial.include
-                if isfield(experiment_data.intertrial, 'command_inputs') && ...
-                   isfield(experiment_data.intertrial.command_inputs, 'pattern')
-                    pattern_paths{end+1} = char(experiment_data.intertrial.command_inputs.pattern);
+                if isfield(experiment_data.intertrial, 'commands') && ...
+                    ~isempty(experiment_data.intertrial.commands)
+                    for c = 1:length(experiment_data.intertrial.commands)
+                        if isfield(experiment_data.intertrial.commands{c}, 'pattern') && ...
+                                ~isempty(experiment_data.intertrial.commands{c}.pattern)
+
+                            pattern_paths{end+1} = char(experiment_data.intertrial.commands{c}.pattern);
+                        end
+                    end
                 end
             end
             
@@ -586,9 +601,14 @@ classdef maDisplayTools < handle
             if isfield(experiment_data, 'posttrial') && ...
                isfield(experiment_data.posttrial, 'include') && ...
                experiment_data.posttrial.include
-                if isfield(experiment_data.posttrial, 'command_inputs') && ...
-                   isfield(experiment_data.posttrial.command_inputs, 'pattern')
-                    pattern_paths{end+1} = char(experiment_data.posttrial.command_inputs.pattern);
+                if isfield(experiment_data.posttrial, 'commands') && ...
+                        ~isempty(experiment_data.posttrial.commands)
+                    for c = 1:length(experiment_data.posttrial.commands)
+                        if isfield(experiment_data.posttrial.commands{c}, 'pattern') && ...
+                                ~isempty(experiment_data.posttrial.commands{c}.pattern)
+                            pattern_paths{end+1} = char(experiment_data.posttrial.commands{c}.pattern);
+                        end
+                    end
                 end
             end
         end
@@ -625,7 +645,7 @@ classdef maDisplayTools < handle
         end
         
         function experiment_data = update_pattern_paths_in_yaml(experiment_data, old_paths, new_names)
-        % UPDATE_PATTERN_PATHS_IN_YAML Replace old pattern paths with new filenames in YAML
+        % Replace old pattern paths with new filenames in YAML
         %
         % INPUTS:
         %   experiment_data - Parsed YAML data structure
@@ -637,16 +657,29 @@ classdef maDisplayTools < handle
         
             % Create lookup map
             path_map = containers.Map(old_paths, new_names);
-            
+            %% TODO: Needs re-factoring - assumes only one command per trial has a pattern
+            % but doesn't confirm this, so could cause issues if someone
+            % gave two controller commands with patterns in one trial.
             % Update pretrial
             if isfield(experiment_data, 'pretrial') && ...
                isfield(experiment_data.pretrial, 'include') && ...
                experiment_data.pretrial.include
-                if isfield(experiment_data.pretrial, 'command_inputs') && ...
-                   isfield(experiment_data.pretrial.command_inputs, 'pattern')
-                    old_path = experiment_data.pretrial.command_inputs.pattern;
+                if ~isempty(experiment_data.pretrial.commands)
+                    old_path = '';
+                    c = 1;
+                    %get index of command in command list that has a
+                    %pattern - assuming only one
+                    while c < length(experiment_data.pretrial.commands) && ...
+                        ~isfield(experiment_data.pretrial.commands{c}, 'pattern')
+                        c = c + 1;
+                    end
+                    if isfield(experiment_data.pretrial.commands{c}, 'pattern') && ...
+                            ~isempty(experiment_data.pretrial.commands{c}.pattern)
+                        old_path = experiment_data.pretrial.commands{c}.pattern;
+                    end
+
                     if isKey(path_map, old_path)
-                        experiment_data.pretrial.command_inputs.pattern = path_map(old_path);
+                        experiment_data.pretrial.commands{c}.pattern = path_map(old_path);
                     end
                 end
             end
@@ -658,11 +691,21 @@ classdef maDisplayTools < handle
                 
                 for idx = 1:length(conditions)
                     condition = conditions{idx};
-                    if isfield(condition, 'command_inputs') && ...
-                       isfield(condition.command_inputs, 'pattern')
-                        old_path = condition.command_inputs.pattern;
+                    if isfield(condition, 'commands') && ~isempty(condition.commands)
+                        old_path = '';
+                        c = 1;
+                        %get index of command in command list that has a
+                        %pattern - assuming only one
+                        while c < length(condition.commands) && ...
+                            ~isfield(condition.commands{c}, 'pattern')
+                            c = c + 1;
+                        end
+                        if isfield(condition.commands{c}, 'pattern') && ...
+                                ~isempty(condition.commands{c}.pattern)
+                            old_path = condition.commands{c}.pattern;
+                        end
                         if isKey(path_map, old_path)
-                            experiment_data.block.conditions{idx}.command_inputs.pattern = path_map(old_path);
+                            experiment_data.block.conditions{idx}.commands{c}.pattern = path_map(old_path);
                         end
                     end
                 end
@@ -672,24 +715,46 @@ classdef maDisplayTools < handle
             if isfield(experiment_data, 'intertrial') && ...
                isfield(experiment_data.intertrial, 'include') && ...
                experiment_data.intertrial.include
-                if isfield(experiment_data.intertrial, 'command_inputs') && ...
-                   isfield(experiment_data.intertrial.command_inputs, 'pattern')
-                    old_path = experiment_data.intertrial.command_inputs.pattern;
+                if isfield(experiment_data.intertrial, 'commands') && ...
+                    ~isempty(experiment_data.intertrial.commands)
+                    old_path = '';
+                    c = 1;
+                    %get index of command in command list that has a
+                    %pattern - assuming only one
+                    while c < length(experiment_data.intertrial.commands) && ...
+                        ~isfield(experiment_data.intertrial.commands{c}, 'pattern')
+                        c = c + 1;
+                    end
+                    if isfield(experiment_data.intertrial.commands{c}, 'pattern') && ...
+                            ~isempty(experiment_data.intertrial.commands{c}.pattern)
+                        old_path = experiment_data.intertrial.commands{c}.pattern;
+                    end
                     if isKey(path_map, old_path)
-                        experiment_data.intertrial.command_inputs.pattern = path_map(old_path);
+                        experiment_data.intertrial.commands{c}.pattern = path_map(old_path);
                     end
                 end
             end
             
             % Update posttrial
-            if isfield(experiment_data, 'posttrial') && ...
+           if isfield(experiment_data, 'posttrial') && ...
                isfield(experiment_data.posttrial, 'include') && ...
                experiment_data.posttrial.include
-                if isfield(experiment_data.posttrial, 'command_inputs') && ...
-                   isfield(experiment_data.posttrial.command_inputs, 'pattern')
-                    old_path = experiment_data.posttrial.command_inputs.pattern;
+                if isfield(experiment_data.posttrial, 'commands') && ...
+                        ~isempty(experiment_data.posttrial.commands)
+                    old_path = '';
+                    c = 1;
+                    %get index of command in command list that has a
+                    %pattern - assuming only one
+                    while c < length(experiment_data.posttrial.commands) && ...
+                        ~isfield(experiment_data.posttrial.commands{c}, 'pattern')
+                        c = c + 1;
+                    end
+                    if isfield(experiment_data.posttrial.commands{c}, 'pattern') && ...
+                            ~isempty(experiment_data.posttrial.commands{c}.pattern)
+                        old_path = experiment_data.posttrial.commands{c}.pattern;
+                    end
                     if isKey(path_map, old_path)
-                        experiment_data.posttrial.command_inputs.pattern = path_map(old_path);
+                        experiment_data.posttrial.commands{c}.pattern = path_map(old_path);
                     end
                 end
             end

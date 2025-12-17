@@ -1,5 +1,5 @@
 classdef ProtocolParser < handle
-    % PROTOCOLPARSER Parse and validate YAML protocol files
+    % Parse  and validate YAML protocol files
     %
     % This class reads YAML protocol files and extracts all sections into
     % a structured format. It validates the protocol structure and provides
@@ -30,7 +30,7 @@ classdef ProtocolParser < handle
     
     methods (Access = public)
         function self = ProtocolParser(varargin)
-            % PROTOCOLPARSER Constructor
+            % Constructor
             %
             % Optional Name-Value Arguments:
             %   'verbose' - Print parsing progress (default: false)
@@ -47,7 +47,7 @@ classdef ProtocolParser < handle
         end
         
         function protocol = parse(self, filepath)
-            % PARSE Parse YAML protocol file
+            % Parse YAML protocol file
             %
             % Input Arguments:
             %   filepath - Path to YAML protocol file
@@ -134,9 +134,12 @@ classdef ProtocolParser < handle
         function output = get_supported_versions(self)
             output = self.SUPPORTED_VERSIONS;
         end
+
+
     end
     
     methods (Access = private)
+
         function validateProtocol(self, data)
             % Check that protocol has required structure
             %
@@ -258,6 +261,10 @@ classdef ProtocolParser < handle
         function validatePlugins(self, plugins)
             % Validate plugins section
             
+            if isstruct(plugins) && ~iscell(plugins)
+                plugins = {plugins};
+            end
+            
             if ~iscell(plugins)
                 self.throwValidationError('plugins must be a list (cell array)');
             end
@@ -346,8 +353,8 @@ classdef ProtocolParser < handle
         function validateScriptPlugin(self, plugin)
             % Validate script plugin
             
-            if ~isfield(plugin, 'script')
-                self.throwValidationError('Script plugin "%s" missing required "script" field', ...
+            if ~isfield(plugin, 'script_path')
+                self.throwValidationError('Script plugin "%s" missing required "script_path" field', ...
                                          plugin.name);
             end
         end
@@ -381,6 +388,9 @@ classdef ProtocolParser < handle
                                              condition.id);
                 end
                 
+                if isstruct(condition.commands) && ~iscell(condition.commands)
+                    condition.commands = {condition.commands};
+                end
                 if ~iscell(condition.commands)
                     self.throwValidationError('Block condition "%s" commands must be a list', ...
                                              condition.id);
@@ -419,6 +429,9 @@ classdef ProtocolParser < handle
                                              sectionName);
                 end
                 
+                if isstruct(section.commands) && ~iscell(section.commands)
+                    section.commands = {section.commands};
+                end
                 if ~iscell(section.commands)
                     self.throwValidationError('%s.commands must be a list', sectionName);
                 end
@@ -535,6 +548,9 @@ classdef ProtocolParser < handle
             
             % Extract pretrial commands
             protocol.pretrialCommands = self.extractOptionalSection(data, 'pretrial');
+            if isstruct(protocol.pretrialCommands) && ~iscell(protocol.pretrialCommands)
+                protocol.pretrialCommands = {protocol.pretrialCommands};
+            end
             if self.verbose
                 if isempty(protocol.pretrialCommands)
                     fprintf('  Pretrial: skipped\n');
@@ -545,12 +561,21 @@ classdef ProtocolParser < handle
             
             % Extract block conditions
             protocol.blockConditions = data.block.conditions;
+            for cond = 1:length(protocol.blockConditions)
+                if isstruct(protocol.blockConditions(cond).commands) && ...
+                        ~iscell(protocol.blockConditions(cond).commands)
+                    protocol.blockConditions(cond).commands = {protocol.blockConditions(cond).commands};
+                end
+            end
             if self.verbose
                 fprintf('  Block: %d conditions\n', length(protocol.blockConditions));
             end
             
             % Extract intertrial commands
             protocol.intertrialCommands = self.extractOptionalSection(data, 'intertrial');
+            if isstruct(protocol.intertrialCommands) && ~iscell(protocol.intertrialCommands)
+                protocol.intertrialCommands = {protocol.intertrialCommands};
+            end
             if self.verbose
                 if isempty(protocol.intertrialCommands)
                     fprintf('  Intertrial: skipped\n');
@@ -561,6 +586,9 @@ classdef ProtocolParser < handle
             
             % Extract posttrial commands
             protocol.posttrialCommands = self.extractOptionalSection(data, 'posttrial');
+            if isstruct(protocol.posttrialCommands) && ~iscell(protocol.posttrialCommands)
+                protocol.posttrialCommands = {protocol.posttrialCommands};
+            end
             if self.verbose
                 if isempty(protocol.posttrialCommands)
                     fprintf('  Posttrial: skipped\n');
@@ -617,21 +645,7 @@ classdef ProtocolParser < handle
                 end
             end
             
-            num_conds = length(protocol.blockConditions);
-            reps = protocol.experimentStructure.repetitions;
-            pre = 0;
-            inter = 0;
-            post = 0;
-            if ~isempty(protocol.pretrialCommands)
-                pre = 1;
-            end
-            if ~isempty(protocol.intertrialCommands)
-                inter = 1;
-            end
-            if ~isempty(protocol.posttrialCommands)
-                post = 1;
-            end
-            total_trials = (num_conds*reps) + inter*((num_conds*reps)-1) + pre + post;
+            total_trials = ProtocolParser.get_total_trials(protocol);
 
             fprintf('Conditions: %d\n', length(protocol.blockConditions));
             fprintf('Total trials: %d\n', total_trials);
@@ -651,4 +665,28 @@ classdef ProtocolParser < handle
             error('ProtocolParser:ValidationError', '%s', fullMsg);
         end
     end
+    
+    methods (Static)
+
+        function output = get_total_trials(protocol)
+
+            num_conds = length(protocol.blockConditions);
+            reps = protocol.experimentStructure.repetitions;
+            pre = 0;
+            inter = 0;
+            post = 0;
+            if ~isempty(protocol.pretrialCommands)
+                pre = 1;
+            end
+            if ~isempty(protocol.intertrialCommands)
+                inter = 1;
+            end
+            if ~isempty(protocol.posttrialCommands)
+                post = 1;
+            end
+            output = (num_conds*reps) + inter*((num_conds*reps)-1) + pre + post;
+            
+        end
+    end
+
 end

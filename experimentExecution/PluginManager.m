@@ -1,5 +1,5 @@
 classdef PluginManager < handle
-    % PLUGINMANAGER Manages initialization and execution of all plugins
+    % Manages initialization and execution of all plugins
     %
     % This class handles:
     % - Initializing serial device, class, and script plugins
@@ -14,7 +14,7 @@ classdef PluginManager < handle
     
     methods (Access = public)
         function self = PluginManager(logger)
-            % PLUGINMANAGER Constructor
+            % Constructor
             %
             % Input Arguments:
             %   logger - ExperimentLogger instance for logging
@@ -24,62 +24,64 @@ classdef PluginManager < handle
         end
         
         function initializePlugin(self, pluginDef)
-            % INITIALIZEPLUGIN Initialize a plugin from definition
+            % Initialize a plugin from definition
             %
             % Input Arguments:
             %   pluginDef - Struct containing plugin definition from YAML
             %               Required fields: id, type
             %               Additional fields depend on type
             
-            pluginID = pluginDef.id;
+            pluginName = pluginDef.name;
             pluginType = pluginDef.type;
             
             self.logger.log('INFO', sprintf('Initializing %s plugin: %s', ...
-                                          pluginType, pluginID));
+                                          pluginType, pluginName));
             
-            % Create appropriate plugin object based on type
+            % Create appropriate plugin object based on type.
+            %% TODO: Still need to create these classes. Each class can load a plugin
+            % of the particular type made by the user. 
             switch pluginType
                 case 'serial_device'
-                    plugin = SerialPlugin(pluginID, pluginDef, self.logger);
+                    plugin = SerialPlugin(pluginName, pluginDef, self.logger);
                     
                 case 'class'
-                    plugin = ClassPlugin(pluginID, pluginDef, self.logger);
+                    plugin = ClassPlugin(pluginName, pluginDef, self.logger);
                     
                 case 'script'
-                    plugin = ScriptPlugin(pluginID, pluginDef, self.logger);
+                    plugin = ScriptPlugin(pluginName, pluginDef, self.logger);
                     
                 otherwise
                     error('Unknown plugin type: %s', pluginType);
             end
             
             % Initialize the plugin
-            plugin.initialize();
+            %plugin.initialize();
             
             % Store in registry
-            self.pluginRegistry(pluginID) = plugin;
+            self.pluginRegistry(pluginName) = plugin;
         end
         
-        function plugin = getPlugin(self, pluginID)
-            % GETPLUGIN Retrieve plugin by ID
+        function plugin = getPlugin(self, pluginName)
+            % Retrieve plugin by ID
             %
             % Input Arguments:
-            %   pluginID - Plugin identifier string
+            %   pluginName - Plugin identifier string
             %
             % Returns:
             %   plugin - Plugin object
             
-            if ~self.pluginRegistry.isKey(pluginID)
-                error('Plugin not found: %s', pluginID);
+            if ~self.pluginRegistry.isKey(pluginName)
+                error('Plugin not found: %s', pluginName);
             end
             
-            plugin = self.pluginRegistry(pluginID);
+            plugin = self.pluginRegistry(pluginName);
         end
         
-        function result = executePluginCommand(self, pluginID, varargin)
-            % EXECUTEPLUGINCOMMAND Execute a command on a plugin
+        function result = executePluginCommand(self, pluginName, varargin)
+            % Execute a command on a plugin
             %
             % Input Arguments:
-            %   pluginID - Plugin identifier string
+            %   pluginName - Plugin identifier string
             %   varargin - Additional arguments depend on plugin type:
             %              For SerialPlugin: 'command', commandName
             %              For ClassPlugin: 'method', methodName, 'params', params
@@ -88,37 +90,37 @@ classdef PluginManager < handle
             % Returns:
             %   result - Command execution result (plugin-dependent)
             
-            plugin = self.getPlugin(pluginID);
+            plugin = self.getPlugin(pluginName);
             result = plugin.execute(varargin{:});
         end
         
         function closeAll(self)
-            % CLOSEALL Close all plugin connections
+            % Close all plugin connections
             
             self.logger.log('INFO', 'Closing all plugins...');
             
-            pluginIDs = keys(self.pluginRegistry);
-            for i = 1:length(pluginIDs)
-                pluginID = pluginIDs{i};
+            pluginNames = keys(self.pluginRegistry);
+            for i = 1:length(pluginNames)
+                pluginName = pluginNames{i};
                 try
-                    plugin = self.pluginRegistry(pluginID);
+                    plugin = self.pluginRegistry(pluginName);
                     plugin.close();
-                    self.logger.log('INFO', sprintf('  ✓ Closed plugin: %s', pluginID));
+                    self.logger.log('INFO', sprintf('  ✓ Closed plugin: %s', pluginName));
                 catch ME
                     self.logger.log('WARNING', sprintf('  ✗ Failed to close plugin %s: %s', ...
-                                                     pluginID, ME.message));
+                                                     pluginName, ME.message));
                 end
             end
         end
         
         function count = getPluginCount(self)
-            % GETPLUGINCOUNT Get number of registered plugins
+            % Get number of registered plugins
             
             count = self.pluginRegistry.Count;
         end
         
-        function ids = listPluginIDs(self)
-            % LISTPLUGINIDS Get list of all plugin IDs
+        function ids = listpluginNames(self)
+            % Get list of all plugin IDs
             
             ids = keys(self.pluginRegistry);
         end

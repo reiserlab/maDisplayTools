@@ -108,7 +108,7 @@ classdef ExperimentLogger < handle
         end
         
         function close(self)
-            % CLOSE Close log file
+            % Close log file
             
             if ~isempty(self.fileID) && self.fileID > 0
                 self.log('INFO', 'Closing log file');

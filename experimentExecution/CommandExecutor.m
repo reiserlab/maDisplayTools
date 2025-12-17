@@ -117,33 +117,37 @@ classdef CommandExecutor < handle
                         if mode > 1 && mode < 5
                             switch mode
                                 case 2
-                                    required_fields = {'patID', 'posX', 'dur', 'frameRate'};
+                                    required_fields = {'pattern', 'frame_index', 'duration', 'frame_rate'};
                                     self.check_required_fields(command, required_fields);
-                                    patID = command.patID;
-                                    posX = command.posX;
-                                    dur = command.dur;
-                                    frameRate = command.frameRate;
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    posX = command.frame_index;
+                                    dur = command.duration;
+                                    frameRate = command.frame_rate;
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate)
+                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate);
                                     pause(dur);
                                     
         
                                 case 3
-                                    required_fields = {'patId', 'posX', 'dur'};
+                                    required_fields = {'pattern', 'frame_index', 'duration'};
                                     self.check_required_fields(command, required_fields);
-                                    patID = command.patID;
-                                    posX = command.posX;
-                                    dur = command.dur; 
+                                    
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    posX = command.frame_index;
+                                    dur = command.duration;
 
                                     self.arenaController.startG41Trial(mode, patID, posX, dur*10);
                                     pause(dur);
 
                                 case 4
-                                    required_fields = {'patID', 'posX', 'dur', 'gain'};
+                                    required_fields = {'pattern', 'frame_position', 'duration', 'gain'};
                                     self.check_required_fields(command, required_fields);
-                                    patID = command.patID;
-                                    posX = command.posX;
-                                    dur = command.dur;
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    posX = command.frame_index;
+                                    dur = command.duration;
                                     frameRate = 1; %Not used but need filler to pass in to controller
                                     gain = command.gain; 
 
@@ -166,7 +170,7 @@ classdef CommandExecutor < handle
         end
         
         function executeWaitCommand(self, command)
-            % EXECUTEWAITCOMMAND Pause execution
+            % Pause execution
             %
             % Command fields:
             %   duration - Wait duration in milliseconds
@@ -180,13 +184,13 @@ classdef CommandExecutor < handle
             self.logger.log('INFO', sprintf('Wait command: %d ms', duration));
             
             % Convert milliseconds to seconds and pause
-            pause(duration / 1000);
+            pause(duration);
             
             self.logger.log('DEBUG', 'Wait command completed');
         end
         
         function executePluginCommand(self, command)
-            % EXECUTEPLUGINCOMMAND Execute plugin method/command
+            % Execute plugin method/command
             %
             % Command fields:
             %   plugin_name - Plugin ID to call
@@ -206,7 +210,7 @@ classdef CommandExecutor < handle
             
             % Get plugin to determine type
             plugin = self.pluginManager.getPlugin(pluginID);
-            pluginType = plugin.getType();
+            pluginType = plugin.getPluginType();
             
             self.logger.log('INFO', sprintf('Plugin command: %s (%s)', ...
                                           pluginID, pluginType));
@@ -263,7 +267,7 @@ classdef CommandExecutor < handle
             else
                 % Check that all field values are within range
                 for field = 1:length(fields)
-                    switch command.(fields{field})
+                    switch fields{field}
     
                         case 'mode'
                             if command.mode < 2 || command.mode > 4
@@ -272,19 +276,19 @@ classdef CommandExecutor < handle
                                 msg = [];
                             end
     
-                        case 'patID'
+                        case 'pattern'
                             % add value check for pat ID here
                             msg = [];
     
-                        case 'posX'
+                        case 'frame_index'
                             % add value check for posX here
                             msg = [];
     
-                        case 'dur'
+                        case 'duration'
                             % add value check for duration here
                             msg = [];
     
-                        case 'frameRate'
+                        case 'frame_rate'
                             % add limits for frame rate here
                             msg = [];
     

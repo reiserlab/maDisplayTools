@@ -1,4 +1,4 @@
-function run_protocol(protocolFilePath, varargin)
+function run_protocol(protocolFilePath, arenaIP, varargin)
 % RUN_PROTOCOL Execute a G4.1 display experiment from a YAML protocol file
 %
 % Syntax:
@@ -33,10 +33,11 @@ function run_protocol(protocolFilePath, varargin)
     % Parse input arguments
     p = inputParser;
     addRequired(p, 'protocolFilePath', @(x) ischar(x) || isstring(x));
+    addRequired(p, 'arenaIP', @ischar);
     addParameter(p, 'OutputDir', './experiments', @(x) ischar(x) || isstring(x));
     addParameter(p, 'Verbose', true, @islogical);
     addParameter(p, 'DryRun', false, @islogical);
-    parse(p, protocolFilePath, varargin{:});
+    parse(p, protocolFilePath, arenaIP, varargin{:});
     
     % Convert to char if string
     protocolFilePath = char(p.Results.protocolFilePath);
@@ -48,7 +49,7 @@ function run_protocol(protocolFilePath, varargin)
     end
     
     % Create and configure protocol runner
-    runner = ProtocolRunner(protocolFilePath, ...
+    runner = ProtocolRunner(protocolFilePath, arenaIP, ...
                            'OutputDir', outputDir, ...
                            'Verbose', p.Results.Verbose, ...
                            'DryRun', p.Results.DryRun);
@@ -56,7 +57,7 @@ function run_protocol(protocolFilePath, varargin)
     % Execute the protocol with error handling
     try
         runner.run();
-        fprintf('\n=== Experiment completed successfully ===\n');
+        fprintf('\n=== Finalizing Experiment ===\n');
         
     catch ME
         % Log error
@@ -74,4 +75,5 @@ function run_protocol(protocolFilePath, varargin)
         % Re-throw original error
         rethrow(ME);
     end
+        
 end
