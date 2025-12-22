@@ -1,0 +1,106 @@
+version: 1.0
+experiment_info:
+  name: Simple arena-only experiment
+  date_created: 12-15-2025
+  author: Lisa F
+arena_info:
+  num_rows: 2.0
+  num_cols: 12.0
+  generation: G4.1
+plugins:
+- name: analysis
+  type: script
+  script_path: /Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/test_analysis_script.m
+  script_type: function
+experiment_structure:
+  repetitions: 3.0
+  randomization:
+    enabled: true
+    seed: null
+    method: block
+pretrial:
+  include: true
+  commands:
+  - type: controller
+    command_name: startG41Trial
+    pattern: pat0001_2row_gs2_sqGrate.pat
+    duration: 2.0
+    mode: 2.0
+    frame_index: 1.0
+    frame_rate: 60.0
+    gain: 0.0
+  - type: wait
+    duration: 0.5
+block:
+  conditions:
+  - id: condition 1
+    commands:
+    - type: controller
+      command_name: startG41Trial
+      pattern: pat0001_2row_gs2_sqGrate.pat
+      duration: 5.0
+      mode: 2.0
+      frame_index: 1.0
+      frame_rate: 60.0
+      gain: 0.0
+  - id: condition 2
+    commands:
+    - type: controller
+      command_name: startG41Trial
+      pattern: pat0002_2row_gs2_sqGrate.pat
+      duration: 5.0
+      mode: 2.0
+      frame_index: 1.0
+      frame_rate: 60.0
+      gain: 0.0
+  - id: condition 3
+    commands:
+    - type: controller
+      command_name: startG41Trial
+      pattern: pat0003_2row_gs2_sqGrate.pat
+      duration: 3.0
+      mode: 2.0
+      frame_index: 1.0
+      frame_rate: 60.0
+      gain: 0.0
+  - id: dark_control
+    commands:
+    - type: controller
+      command_name: allOff
+    - type: wait
+      duration: 3.0
+intertrial:
+  include: true
+  commands:
+  - type: controller
+    command_name: startG41Trial
+    pattern: pat0001_2row_gs2_sqGrate.pat
+    duration: 2.0
+    mode: 2.0
+    frame_index: 1.0
+    frame_rate: 60.0
+    gain: 0.0
+posttrial:
+  include: true
+  commands:
+  - type: controller
+    command_name: startG41Trial
+    pattern: pat0001_2row_gs2_sqGrate.pat
+    duration: 2.0
+    mode: 2.0
+    frame_index: 1.0
+    frame_rate: 60.0
+    gain: 0.0
+  - type: plugin
+    plugin_name: analysis
+  - type: wait
+    duration: 1.0
+pattern_mapping:
+  description: Mapping of original pattern paths to renamed pattern files
+  mappings:
+  - original: /Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat
+    renamed: pat0001_2row_gs2_sqGrate.pat
+  - original: /Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002_2row_gs2_sqGrate.pat
+    renamed: pat0002_2row_gs2_sqGrate.pat
+  - original: /Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003_2row_gs2_sqGrate.pat
+    renamed: pat0003_2row_gs2_sqGrate.pat

@@ -1,0 +1,16 @@
+EXPERIMENT SUMMARY
+==================
+
+Experiment: Simple arena-only experiment
+Date: 19-Dec-2025 10:48:35
+Protocol: /Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/simpleDemo/simple_protocol_v1.yaml
+
+Arena Configuration:
+  Generation: G4.1
+  Dimensions: 2x12 panels
+
+Experimental Design:
+  Conditions: 4
+  Repetitions: 3
+  Total Trials: 25
+
