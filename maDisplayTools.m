@@ -14,7 +14,7 @@ classdef maDisplayTools < handle
         %% Pattern Creation Tools
 
         function generate_pattern_from_array(Pats, save_dir, patName, gs_val, stretch, arena_pitch)
-            % GENERATE_PATTERN_FROM_ARRAY Create and save a pattern from array
+            % Create and save a pattern from array
             %   Main user-facing function to create a .pat file from a pattern array
             %
             %   Args:
@@ -99,7 +99,7 @@ classdef maDisplayTools < handle
         end
 
         function save_pattern_g4(Pats, param, stretch, save_dir, filename)
-            % SAVE_PATTERN_G4 Save a pattern as a .pat binary file
+            %  Save a pattern as a .pat binary file
             %   Creates a pattern structure, generates the binary data, and saves it
             %
             %   Args:

@@ -87,7 +87,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002_2row_gs2_sqGrate.pat"
+          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002.pat"
           duration: 5 # 5 seconds
           mode: 2
           frame_index: 1
@@ -100,7 +100,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003_2row_gs2_sqGrate.pat"
+          pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003.pat"
           duration: 3  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -147,7 +147,7 @@ posttrial:
     # Display posttrial pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat"
+      pattern: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0004.pat"
       duration: 2
       mode: 2
       frame_index: 1

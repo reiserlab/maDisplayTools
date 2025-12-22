@@ -4,8 +4,9 @@
 % horizontally across frames.
 
 %% Define pattern dimensions
-rows = 16;  % 48 for 3 row arena, 64 for 4 row arena
+rows = 64;  % 48 for 3 row arena, 64 for 4 row arena
 cols = 192;
+pix_per_panel = 16;
 frames = 24;
 
 %% Create the pattern array
@@ -13,13 +14,13 @@ frames = 24;
 
 % Create the base pattern for one row of a single frame
 pattern_row = zeros(1, cols, 'uint8');
-for i = 0:(cols/12 - 1)
+for i = 0:(cols/pix_per_panel - 1)
     if mod(i, 2) == 0
         val = 1;
     else
         val = 0;
     end
-    pattern_row((i*12 + 1):(i*12 + 12)) = val;
+    pattern_row((i*pix_per_panel + 1):(i*pix_per_panel + pix_per_panel)) = val;
 end
 
 % Initialize the full 3D array
@@ -36,7 +37,7 @@ Pats = reshape(pattern_array_3d, [rows, cols, frames, 1]);
 
 %% Set up parameters
 save_dir = pwd;
-patName = '2row_gs2_sqGrate';
+patName = '4row_gs2_sqGrate';
 gs_val = 2;   %       2  = Binary pattern (1 bit per pixel, values 0-1)
             %       16 = Grayscale pattern (4 bits per pixel, values 0-15)          
 stretch = ones(frames, 1, 'uint8');

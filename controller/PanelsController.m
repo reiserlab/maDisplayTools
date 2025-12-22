@@ -799,20 +799,20 @@ classdef PanelsController < handle
             end
             cmdData = char([12, 8]);
             %  % Build command with encoded parameters
-            disp("I'm running the mock startG41Trial command!");
-%             self.write([cmdData ...
-%             mode ...                        % mode: passed directly (single byte)
-%             dec2char(patID, 2) ...          % patID: 2 bytes unsigned
-%             dec2char(frameRate, 2) ...      % frameRate: 2 bytes unsigned
-%             dec2char(posX, 2) ...           % posX: 2 bytes unsigned
-%             signed_16Bit_to_char(gain) ...  % gain: 2 bytes signed
-%             dec2char(dur, 2)]);             % dur: 2 bytes unsigned
-% 
-% %            Handle response if needed
-%             resp = self.expectResponse(0, 8, [], 0.1);
-%             if ~isempty(resp)
-%                 rtn = true;
-%             end
+%            disp("I'm running the mock startG41Trial command!");
+            self.write([cmdData ...
+            mode ...                        % mode: passed directly (single byte)
+            dec2char(patID, 2) ...          % patID: 2 bytes unsigned
+            dec2char(frameRate, 2) ...      % frameRate: 2 bytes unsigned
+            dec2char(posX, 2) ...           % posX: 2 bytes unsigned
+            signed_16Bit_to_char(gain) ...  % gain: 2 bytes signed
+            dec2char(dur, 2)]);             % dur: 2 bytes unsigned
+
+%            Handle response if needed
+            resp = self.expectResponse(0, 8, [], 0.1);
+            if ~isempty(resp)
+                rtn = true;
+            end
 
         end
         
