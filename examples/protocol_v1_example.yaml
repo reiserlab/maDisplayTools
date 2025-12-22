@@ -56,7 +56,7 @@ plugins:
     config:
       ip: "127.0.0.1"
       port: 5020
-      config_path: "./config/simple_bias_config.json"
+      config_path: './config/simple_bias_config.json'
 
   # Class Plugin - Data acquisition system
   - name: "daq_system"
@@ -74,12 +74,12 @@ plugins:
   # Script Plugin - Custom preprocessing
   - name: "preprocessing"
     type: "script"
-    script: "./user_functions/preprocess_data"
+    script: './user_functions/preprocess_data'
 
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
-    script: "./user_functions/analyze_trial"
+    script: './user_functions/analyze_trial'
 
 # ============================================================================
 # EXPERIMENT STRUCTURE
@@ -137,7 +137,7 @@ pretrial:
     # Display a test pattern to verify arena
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: "./patterns/pat0001_test_grid.pat"
+      pattern: './patterns/pat0001_test_grid.pat'
       duration: 2000  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -184,7 +184,7 @@ block:
         # Display pattern
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "./patterns/pat0002_vertical_bars.pat"
+          pattern: './patterns/pat0002_vertical_bars.pat'
           duration: 5000  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -226,7 +226,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "./patterns/pat0003_horizontal_bars.pat"
+          pattern: './patterns/pat0003_horizontal_bars.pat'
           duration: 5000
           mode: 2
           frame_index: 1
@@ -267,7 +267,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "./patterns/pat0004_checkerboard.pat"
+          pattern: './patterns/pat0004_checkerboard.pat'
           duration: 3000  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -308,7 +308,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: "./patterns/pat0005_expanding_grating.pat"
+          pattern: './patterns/pat0005_expanding_grating.pat'
           duration: 4000  # 4 seconds
           mode: 2
           frame_index: 1
@@ -376,7 +376,7 @@ intertrial:
     # Reset to baseline pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: "./patterns/pat0006_uniform_gray.pat"
+      pattern: './patterns/pat0006_uniform_gray.pat'
       duration: 2000  # 2 second inter-trial interval
       mode: 2
       frame_index: 1
@@ -419,7 +419,7 @@ posttrial:
     # Display completion message pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: "./patterns/pat0007_complete.pat"
+      pattern: './patterns/pat0007_complete.pat'
       duration: 2000
       mode: 2
       frame_index: 1
