@@ -1,7 +1,7 @@
 %% Demo of all implemented PanelsController commands aside from modes. 
 
 %% Initialize Panels Controller
-ip_add = '10.102.40.61'; % may vary by arena
+ip_add = '10.102.40.47'; % may vary by arena
 panelsController = PanelsController(ip_add);
 panelsController.open(false);
 
@@ -41,7 +41,7 @@ cols = 192;
 pat_row = zeros(1, cols, 'uint8');
 for i = 0:(cols/12 - 1)
     if mod(i, 2) == 0
-        val = 1;
+        val = 10;
     else
         val = 0;
     end

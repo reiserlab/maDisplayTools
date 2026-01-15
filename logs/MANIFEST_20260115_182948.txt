@@ -1,0 +1,25 @@
+Timestamp: 2026-01-15T18:29:48
+SD Drive: D:
+Pattern Count: 20
+
+Mapping:
+PAT0001.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0001_num0_2x12.pat
+PAT0002.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0002_num1_2x12.pat
+PAT0003.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0003_num2_2x12.pat
+PAT0004.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0004_num3_2x12.pat
+PAT0005.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0005_num4_2x12.pat
+PAT0006.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0006_num5_2x12.pat
+PAT0007.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0007_num6_2x12.pat
+PAT0008.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0008_num7_2x12.pat
+PAT0009.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0009_num8_2x12.pat
+PAT0010.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0010_num9_2x12.pat
+PAT0011.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0011_grating_wl48_2x12.pat
+PAT0012.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0012_grating_wl36_2x12.pat
+PAT0013.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0013_grating_wl24_2x12.pat
+PAT0014.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0014_grating_wl18_2x12.pat
+PAT0015.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0015_grating_wl12_2x12.pat
+PAT0016.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0016_grating_wl09_2x12.pat
+PAT0017.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0017_grating_wl06_2x12.pat
+PAT0018.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0018_grating_wl05_2x12.pat
+PAT0019.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0019_grating_wl04_2x12.pat
+PAT0020.pat <- C:\Users\labadmin\matlabroot\maDisplayTools\examples\test_patterns\pat0020_grating_wl03_2x12.pat

@@ -66,7 +66,7 @@ end
 patternInitial = pattern; % store converted initial pattern frame for re-use
 
 %% Initialize Panels Controller and other hardware
-panelsController = PanelsController('10.102.40.61');
+panelsController = PanelsController('10.102.40.47');
 panelsController.open(false);
 
 %% Execute any pre-experiment hardware preparations

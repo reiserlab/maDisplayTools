@@ -6,7 +6,7 @@ classdef PanelsControllerTeensyFunctionalTest < matlab.unittest.TestCase
 
     methods(TestMethodSetup)
         function startNewHost(testCase)
-            testCase.panelsController = PanelsController('10.103.40.25');
+            testCase.panelsController = PanelsController('10.102.40.47');
             testCase.panelsController.open(false);
         end
      end
