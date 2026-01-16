@@ -6,7 +6,7 @@
 
 ```matlab
 % Add to path
-addpath('/path/to/maDisplayTools/utils/file_transfer');
+addpath('/path/to/maDisplayTools/utils');
 
 % Define patterns in desired order
 patterns = {
