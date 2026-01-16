@@ -2,27 +2,40 @@
 
 No hardware needed — can do from anywhere.
 
-## 1. Set up web_tools directory structure
+## 1. ✅ Set up web tools directory structure (COMPLETED)
 
-```
-maDisplayTools/
-└── web/
-    ├── landing/           # Future: links to editors, docs
-    ├── arena-editor/      # Arena layout configurator
-    └── pattern-editor/    # G6 pattern editor (move existing)
-```
+**Status**: Web tools moved to separate public repository at `webDisplayTools`
 
-- [ ] Create `web/` directory structure
-- [ ] Add placeholder `index.html` in each subfolder
-- [ ] Decide on shared CSS/JS approach (or keep each standalone)
+**What was done**:
+- Created flat directory structure with single HTML files
+- Built modern dark theme landing page (`index.html`)
+- Integrated existing G6 Panel Pattern Editor (20×20 pixels)
+- Added placeholder pages for future tools
+- Rebranded as "PanelDisplayTools"
+- All tools use consistent dark theme with green accents
+- Added Reiser Lab branding and GitHub links
+- Repository: https://github.com/reiserlab/webDisplayTools
 
-## 2. Move G6 pattern tools
+**Tools included**:
+- ✅ G6 Panel Pattern Editor (functional)
+- 🚧 Arena Layout Editor (placeholder)
+- 🚧 G4.1 Pattern Editor (placeholder)
+- 🚧 G6 Pattern Editor (placeholder)
+- 🚧 Experiment Designer (placeholder)
+
+**Next step**: Deploy to GitHub Pages once repository is pushed
+
+---
+
+## 2. Move G6 pattern tools (MATLAB)
 
 - [ ] Locate existing G6 MATLAB pattern code
-- [ ] Locate existing G6 web pattern editor
-- [ ] Move/copy into `maDisplayTools` repo
-- [ ] Add `G6_` prefix to MATLAB functions or put in `G6/` subfolder
+- [ ] Move/copy into `maDisplayTools` repo under `G6/` subfolder
+- [ ] Add `G6_` prefix to MATLAB functions or organize in subdirectory
 - [ ] Document what exists vs what's missing
+- [ ] Ensure MATLAB tools match web tool outputs
+
+---
 
 ## 3. Arena layout parameterization
 
@@ -43,16 +56,56 @@ geometry: "cylinder"  # or "flat"
 - [ ] Create MATLAB function to load/validate arena config
 - [ ] Create JS equivalent for web tools
 
-## 4. Web arena editor (start)
+---
 
-- [ ] Sketch UI: dropdowns for rows/cols, preview of arena shape
-- [ ] Choose tech: vanilla JS, React, or simple HTML+JS
-- [ ] Build basic prototype that outputs arena config JSON
+## 4. Web arena editor (implementation)
+
+Build the Arena Layout Editor as next web tool:
+
+- [ ] Design UI: dropdowns for rows/cols, preview of arena shape
+- [ ] Implement arena visualization (cylinder/flat geometry)
+- [ ] Add arena config export (JSON/YAML)
+- [ ] Match output format with MATLAB requirements
+- [ ] Test with existing arena configurations
+
+---
+
+## 5. Pattern editors (G4.1 and G6 multi-panel)
+
+After arena editor, build pattern editors:
+
+### G4.1 Pattern Editor
+- [ ] Research G4.1 display specifications
+- [ ] Build pattern creation interface
+- [ ] Add frame sequencing support
+- [ ] Implement export functionality
+
+### G6 Pattern Editor (multi-panel)
+- [ ] Extend single-panel editor to multi-panel
+- [ ] Add arena layout integration
+- [ ] Support for full arena patterns
+- [ ] Animation and sequencing tools
+
+---
+
+## 6. Experiment Designer
+
+Build experiment configuration tool:
+
+- [ ] Define experiment file format
+- [ ] Build UI for stimulus sequence design
+- [ ] Add parameter configuration interface
+- [ ] Implement experiment export
 
 ---
 
 ## Notes
 
 - All web outputs must match MATLAB outputs exactly
-- Keep it simple—vanilla JS is fine for now
-- Can test web tools locally without deployment
+- Keep it simple—vanilla JS is preferred
+- Tools are client-side only, no server needed
+- Can test locally by opening HTML files
+- GitHub Pages deployment for public access
+- Separate repositories:
+  - `maDisplayTools` (private) - MATLAB tools
+  - `webDisplayTools` (public) - Web tools
