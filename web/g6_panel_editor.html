@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G6 Panel Pattern Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f1419;
+            --surface: #1a1f26;
+            --border: #2d3640;
+            --text: #e6edf3;
+            --text-dim: #8b949e;
+            --accent: #00e676;
+            --led-off: #1e2329;
+            --hover: #00c853;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .mode-btn {
+            padding: 0.7rem 1.3rem;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .mode-btn:not(.active):hover {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .nav-link:hover {
+            color: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        select {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.65rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text);
+            cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Byte List */
+        .byte-list {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            max-height: 460px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            margin-bottom: 1rem;
+        }
+
+        .byte-row {
+            display: grid;
+            grid-template-columns: 30px 55px 40px;
+            gap: 0.5rem;
+            padding: 0.25rem 0.4rem;
+            align-items: center;
+        }
+
+        .byte-row:hover { background: var(--surface); }
+
+        .byte-row.group-start {
+            border-top: 2px solid var(--border);
+            margin-top: 0.3rem;
+            padding-top: 0.4rem;
+        }
+
+        .byte-index {
+            color: var(--text-dim);
+            text-align: right;
+            font-size: 0.6rem;
+        }
+
+        .byte-hex {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .byte-value { color: var(--text); }
+
+        /* Palette */
+        .palette-section {
+            margin-bottom: 1rem;
+        }
+
+        .palette-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .palette-swatch {
+            aspect-ratio: 1;
+            border: 2px solid var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.58rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .palette-swatch:hover {
+            transform: scale(1.1);
+            border-color: var(--accent);
+        }
+
+        .palette-swatch.selected {
+            border: 3px solid var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .palette-info {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .current-value {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        /* Grid */
+        .grid-with-controls {
+            display: grid;
+            grid-template-columns: 25px 22px minmax(300px, 500px);
+            grid-template-rows: auto 1fr auto;
+            gap: 0.3rem;
+            margin-bottom: 1.5rem;
+            justify-content: center;
+        }
+
+        .row-labels {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column-reverse;
+            justify-content: space-around;
+            padding-right: 0.4rem;
+        }
+
+        .row-label {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            text-align: right;
+        }
+
+        .row-controls {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column-reverse;
+            justify-content: space-around;
+            padding-right: 0.4rem;
+        }
+
+        .row-btn, .col-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            transition: all 0.15s;
+        }
+
+        .row-btn {
+            width: 20px;
+            height: 100%;
+        }
+
+        .col-btn {
+            aspect-ratio: 1;
+        }
+
+        .row-btn:hover, .col-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .col-controls {
+            grid-column: 3;
+            grid-row: 1;
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 1px;
+            padding-bottom: 0.4rem;
+        }
+
+        .grid-center {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 2px solid var(--border);
+            padding: 1px;
+            aspect-ratio: 1;
+        }
+
+        .col-labels {
+            grid-column: 3;
+            grid-row: 3;
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 1px;
+            padding-top: 0.4rem;
+        }
+
+        .col-label {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        .pixel {
+            aspect-ratio: 1;
+            cursor: crosshair;
+            transition: all 0.1s;
+            border: 1px solid transparent;
+        }
+
+        .pixel:hover {
+            border-color: var(--accent);
+            transform: scale(1.12);
+            z-index: 10;
+        }
+
+        /* Byte Visualization */
+        .byte-viz {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+        }
+
+        .byte-pixel-map {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.4rem;
+            padding: 0.25rem;
+        }
+
+        .byte-pixel-map.gs16 {
+            grid-template-columns: repeat(10, 1fr);
+            gap: 0.3rem;
+        }
+
+        .byte-group {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.35rem;
+        }
+
+        .byte-group.gs16 {
+            padding: 0.25rem;
+        }
+
+        .byte-group-header {
+            font-size: 0.6rem;
+            color: var(--accent);
+            text-align: center;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        .byte-group-header.gs16 {
+            font-size: 0.5rem;
+            margin-bottom: 0.15rem;
+        }
+
+        .pixel-byte-row {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 1px;
+        }
+
+        .pixel-byte-row.gs16 {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2px;
+        }
+
+        .pixel-mini {
+            aspect-ratio: 1;
+            background: var(--led-off);
+            border-radius: 1px;
+            transition: all 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .pixel-mini.on {
+            background: var(--accent);
+            box-shadow: 0 0 3px var(--accent);
+        }
+
+        .bit-labels {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 1px;
+            margin-top: 0.15rem;
+            font-size: 0.45rem;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        .bit-labels.gs16 {
+            grid-template-columns: repeat(2, 1fr);
+            font-size: 0.4rem;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.65rem 1rem;
+            border-radius: 4px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        button:hover {
+            background: var(--hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* 4-Char specific */
+        .char-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .char-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .quadrant-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .message-display {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            padding: 1.5rem;
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 2px solid var(--border);
+            padding: 1px;
+            aspect-ratio: 1;
+            margin: 0 auto;
+            max-width: 400px;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            margin-top: 1.25rem;
+        }
+
+        .stat {
+            background: var(--bg);
+            padding: 0.9rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <a href="index.html" class="nav-link" style="display: inline-block; color: var(--text-dim); text-decoration: none; margin-bottom: 0.75rem; transition: color 0.2s;">← Back to Tools</a>
+                <h1>G6 Panel Pattern Editor</h1>
+                <p class="subtitle" id="modeSubtitle">20×20 LED Panel | Interactive Pattern Designer</p>
+            </div>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="btnGS2" onclick="switchMode('GS2')">GS2</button>
+                <button class="mode-btn" id="btnGS16" onclick="switchMode('GS16')">GS16</button>
+                <button class="mode-btn" id="btn4Char" onclick="switchMode('4CHAR')">4-Char</button>
+                <button class="mode-btn" id="btnRef" onclick="switchMode('REF')">LED Map Ref</button>
+            </div>
+        </header>
+
+        <!-- GS2 Tab -->
+        <div id="tabGS2" class="tab-content active">
+            <div class="layout">
+                <div class="panel">
+                    <div class="panel-title">Pattern Library</div>
+                    <select id="patternLibraryGS2" onchange="loadPattern()"></select>
+
+                    <div class="panel-title">Byte Values (50 bytes)</div>
+                    <div class="byte-list" id="byteListGS2"></div>
+
+                    <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.4rem;">Copy Format:</div>
+                        <div style="display: flex; gap: 0.75rem; font-size: 0.7rem;">
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS2" value="newline" checked style="margin-right: 0.3rem;">
+                                Newline
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS2" value="space" style="margin-right: 0.3rem;">
+                                Space
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS2" value="comma" style="margin-right: 0.3rem;">
+                                Comma
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button onclick="copyValues()">Copy Values</button>
+                        <button onclick="copyMatrix()">Copy Matrix</button>
+                        <button class="btn-secondary" onclick="downloadBinary()">Download .bin</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">Physical LED Layout</div>
+                    <div style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.75rem; line-height: 1.6;">
+                        <strong style="color: var(--text);">Click pixels</strong> to toggle on/off • 
+                        <strong style="color: var(--text);">Row arrows (→)</strong> toggle entire row • 
+                        <strong style="color: var(--text);">Column arrows (↓)</strong> toggle entire column
+                    </div>
+                    <div class="grid-with-controls">
+                        <div class="row-labels">
+                            <div class="row-label">0</div><div class="row-label">4</div><div class="row-label">8</div>
+                            <div class="row-label">12</div><div class="row-label">16</div><div class="row-label">19</div>
+                        </div>
+                        <div class="row-controls" id="rowControlsGS2"></div>
+                        <div class="grid-center">
+                            <div class="pixel-grid" id="pixelGridGS2"></div>
+                        </div>
+                        <div class="col-controls" id="colControlsGS2"></div>
+                        <div class="col-labels" id="colLabelsGS2"></div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn-secondary" onclick="clearPattern()">Clear</button>
+                        <button class="btn-secondary" onclick="fillPattern()">Fill All</button>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-label">Pixels On</div>
+                            <div class="stat-value" id="pixelsOnGS2">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Fill %</div>
+                            <div class="stat-value" id="fillPercentGS2">0%</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Size</div>
+                            <div class="stat-value">50 B</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="byte-viz panel">
+                <div class="panel-title">Byte → Pixel Mapping (50 bytes, 8 pixels each, MSB-first)</div>
+                <div class="byte-pixel-map" id="bytePixelMapGS2"></div>
+            </div>
+        </div>
+
+        <!-- GS16 Tab -->
+        <div id="tabGS16" class="tab-content">
+            <div class="layout">
+                <div class="panel">
+                    <div class="panel-title">Pattern Library</div>
+                    <select id="patternLibraryGS16" onchange="loadPattern()"></select>
+
+                    <div class="panel-title">Byte Values (200 bytes)</div>
+                    <div class="byte-list" id="byteListGS16"></div>
+
+                    <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.4rem;">Copy Format:</div>
+                        <div style="display: flex; gap: 0.75rem; font-size: 0.7rem;">
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS16" value="newline" checked style="margin-right: 0.3rem;">
+                                Newline
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS16" value="space" style="margin-right: 0.3rem;">
+                                Space
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormatGS16" value="comma" style="margin-right: 0.3rem;">
+                                Comma
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button onclick="copyValues()">Copy Values</button>
+                        <button onclick="copyMatrix()">Copy Matrix</button>
+                        <button class="btn-secondary" onclick="downloadBinary()">Download .bin</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="palette-section">
+                        <div class="panel-title">Intensity Palette (0-15)</div>
+                        <div class="palette-grid" id="paletteGS16"></div>
+                        <div class="palette-info">
+                            Selected: <span class="current-value" id="currentIntensityGS16">15</span>
+                        </div>
+                    </div>
+
+                    <div class="panel-title">Physical LED Layout</div>
+                    <div style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.75rem; line-height: 1.6;">
+                        Select intensity from palette above • 
+                        <strong style="color: var(--text);">Click pixels</strong> to paint • 
+                        <strong style="color: var(--text);">Row/column arrows</strong> fill entire row/column with selected intensity
+                    </div>
+                    <div class="grid-with-controls">
+                        <div class="row-labels">
+                            <div class="row-label">0</div><div class="row-label">4</div><div class="row-label">8</div>
+                            <div class="row-label">12</div><div class="row-label">16</div><div class="row-label">19</div>
+                        </div>
+                        <div class="row-controls" id="rowControlsGS16"></div>
+                        <div class="grid-center">
+                            <div class="pixel-grid" id="pixelGridGS16"></div>
+                        </div>
+                        <div class="col-controls" id="colControlsGS16"></div>
+                        <div class="col-labels" id="colLabelsGS16"></div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn-secondary" onclick="clearPattern()">Clear</button>
+                        <button class="btn-secondary" onclick="fillPattern()">Fill All</button>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-label">Avg Intensity</div>
+                            <div class="stat-value" id="avgIntensityGS16">0.0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Non-Zero</div>
+                            <div class="stat-value" id="nonZeroGS16">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Size</div>
+                            <div class="stat-value">200 B</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="byte-viz panel">
+                <div class="panel-title">Byte → Pixel Mapping (200 bytes, 2 pixels each, high/low nibble)</div>
+                <div class="byte-pixel-map gs16" id="bytePixelMapGS16"></div>
+            </div>
+        </div>
+
+        <!-- 4-Char Tab -->
+        <div id="tab4Char" class="tab-content">
+            <div class="layout">
+                <div class="panel">
+                    <div class="panel-title">Character Selection</div>
+                    
+                    <div class="char-grid">
+                        <div class="char-selector">
+                            <div class="quadrant-label">Top-Left</div>
+                            <select id="charTL" onchange="update4Char()"><option value="">-</option></select>
+                        </div>
+                        <div class="char-selector">
+                            <div class="quadrant-label">Top-Right</div>
+                            <select id="charTR" onchange="update4Char()"><option value="">-</option></select>
+                        </div>
+                        <div class="char-selector">
+                            <div class="quadrant-label">Bottom-Left</div>
+                            <select id="charBL" onchange="update4Char()"><option value="">-</option></select>
+                        </div>
+                        <div class="char-selector">
+                            <div class="quadrant-label">Bottom-Right</div>
+                            <select id="charBR" onchange="update4Char()"><option value="">-</option></select>
+                        </div>
+                    </div>
+
+                    <div class="message-display" id="messageDisplay">----</div>
+
+                    <div class="panel-title">Quick Messages</div>
+                    <div class="controls">
+                        <button class="btn-secondary" onclick="loadQuickMessage('TEST')">TEST</button>
+                        <button class="btn-secondary" onclick="loadQuickMessage('GOOD')">GOOD</button>
+                        <button class="btn-secondary" onclick="loadQuickMessage('FAIL')">FAIL</button>
+                        <button class="btn-secondary" onclick="loadQuickMessage('PASS')">PASS</button>
+                        <button class="btn-secondary" onclick="loadQuickMessage('1234')">1234</button>
+                        <button class="btn-secondary" onclick="load4CharPattern(''); update4Char()">Clear</button>
+                    </div>
+
+                    <div class="panel-title" style="margin-top: 1.5rem;">Byte Values (50 bytes)</div>
+                    <div class="byte-list" id="byteList4Char"></div>
+
+                    <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.4rem;">Copy Format:</div>
+                        <div style="display: flex; gap: 0.75rem; font-size: 0.7rem;">
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormat4Char" value="newline" checked style="margin-right: 0.3rem;">
+                                Newline
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormat4Char" value="space" style="margin-right: 0.3rem;">
+                                Space
+                            </label>
+                            <label style="cursor: pointer; color: var(--text);">
+                                <input type="radio" name="copyFormat4Char" value="comma" style="margin-right: 0.3rem;">
+                                Comma
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button onclick="copyValues()">Copy Values</button>
+                        <button onclick="copyMatrix()">Copy Matrix</button>
+                        <button class="btn-secondary" onclick="downloadBinary()">Download .bin</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">Pattern Preview</div>
+                    <div class="preview-grid" id="previewGrid4Char"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LED Mapping Reference Tab -->
+        <div id="tabRef" class="tab-content">
+            <div class="panel" style="max-width: 1200px; margin: 0 auto;">
+                <div class="panel-title">G6 Panel LED Mapping Reference</div>
+                
+                <div style="margin-bottom: 2rem; line-height: 1.8; color: var(--text-dim); font-size: 0.85rem;">
+                    <p style="margin-bottom: 1rem;">This table shows the mapping between <strong style="color: var(--accent);">logical pixel coordinates [row, col]</strong> and <strong style="color: var(--accent);">physical LED positions (D1-D400)</strong> on the G6 Panel v0.1 PCB.</p>
+                    <p style="margin-bottom: 1rem;"><strong style="color: var(--text);">Row 0</strong> is at the <strong>bottom</strong>, <strong style="color: var(--text);">Row 19</strong> is at the <strong>top</strong>.</p>
+                    <p><strong style="color: var(--text);">Column 0</strong> is on the <strong>left</strong>, <strong style="color: var(--text);">Column 19</strong> is on the <strong>right</strong>.</p>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;">
+                        <thead>
+                            <tr style="background: var(--bg); border-bottom: 2px solid var(--border);">
+                                <th style="padding: 0.6rem; text-align: center; color: var(--accent); border-right: 1px solid var(--border);">Row</th>
+                                <th style="padding: 0.6rem; text-align: center; color: var(--accent);" colspan="20">Column</th>
+                            </tr>
+                            <tr style="background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.6rem;">
+                                <th></th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">0</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">1</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">2</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">3</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">4</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">5</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">6</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">7</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">8</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">9</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">10</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">11</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">12</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">13</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">14</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">15</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">16</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">17</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">18</th>
+                                <th style="padding: 0.4rem; color: var(--text-dim);">19</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledMapTable"></tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1.25rem; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--accent);">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--accent); margin-bottom: 0.75rem;">Encoding Details</div>
+                    <div style="font-size: 0.75rem; line-height: 1.9; color: var(--text-dim);">
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text);">GS2 (1-bit):</strong> 400 pixels → 50 bytes | 8 pixels per byte, MSB-first</p>
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text);">GS16 (4-bit):</strong> 400 pixels → 200 bytes | 2 pixels per byte (high/low nibble)</p>
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text);">Pixel Index:</strong> LED D<em>N</em> → Pixel index = <em>N</em> - 1 (range: 0-399)</p>
+                        <p><strong style="color: var(--text);">Transmission:</strong> Row-major order, pixels packed per LED mapping table above</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const LED_MAP = [
+            [50,70,51,71,130,150,131,151,210,230,211,231,290,310,291,311,370,390,371,391],
+            [10,30,11,31,90,110,91,111,170,190,171,191,250,270,251,271,330,350,331,351],
+            [49,69,52,72,129,149,132,152,209,229,212,232,289,309,292,312,369,389,372,392],
+            [9,29,12,32,89,109,92,112,169,189,172,192,249,269,252,272,329,349,332,352],
+            [48,68,53,73,128,148,133,153,208,228,213,233,288,308,293,313,368,388,373,393],
+            [8,28,13,33,88,108,93,113,168,188,173,193,248,268,253,273,328,348,333,353],
+            [47,67,54,74,127,147,134,154,207,227,214,234,287,307,294,314,367,387,374,394],
+            [7,27,14,34,87,107,94,114,167,187,174,194,247,267,254,274,327,347,334,354],
+            [46,66,55,75,126,146,135,155,206,226,215,235,286,306,295,315,366,386,375,395],
+            [6,26,15,35,86,106,95,115,166,186,175,195,246,266,255,275,326,346,335,355],
+            [45,65,56,76,125,145,136,156,205,225,216,236,285,305,296,316,365,385,376,396],
+            [5,25,16,36,85,105,96,116,165,185,176,196,245,265,256,276,325,345,336,356],
+            [44,64,57,77,124,144,137,157,204,224,217,237,284,304,297,317,364,384,377,397],
+            [4,24,17,37,84,104,97,117,164,184,177,197,244,264,257,277,324,344,337,357],
+            [43,63,58,78,123,143,138,158,203,223,218,238,283,303,298,318,363,383,378,398],
+            [3,23,18,38,83,103,98,118,163,183,178,198,243,263,258,278,323,343,338,358],
+            [42,62,59,79,122,142,139,159,202,222,219,239,282,302,299,319,362,382,379,399],
+            [2,22,19,39,82,102,99,119,162,182,179,199,242,262,259,279,322,342,339,359],
+            [41,61,60,80,121,141,140,160,201,221,220,240,281,301,300,320,361,381,380,400],
+            [1,21,20,40,81,101,100,120,161,181,180,200,241,261,260,280,321,341,340,360]
+        ];
+
+        let currentMode = 'GS2';
+        let pixelState = Array(20).fill(null).map(() => Array(20).fill(0));
+        let selectedIntensity = 1;
+
+        const GS2_PATTERNS = {
+            all_off: () => Array(20).fill(null).map(() => Array(20).fill(0)),
+            all_on: () => Array(20).fill(null).map(() => Array(20).fill(1)),
+            border: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let i = 0; i < 20; i++) { p[0][i] = p[19][i] = p[i][0] = p[i][19] = 1; } return p; },
+            cross: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let i = 0; i < 20; i++) { p[9][i] = p[10][i] = p[i][9] = p[i][10] = 1; } return p; },
+            checker_2x2: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) p[r][c] = (Math.floor(r/2) + Math.floor(c/2)) % 2; return p; },
+            horiz_stripes: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let row = 0; row < 20; row += 4) p[row].fill(1); return p; },
+            vert_stripes: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let col = 0; col < 20; col += 4) for (let row = 0; row < 20; row++) p[row][col] = 1; return p; },
+        };
+
+        const GS16_PATTERNS = {
+            gradient_h: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let row = 0; row < 20; row++) { const i = Math.floor(row / 19 * 15); for (let col = 0; col < 20; col++) p[row][col] = i; } return p; },
+            gradient_v: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let col = 0; col < 20; col++) { const i = Math.floor(col / 19 * 15); for (let row = 0; row < 20; row++) p[row][col] = i; } return p; },
+            gradient_diag: () => { const p = Array(20).fill(null).map(() => Array(20).fill(0)); for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) p[r][c] = Math.min(15, Math.floor((r+c)/38*15)); return p; },
+            concentric_bright: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); const cr=9.5,cc=9.5,md=Math.sqrt(cr*cr+cc*cc); for(let r=0;r<20;r++)for(let c=0;c<20;c++){const d=Math.sqrt((r-cr)**2+(c-cc)**2);p[r][c]=Math.max(0,Math.min(15,15-Math.floor(d/md*16)));}return p;},
+            concentric_dark: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); const cr=9.5,cc=9.5,md=Math.sqrt(cr*cr+cc*cc); for(let r=0;r<20;r++)for(let c=0;c<20;c++){const d=Math.sqrt((r-cr)**2+(c-cc)**2);p[r][c]=Math.min(15,Math.floor(d/md*16));}return p;},
+            radial_pulse: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); const cr=9.5,cc=9.5; for(let r=0;r<20;r++)for(let c=0;c<20;c++){const d=Math.sqrt((r-cr)**2+(c-cc)**2);const rd=Math.abs(d-2)+Math.abs(d-5)+Math.abs(d-8)+Math.abs(d-11);p[r][c]=Math.max(0,Math.min(15,15-Math.floor(rd/30*15)));}return p;},
+            starfield: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); [[2,3,15],[5,8,12],[1,15,14],[8,2,10],[12,18,15],[16,7,13],[4,12,11],[18,16,15],[7,5,9],[14,14,14],[3,18,8],[19,4,12],[10,10,15],[15,2,11],[6,19,10],[11,6,13],[17,12,14],[9,17,9],[13,9,12],[1,7,7]].forEach(([r,c,i])=>{p[r][c]=i;[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc])=>{const nr=r+dr,nc=c+dc;if(nr>=0&&nr<20&&nc>=0&&nc<20)p[nr][nc]=Math.max(p[nr][nc],Math.floor(i*0.4));});});return p;},
+            circles_varied: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); [[5,5,3,15],[5,15,2,10],[15,5,4,12],[15,15,2.5,8]].forEach(([cr,cc,rad,i])=>{for(let r=0;r<20;r++)for(let c=0;c<20;c++){if(Math.sqrt((r-cr)**2+(c-cc)**2)<=rad)p[r][c]=Math.max(p[r][c],i);}});return p;},
+            checkerboard_intensity: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); for(let r=0;r<20;r++)for(let c=0;c<20;c++){p[r][c]=(Math.floor(r/4)+Math.floor(c/4))%2===0?15:5;}return p;},
+            spotlight: () => { const p=Array(20).fill(null).map(()=>Array(20).fill(0)); const cr=9.5,cc=9.5,md=Math.sqrt(cr*cr+cc*cc); for(let r=0;r<20;r++)for(let c=0;c<20;c++){const d=Math.sqrt((r-cr)**2+(c-cc)**2);p[r][c]=Math.max(0,Math.min(15,Math.floor(15*Math.exp(-3*d/md))));}return p;}
+        };
+
+        const CHAR_7X9={'A':[[0,0,1,1,1,0,0],[0,1,0,0,0,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,1,1,1,1,1,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1]],'B':[[1,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,1,1,1,1,0,0]],'C':[[0,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,1,0],[0,1,1,1,1,0,0]],'D':[[1,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,1,0],[1,1,1,1,1,0,0]],'E':[[1,1,1,1,1,1,1],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,1,1]],'F':[[1,1,1,1,1,1,1],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0]],'G':[[0,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,1,1,1,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,1,0],[0,1,1,1,1,0,0]],'H':[[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,1,1,1,1,1,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1]],'I':[[0,1,1,1,1,1,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,1,1,1,1,1,0]],'J':[[0,0,1,1,1,1,1],[0,0,0,0,1,0,0],[0,0,0,0,1,0,0],[0,0,0,0,1,0,0],[0,0,0,0,1,0,0],[1,0,0,0,1,0,0],[1,0,0,0,1,0,0],[0,1,0,1,0,0,0],[0,0,1,0,0,0,0]],'L':[[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,1,1]],'O':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],'P':[[1,1,1,1,1,0,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,1,1,1,1,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0]],'S':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,0],[0,1,1,1,1,0,0],[0,0,0,0,0,1,0],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],'T':[[1,1,1,1,1,1,1],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0]],'0':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,1,1],[1,0,0,0,1,0,1],[1,0,0,1,0,0,1],[1,0,1,0,0,0,1],[1,1,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],'1':[[0,0,0,1,0,0,0],[0,0,1,1,0,0,0],[0,1,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[1,1,1,1,1,1,1]],'2':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[0,0,0,0,0,0,1],[0,0,0,0,0,1,0],[0,0,0,0,1,0,0],[0,0,0,1,0,0,0],[0,0,1,0,0,0,0],[0,1,0,0,0,0,0],[1,1,1,1,1,1,1]],'3':[[1,1,1,1,1,1,0],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[0,0,0,0,0,1,0],[0,1,1,1,1,0,0],[0,0,0,0,0,1,0],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[1,1,1,1,1,1,0]],'4':[[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,0,0,0,0,1,0],[1,1,1,1,1,1,1],[0,0,0,0,0,1,0],[0,0,0,0,0,1,0],[0,0,0,0,0,1,0],[0,0,0,0,0,1,0]],'5':[[1,1,1,1,1,1,1],[1,0,0,0,0,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,1,0],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[1,1,1,1,1,1,0]],'6':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,0],[1,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],'7':[[1,1,1,1,1,1,1],[0,0,0,0,0,0,1],[0,0,0,0,0,1,0],[0,0,0,0,1,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,0,0,1,0,0,0]],'8':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,0,0,0,1,0],[0,0,1,1,1,0,0],[0,1,0,0,0,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],'9':[[0,1,1,1,1,1,0],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,1],[0,0,0,0,0,0,1],[0,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,0]],' ':[[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]]};
+
+        function intensityToColor(level) {
+            if (currentMode === 'GS2' || currentMode === '4CHAR') {
+                return level > 0 ? 'rgb(0, 230, 118)' : '#1e2329';
+            }
+            const brightness = Math.round((level / 15) * 230);
+            return `rgb(0, ${brightness}, ${Math.round(brightness * 0.47)})`;
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.getElementById('btnGS2').classList.toggle('active', mode === 'GS2');
+            document.getElementById('btnGS16').classList.toggle('active', mode === 'GS16');
+            document.getElementById('btn4Char').classList.toggle('active', mode === '4CHAR');
+            document.getElementById('btnRef').classList.toggle('active', mode === 'REF');
+            
+            // Show/hide tabs
+            document.getElementById('tabGS2').classList.toggle('active', mode === 'GS2');
+            document.getElementById('tabGS16').classList.toggle('active', mode === 'GS16');
+            document.getElementById('tab4Char').classList.toggle('active', mode === '4CHAR');
+            document.getElementById('tabRef').classList.toggle('active', mode === 'REF');
+            
+            // Update subtitle
+            const subtitles = {
+                'GS2': '2-Level Binary | 50 Bytes | Click to Toggle',
+                'GS16': '16-Level Grayscale | 200 Bytes | Paint with Palette',
+                '4CHAR': '4-Character Messages | GS2 Binary | 50 Bytes',
+                'REF': 'LED Mapping Reference | Logical [row,col] ↔ Physical LED (D1-D400)'
+            };
+            document.getElementById('modeSubtitle').textContent = subtitles[mode];
+            
+            if (mode === 'REF') {
+                populateLEDMapTable();
+                return;
+            }
+            
+            if (mode !== '4CHAR') {
+                selectedIntensity = mode === 'GS2' ? 1 : 15;
+                updatePatternLibrary();
+                
+                // Convert pattern if needed
+                if (mode === 'GS2') {
+                    for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) {
+                        pixelState[r][c] = pixelState[r][c] >= 8 ? 1 : 0;
+                    }
+                } else if (mode === 'GS16') {
+                    for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) {
+                        pixelState[r][c] = pixelState[r][c] > 0 ? 15 : 0;
+                    }
+                }
+                
+                if (mode === 'GS2') {
+                    updateAllGS2();
+                } else {
+                    updateAllGS16();
+                }
+            } else {
+                update4Char();
+            }
+        }
+
+        function updatePatternLibrary() {
+            const selectId = currentMode === 'GS2' ? 'patternLibraryGS2' : 'patternLibraryGS16';
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">-- Load Pattern --</option>';
+            
+            const lib = currentMode === 'GS2' ? GS2_PATTERNS : GS16_PATTERNS;
+            Object.keys(lib).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                select.appendChild(opt);
+            });
+        }
+
+        function init() {
+            createPaletteGS16();
+            createByteListGS2();
+            createByteListGS16();
+            createByteList4Char();
+            createGridGS2();
+            createGridGS16();
+            createByteVizGS2();
+            createByteVizGS16();
+            createPreviewGrid4Char();
+            populate4CharSelects();
+            updatePatternLibrary();
+            updateAllGS2();
+        }
+
+        function createPaletteGS16() {
+            const palette = document.getElementById('paletteGS16');
+            
+            // Force GS16 mode for color calculation
+            const tempMode = currentMode;
+            currentMode = 'GS16';
+            
+            for (let i = 0; i < 16; i++) {
+                const s = document.createElement('div');
+                s.className = 'palette-swatch';
+                if (i === 15) s.classList.add('selected');
+                const color = intensityToColor(i);
+                s.style.background = color;
+                s.textContent = i;
+                s.dataset.intensity = i;
+                s.onclick = () => selectIntensity(i);
+                if (i < 3) s.style.color = '#888';
+                palette.appendChild(s);
+            }
+            
+            currentMode = tempMode;
+        }
+
+        function selectIntensity(level) {
+            selectedIntensity = level;
+            document.querySelectorAll('.palette-swatch').forEach(s => {
+                s.classList.toggle('selected', parseInt(s.dataset.intensity) === level);
+            });
+            document.getElementById('currentIntensityGS16').textContent = level;
+        }
+
+        function createByteListGS2() {
+            const list = document.getElementById('byteListGS2');
+            for (let i = 0; i < 50; i++) {
+                const row = document.createElement('div');
+                row.className = 'byte-row' + (i % 8 === 0 ? ' group-start' : '');
+                row.innerHTML = `<div class="byte-index">${i}</div><div class="byte-hex" id="hex2-${i}">0x00</div><div class="byte-value" id="val2-${i}">0</div>`;
+                list.appendChild(row);
+            }
+        }
+
+        function createByteListGS16() {
+            const list = document.getElementById('byteListGS16');
+            for (let i = 0; i < 200; i++) {
+                const row = document.createElement('div');
+                row.className = 'byte-row' + (i % 10 === 0 ? ' group-start' : '');
+                row.innerHTML = `<div class="byte-index">${i}</div><div class="byte-hex" id="hex16-${i}">0x00</div><div class="byte-value" id="val16-${i}">0</div>`;
+                list.appendChild(row);
+            }
+        }
+
+        function createByteList4Char() {
+            const list = document.getElementById('byteList4Char');
+            for (let i = 0; i < 50; i++) {
+                const row = document.createElement('div');
+                row.className = 'byte-row' + (i % 8 === 0 ? ' group-start' : '');
+                row.innerHTML = `<div class="byte-index">${i}</div><div class="byte-hex" id="hex4-${i}">0x00</div><div class="byte-value" id="val4-${i}">0</div>`;
+                list.appendChild(row);
+            }
+        }
+
+        function createGridGS2() {
+            createGrid('rowControlsGS2', 'colControlsGS2', 'colLabelsGS2', 'pixelGridGS2', 'GS2');
+        }
+
+        function createGridGS16() {
+            createGrid('rowControlsGS16', 'colControlsGS16', 'colLabelsGS16', 'pixelGridGS16', 'GS16');
+        }
+
+        function createGrid(rowId, colId, labelId, gridId, mode) {
+            const rowControls = document.getElementById(rowId);
+            const colControls = document.getElementById(colId);
+            const colLabels = document.getElementById(labelId);
+            const grid = document.getElementById(gridId);
+            
+            for (let row = 0; row < 20; row++) {
+                const btn = document.createElement('div');
+                btn.className = 'row-btn';
+                btn.textContent = '→';
+                btn.onclick = () => paintRow(row);
+                rowControls.appendChild(btn);
+            }
+            
+            for (let col = 0; col < 20; col++) {
+                const btn = document.createElement('div');
+                btn.className = 'col-btn';
+                btn.textContent = '↓';
+                btn.onclick = () => paintColumn(col);
+                colControls.appendChild(btn);
+                
+                const label = document.createElement('div');
+                label.className = 'col-label';
+                label.textContent = (col % 4 === 0 || col === 19) ? col : '';
+                colLabels.appendChild(label);
+            }
+            
+            for (let displayRow = 19; displayRow >= 0; displayRow--) {
+                for (let col = 0; col < 20; col++) {
+                    const pixel = document.createElement('div');
+                    pixel.className = 'pixel';
+                    pixel.dataset.row = displayRow;
+                    pixel.dataset.col = col;
+                    pixel.onclick = () => paintPixel(displayRow, col);
+                    grid.appendChild(pixel);
+                }
+            }
+        }
+
+        function createByteVizGS2() {
+            const map = document.getElementById('bytePixelMapGS2');
+            for (let byteIdx = 0; byteIdx < 50; byteIdx++) {
+                const group = document.createElement('div');
+                group.className = 'byte-group';
+                group.innerHTML = `<div class="byte-group-header">Byte ${byteIdx}</div>`;
+                
+                const row = document.createElement('div');
+                row.className = 'pixel-byte-row';
+                for (let bit = 7; bit >= 0; bit--) {
+                    const px = document.createElement('div');
+                    px.className = 'pixel-mini';
+                    px.dataset.byte = byteIdx;
+                    px.dataset.bit = bit;
+                    row.appendChild(px);
+                }
+                group.appendChild(row);
+                
+                const labels = document.createElement('div');
+                labels.className = 'bit-labels';
+                for (let bit = 7; bit >= 0; bit--) {
+                    labels.innerHTML += `<div>${bit}</div>`;
+                }
+                group.appendChild(labels);
+                map.appendChild(group);
+            }
+        }
+
+        function createByteVizGS16() {
+            const map = document.getElementById('bytePixelMapGS16');
+            for (let byteIdx = 0; byteIdx < 200; byteIdx++) {
+                const group = document.createElement('div');
+                group.className = 'byte-group gs16';
+                group.innerHTML = `<div class="byte-group-header gs16">B${byteIdx}</div>`;
+                
+                const row = document.createElement('div');
+                row.className = 'pixel-byte-row gs16';
+                for (let nibble = 1; nibble >= 0; nibble--) {
+                    const px = document.createElement('div');
+                    px.className = 'pixel-mini';
+                    px.dataset.byte = byteIdx;
+                    px.dataset.nibble = nibble;
+                    row.appendChild(px);
+                }
+                group.appendChild(row);
+                
+                const labels = document.createElement('div');
+                labels.className = 'bit-labels gs16';
+                labels.innerHTML = '<div>Hi</div><div>Lo</div>';
+                group.appendChild(labels);
+                map.appendChild(group);
+            }
+        }
+
+        function createPreviewGrid4Char() {
+            const grid = document.getElementById('previewGrid4Char');
+            for (let displayRow = 19; displayRow >= 0; displayRow--) {
+                for (let col = 0; col < 20; col++) {
+                    const px = document.createElement('div');
+                    px.className = 'pixel';
+                    px.dataset.row = displayRow;
+                    px.dataset.col = col;
+                    grid.appendChild(px);
+                }
+            }
+        }
+
+        function populate4CharSelects() {
+            const chars = Object.keys(CHAR_7X9);
+            ['charTL', 'charTR', 'charBL', 'charBR'].forEach(id => {
+                const sel = document.getElementById(id);
+                chars.forEach(char => {
+                    const opt = document.createElement('option');
+                    opt.value = char;
+                    opt.textContent = char === ' ' ? '(space)' : char;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        function paintPixel(row, col) {
+            if (currentMode === 'GS2') {
+                pixelState[row][col] = pixelState[row][col] > 0 ? 0 : 1;
+                updateAllGS2();
+            } else if (currentMode === 'GS16') {
+                pixelState[row][col] = selectedIntensity;
+                updateAllGS16();
+            }
+        }
+
+        function paintRow(row) {
+            if (currentMode === 'GS2') {
+                // Toggle mode: if any pixel is off, turn all on; if all on, turn all off
+                const anyOff = pixelState[row].some(v => v === 0);
+                const newValue = anyOff ? 1 : 0;
+                for (let col = 0; col < 20; col++) {
+                    pixelState[row][col] = newValue;
+                }
+            } else {
+                // GS16: paint with selected intensity
+                for (let col = 0; col < 20; col++) {
+                    pixelState[row][col] = selectedIntensity;
+                }
+            }
+            currentMode === 'GS2' ? updateAllGS2() : updateAllGS16();
+        }
+
+        function paintColumn(col) {
+            if (currentMode === 'GS2') {
+                // Toggle mode: if any pixel is off, turn all on; if all on, turn all off
+                const colValues = pixelState.map(row => row[col]);
+                const anyOff = colValues.some(v => v === 0);
+                const newValue = anyOff ? 1 : 0;
+                for (let row = 0; row < 20; row++) {
+                    pixelState[row][col] = newValue;
+                }
+            } else {
+                // GS16: paint with selected intensity
+                for (let row = 0; row < 20; row++) {
+                    pixelState[row][col] = selectedIntensity;
+                }
+            }
+            currentMode === 'GS2' ? updateAllGS2() : updateAllGS16();
+        }
+
+        function packPixelsGS2(state) {
+            const bytes = new Uint8Array(50);
+            for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) {
+                if (state[r][c] > 0) {
+                    const k = LED_MAP[r][c] - 1;
+                    bytes[Math.floor(k/8)] |= (1 << (7 - (k%8)));
+                }
+            }
+            return bytes;
+        }
+
+        function packPixelsGS16(state) {
+            const bytes = new Uint8Array(200);
+            for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) {
+                const val = state[r][c];
+                const k = LED_MAP[r][c] - 1;
+                const byteIdx = Math.floor(k / 2);
+                bytes[byteIdx] |= k % 2 === 0 ? (val << 4) : val;
+            }
+            return bytes;
+        }
+
+        function updateAllGS2() {
+            const bytes = packPixelsGS2(pixelState);
+            
+            for (let i = 0; i < 50; i++) {
+                document.getElementById(`hex2-${i}`).textContent = '0x' + bytes[i].toString(16).toUpperCase().padStart(2, '0');
+                document.getElementById(`val2-${i}`).textContent = bytes[i];
+            }
+            
+            document.querySelectorAll('#pixelGridGS2 .pixel').forEach(px => {
+                const r = parseInt(px.dataset.row), c = parseInt(px.dataset.col);
+                px.style.background = intensityToColor(pixelState[r][c]);
+            });
+            
+            // Update byte viz
+            for (let byteIdx = 0; byteIdx < 50; byteIdx++) {
+                for (let bit = 7; bit >= 0; bit--) {
+                    const px = document.querySelector(`#bytePixelMapGS2 .pixel-mini[data-byte="${byteIdx}"][data-bit="${bit}"]`);
+                    if (px) px.classList.toggle('on', (bytes[byteIdx] & (1 << bit)) !== 0);
+                }
+            }
+            
+            const on = pixelState.flat().filter(p => p > 0).length;
+            document.getElementById('pixelsOnGS2').textContent = on;
+            document.getElementById('fillPercentGS2').textContent = Math.round((on / 400) * 100) + '%';
+        }
+
+        function updateAllGS16() {
+            const bytes = packPixelsGS16(pixelState);
+            
+            for (let i = 0; i < 200; i++) {
+                document.getElementById(`hex16-${i}`).textContent = '0x' + bytes[i].toString(16).toUpperCase().padStart(2, '0');
+                document.getElementById(`val16-${i}`).textContent = bytes[i];
+            }
+            
+            document.querySelectorAll('#pixelGridGS16 .pixel').forEach(px => {
+                const r = parseInt(px.dataset.row), c = parseInt(px.dataset.col);
+                px.style.background = intensityToColor(pixelState[r][c]);
+            });
+            
+            // Update byte viz
+            for (let byteIdx = 0; byteIdx < 200; byteIdx++) {
+                const val = bytes[byteIdx];
+                for (let nibble = 1; nibble >= 0; nibble--) {
+                    const px = document.querySelector(`#bytePixelMapGS16 .pixel-mini[data-byte="${byteIdx}"][data-nibble="${nibble}"]`);
+                    if (px) {
+                        const level = nibble === 1 ? (val >> 4) & 0x0F : val & 0x0F;
+                        px.style.background = intensityToColor(level);
+                        px.textContent = level;
+                        // White text for dark backgrounds (0-7), black for bright (8-15)
+                        px.style.color = level < 8 ? '#ffffff' : '#000000';
+                    }
+                }
+            }
+            
+            const avg = pixelState.flat().reduce((s,v) => s+v, 0) / 400;
+            const nonZero = pixelState.flat().filter(v => v > 0).length;
+            document.getElementById('avgIntensityGS16').textContent = avg.toFixed(1);
+            document.getElementById('nonZeroGS16').textContent = nonZero;
+        }
+
+        function build4CharPattern() {
+            const pattern = Array(20).fill(null).map(() => Array(20).fill(0));
+            
+            const place = (charBitmap, quadrant) => {
+                if (!charBitmap) return;
+                let sr, sc;
+                if (quadrant === 'TL') { sr = 10; sc = 0; }
+                else if (quadrant === 'TR') { sr = 10; sc = 10; }
+                else if (quadrant === 'BL') { sr = 0; sc = 0; }
+                else { sr = 0; sc = 10; }
+                
+                const flipped = charBitmap.slice().reverse();
+                const or = Math.floor((10 - 9) / 2), oc = Math.floor((10 - 7) / 2);
+                
+                for (let i = 0; i < flipped.length; i++) {
+                    for (let j = 0; j < flipped[i].length; j++) {
+                        if (flipped[i][j] && sr+or+i<20 && sc+oc+j<20) {
+                            pattern[sr+or+i][sc+oc+j] = 1;
+                        }
+                    }
+                }
+            };
+            
+            place(CHAR_7X9[document.getElementById('charTL').value], 'TL');
+            place(CHAR_7X9[document.getElementById('charTR').value], 'TR');
+            place(CHAR_7X9[document.getElementById('charBL').value], 'BL');
+            place(CHAR_7X9[document.getElementById('charBR').value], 'BR');
+            
+            return pattern;
+        }
+
+        function update4Char() {
+            const pattern = build4CharPattern();
+            const bytes = packPixelsGS2(pattern);
+            
+            for (let i = 0; i < 50; i++) {
+                document.getElementById(`hex4-${i}`).textContent = '0x' + bytes[i].toString(16).toUpperCase().padStart(2, '0');
+                document.getElementById(`val4-${i}`).textContent = bytes[i];
+            }
+            
+            document.querySelectorAll('#previewGrid4Char .pixel').forEach(px => {
+                const r = parseInt(px.dataset.row), c = parseInt(px.dataset.col);
+                px.style.background = pattern[r][c] > 0 ? 'rgb(0, 230, 118)' : '#1e2329';
+            });
+            
+            const msg = [document.getElementById('charTL').value || '-',
+                        document.getElementById('charTR').value || '-',
+                        document.getElementById('charBL').value || '-',
+                        document.getElementById('charBR').value || '-'].join('');
+            document.getElementById('messageDisplay').textContent = msg;
+        }
+
+        function loadPattern() {
+            const lib = currentMode === 'GS2' ? GS2_PATTERNS : GS16_PATTERNS;
+            const selectId = currentMode === 'GS2' ? 'patternLibraryGS2' : 'patternLibraryGS16';
+            const name = document.getElementById(selectId).value;
+            
+            if (name && lib[name]) {
+                pixelState = lib[name]();
+                currentMode === 'GS2' ? updateAllGS2() : updateAllGS16();
+            }
+        }
+
+        function loadQuickMessage(msg) {
+            const chars = msg.split('');
+            document.getElementById('charTL').value = chars[0] || '';
+            document.getElementById('charTR').value = chars[1] || '';
+            document.getElementById('charBL').value = chars[2] || '';
+            document.getElementById('charBR').value = chars[3] || '';
+            update4Char();
+        }
+
+        function load4CharPattern(msg) {
+            document.getElementById('charTL').value = '';
+            document.getElementById('charTR').value = '';
+            document.getElementById('charBL').value = '';
+            document.getElementById('charBR').value = '';
+        }
+
+        function populateLEDMapTable() {
+            const table = document.getElementById('ledMapTable');
+            if (table.children.length > 0) return; // Already populated
+            
+            // Create table from row 19 (top) down to row 0 (bottom) for visual clarity
+            for (let displayRow = 19; displayRow >= 0; displayRow--) {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border)';
+                
+                // Row label
+                const th = document.createElement('th');
+                th.style.padding = '0.5rem';
+                th.style.textAlign = 'center';
+                th.style.background = 'var(--surface)';
+                th.style.color = 'var(--accent)';
+                th.style.fontWeight = '600';
+                th.style.borderRight = '1px solid var(--border)';
+                th.textContent = displayRow;
+                tr.appendChild(th);
+                
+                // LED values for each column
+                for (let col = 0; col < 20; col++) {
+                    const td = document.createElement('td');
+                    td.style.padding = '0.5rem';
+                    td.style.textAlign = 'center';
+                    td.style.color = 'var(--text)';
+                    td.textContent = 'D' + LED_MAP[displayRow][col];
+                    tr.appendChild(td);
+                }
+                
+                table.appendChild(tr);
+            }
+        }
+
+        function copyValues() {
+            const numBytes = currentMode === '4CHAR' ? 50 : (currentMode === 'GS2' ? 50 : 200);
+            const prefix = currentMode === '4CHAR' ? 'val4-' : (currentMode === 'GS2' ? 'val2-' : 'val16-');
+            const formatName = currentMode === '4CHAR' ? 'copyFormat4Char' : (currentMode === 'GS2' ? 'copyFormatGS2' : 'copyFormatGS16');
+            
+            // Get selected format
+            const format = document.querySelector(`input[name="${formatName}"]:checked`).value;
+            
+            // Collect values
+            const values = [];
+            for (let i = 0; i < numBytes; i++) {
+                values.push(document.getElementById(`${prefix}${i}`).textContent);
+            }
+            
+            // Format based on selection
+            let text;
+            if (format === 'newline') {
+                text = values.join('\n');
+            } else if (format === 'space') {
+                text = values.join(' ');
+            } else { // comma
+                text = values.join(', ');
+            }
+            
+            navigator.clipboard.writeText(text);
+            
+            // Visual feedback
+            const btn = event.target;
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+
+        function copyMatrix() {
+            let text = 'pattern = [\n';
+            
+            if (currentMode === '4CHAR') {
+                // Build pattern from 4-char selections
+                const pattern = Array(20).fill(null).map(() => Array(20).fill(0));
+                
+                const place = (charBitmap, quadrant) => {
+                    if (!charBitmap) return;
+                    let sr, sc;
+                    if (quadrant === 'TL') { sr = 10; sc = 0; }
+                    else if (quadrant === 'TR') { sr = 10; sc = 10; }
+                    else if (quadrant === 'BL') { sr = 0; sc = 0; }
+                    else { sr = 0; sc = 10; }
+                    
+                    const flipped = charBitmap.slice().reverse();
+                    const or = Math.floor((10 - 9) / 2), oc = Math.floor((10 - 7) / 2);
+                    
+                    for (let i = 0; i < flipped.length; i++) {
+                        for (let j = 0; j < flipped[i].length; j++) {
+                            if (flipped[i][j] && sr+or+i<20 && sc+oc+j<20) {
+                                pattern[sr+or+i][sc+oc+j] = 1;
+                            }
+                        }
+                    }
+                };
+                
+                place(CHAR_7X9[document.getElementById('charTL').value], 'TL');
+                place(CHAR_7X9[document.getElementById('charTR').value], 'TR');
+                place(CHAR_7X9[document.getElementById('charBL').value], 'BL');
+                place(CHAR_7X9[document.getElementById('charBR').value], 'BR');
+                
+                for (let row = 0; row < 20; row++) {
+                    text += pattern[row].join(' ') + (row < 19 ? ';\n' : '];\n');
+                }
+            } else {
+                for (let row = 0; row < 20; row++) {
+                    text += pixelState[row].join(' ') + (row < 19 ? ';\n' : '];\n');
+                }
+            }
+            
+            navigator.clipboard.writeText(text);
+            
+            // Visual feedback
+            const btn = event.target;
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+
+        function downloadBinary() {
+            let bytes;
+            
+            if (currentMode === '4CHAR') {
+                // Build 4-char pattern first
+                const pattern = build4CharPattern();
+                bytes = packPixelsGS2(pattern);
+            } else if (currentMode === 'GS2') {
+                bytes = packPixelsGS2(pixelState);
+            } else {
+                bytes = packPixelsGS16(pixelState);
+            }
+            
+            const blob = new Blob([bytes], { type: 'application/octet-stream' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `g6_pattern_${currentMode.toLowerCase()}_${bytes.length}bytes.bin`;
+            a.click();
+        }
+
+        function clearPattern() {
+            pixelState = Array(20).fill(null).map(() => Array(20).fill(0));
+            currentMode === 'GS2' ? updateAllGS2() : updateAllGS16();
+        }
+
+        function fillPattern() {
+            for (let r = 0; r < 20; r++) for (let c = 0; c < 20; c++) pixelState[r][c] = selectedIntensity;
+            currentMode === 'GS2' ? updateAllGS2() : updateAllGS16();
+        }
+
+        init();
+    </script>
+
+    <footer style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 2px solid var(--border); color: var(--text-dim); font-size: 0.85rem;">
+        <p><a href="https://github.com/reiserlab/maDisplayTools" target="_blank" style="color: var(--accent); text-decoration: none;">Reiser Lab</a> | PanelDisplayTools</p>
+        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-dim);">Version 6 | Last updated: 2025-01-12</p>
+    </footer>
+</body>
+</html>

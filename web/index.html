@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanelDisplayTools - Web Tools</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f1419;
+            --surface: #1a1f26;
+            --border: #2d3640;
+            --text: #e6edf3;
+            --text-dim: #8b949e;
+            --accent: #00e676;
+            --hover: #00c853;
+            --card-hover: #252b33;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .tool-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .tool-card:hover {
+            background: var(--card-hover);
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 230, 118, 0.1);
+        }
+
+        .tool-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .tool-card h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.4rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+
+        .tool-card p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .tool-card .status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status.ready {
+            background: rgba(0, 230, 118, 0.15);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+
+        .status.coming-soon {
+            background: rgba(139, 148, 158, 0.15);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+
+        .tool-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .tool-card.disabled:hover {
+            transform: none;
+            background: var(--surface);
+            border-color: var(--border);
+            box-shadow: none;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 2px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--hover);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PanelDisplayTools</h1>
+            <p class="subtitle">Web-based tools for configuring and editing display patterns for modular arena systems</p>
+        </header>
+
+        <div class="tools-grid">
+            <a href="g6_panel_editor.html" class="tool-card">
+                <h2>G6 Panel Pattern Editor</h2>
+                <p>Create and edit 20×20 pixel patterns for G6 panels with real-time preview and export capabilities.</p>
+                <span class="status ready">Ready</span>
+            </a>
+
+            <a href="arena_editor.html" class="tool-card disabled">
+                <h2>Arena Layout Editor</h2>
+                <p>Configure arena geometry, panel layout, and display parameters. Export configuration files for MATLAB.</p>
+                <span class="status coming-soon">Coming Soon</span>
+            </a>
+
+            <a href="g41_pattern_editor.html" class="tool-card disabled">
+                <h2>G4.1 Pattern Editor</h2>
+                <p>Design patterns for G4.1 display systems with support for multiple panel configurations.</p>
+                <span class="status coming-soon">Coming Soon</span>
+            </a>
+
+            <a href="g6_pattern_editor.html" class="tool-card disabled">
+                <h2>G6 Pattern Editor</h2>
+                <p>Advanced pattern editor for G6 display systems with multi-panel support and animation tools.</p>
+                <span class="status coming-soon">Coming Soon</span>
+            </a>
+
+            <a href="experiment_designer.html" class="tool-card disabled">
+                <h2>Experiment Designer</h2>
+                <p>Design and configure experiments with visual stimuli sequences and parameter management.</p>
+                <span class="status coming-soon">Coming Soon</span>
+            </a>
+        </div>
+
+        <footer>
+            <p><a href="https://github.com/reiserlab/maDisplayTools" target="_blank">Reiser Lab</a> | PanelDisplayTools</p>
+        </footer>
+    </div>
+</body>
+</html>
