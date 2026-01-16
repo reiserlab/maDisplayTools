@@ -17,6 +17,10 @@ pc.allOff();
 pc.close(true);
 ```
 
+Where to find patterns:
+Lisa placed some in /examples
+Laura has made some here: https://github.com/leburnett/G4_Display_Tools/tree/G4-1_test_patterns_protocols/Patterns/Patterns_2x12
+
 ### Step 2: If Step 1 works, test SD copy with known-good patterns
 ```matlab
 % Use prepare_sd_card with patterns that have worked before
