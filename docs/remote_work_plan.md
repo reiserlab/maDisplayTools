@@ -18,7 +18,7 @@ No hardware needed — can do from anywhere.
 
 **Tools included**:
 - ✅ G6 Panel Pattern Editor (functional)
-- 🚧 Arena Layout Editor (placeholder)
+- ✅ Arena Layout Editor (functional - see section 3)
 - 🚧 G4.1 Pattern Editor (placeholder)
 - 🚧 G6 Pattern Editor (placeholder)
 - 🚧 Experiment Designer (placeholder)
@@ -34,39 +34,75 @@ No hardware needed — can do from anywhere.
 - [ ] Add `G6_` prefix to MATLAB functions or organize in subdirectory
 - [ ] Document what exists vs what's missing
 - [ ] Ensure MATLAB tools match web tool outputs
+- [ ] **NEW**: Implement CI/CD validation for G6 pattern editor (see section 7)
 
 ---
 
-## 3. Arena layout parameterization
+## 3. ✅ Arena layout parameterization (COMPLETED)
 
-Define arena config format that works for both MATLAB and web:
+**Status**: MATLAB `design_arena.m` function created and validated
 
-```yaml
-# arena_layout.yaml (or .json)
-name: "G4.1 Standard"
-panel_rows: 2
-panel_cols: 12
-pixels_per_panel: 16
-geometry: "cylinder"  # or "flat"
-# ... other params
-```
+**What was done**:
+- Consolidated multiple legacy arena layout scripts into single `design_arena.m` function
+- Supports all panel generations: G3, G4, G4.1, G5, G6
+- Features:
+  - Configurable number of panels (4-36)
+  - Partial arena support (panels_installed parameter)
+  - Angle offset for rotation
+  - Units toggle (inches/mm)
+  - Auto-scaling figure
+  - PDF export
+  - Returns computed geometry (radii, resolution, coverage)
+- Panel specifications from hardware documentation:
+  - G3: 32mm width, 8 pixels/panel
+  - G4: 40.45mm width, 16 pixels/panel
+  - G4.1: 40mm width, 16 pixels/panel, 6.35mm depth
+  - G5: 40mm width, 20 pixels/panel
+  - G6: 45.4mm width, 20 pixels/panel, dual 5-pin headers
 
-- [ ] Draft arena layout spec (YAML or JSON)
-- [ ] List all parameters needed (rows, cols, radius, pixel pitch, etc.)
-- [ ] Create MATLAB function to load/validate arena config
-- [ ] Create JS equivalent for web tools
+**Files created**:
+- `utils/design_arena.m` - Main function
+- `utils/test_design_arena.m` - Test script generating sample arenas
+- `utils/generate_web_reference_data.m` - Generates JSON for web validation
+- `docs/arena-designs/reference_data.json` - Reference geometry data
+
+**Key formula**: `c_radius = panel_width / (tan(alpha/2)) / 2` where `alpha = 2π/num_panels`
 
 ---
 
-## 4. Web arena editor (implementation)
+## 4. ✅ Web arena editor (COMPLETED)
 
-Build the Arena Layout Editor as next web tool:
+**Status**: Full-featured Arena Layout Editor implemented in webDisplayTools
 
-- [ ] Design UI: dropdowns for rows/cols, preview of arena shape
-- [ ] Implement arena visualization (cylinder/flat geometry)
-- [ ] Add arena config export (JSON/YAML)
-- [ ] Match output format with MATLAB requirements
-- [ ] Test with existing arena configurations
+**What was done**:
+- Built `arena_editor.html` with SVG-based visualization
+- Matches MATLAB `design_arena.m` calculations exactly
+- Features:
+  - Panel generation tabs (G3, G4, G4.1, G5, G6, Custom)
+  - Configurable number of panels with +/- controls
+  - Angle offset control
+  - Click-to-toggle panels for partial arena designs
+  - Units toggle (inches/mm)
+  - Labeled dimension line showing inner radius
+  - Dimmed inactive panels for visual contrast
+  - Resolution box showing degrees/pixel
+  - Export PDF (via print dialog)
+  - Export Data (JSON with full geometry and pin coordinates)
+  - Custom panel configuration modal
+- Default: G6 with 10 panels
+- Version: v1.0.0 (2026-01-16)
+
+**CI/CD Validation**:
+- Created `js/arena-calculations.js` - Standalone calculation module
+- Created `tests/validate-arena-calculations.js` - Node.js test runner
+- Created `.github/workflows/validate-calculations.yml` - GitHub Actions workflow
+- Copied `data/reference_data.json` from MATLAB output
+- All 11 test configurations pass validation
+
+**Validation workflow**:
+1. MATLAB `generate_web_reference_data.m` creates reference JSON
+2. Copy to `webDisplayTools/data/reference_data.json`
+3. Run `npm test` or push to GitHub to validate JS matches MATLAB
 
 ---
 
@@ -99,6 +135,57 @@ Build experiment configuration tool:
 
 ---
 
+## 7. CI/CD Validation Strategy
+
+**Purpose**: Ensure web tools produce identical results to MATLAB reference implementations.
+
+**Pattern established with Arena Editor**:
+
+1. **MATLAB generates reference data**:
+   - Create `generate_web_reference_data.m` script
+   - Output JSON with computed values for all test configurations
+   - Store in `docs/[tool-name]/reference_data.json`
+
+2. **Web tool uses same calculations**:
+   - Keep calculations self-contained in HTML for portability
+   - Also create `js/[tool]-calculations.js` module for testing
+
+3. **Node.js test validates**:
+   - `tests/validate-[tool]-calculations.js` loads reference JSON
+   - Runs JS calculations for each configuration
+   - Compares with tolerance (0.0001)
+   - Reports pass/fail
+
+4. **GitHub Actions runs on push**:
+   - Triggers when relevant files change
+   - Fails build if calculations diverge
+
+**To implement for G6 Panel Editor**:
+- [ ] Create MATLAB function that generates reference pattern data
+- [ ] Extract calculation logic into `js/g6-panel-calculations.js`
+- [ ] Create `tests/validate-g6-panel-calculations.js`
+- [ ] Add workflow trigger for G6 panel files
+- [ ] Document pattern format specification
+
+**Benefits**:
+- Catches drift between MATLAB and web implementations
+- Automated testing on every push
+- Reference data serves as documentation
+- Self-contained HTML files remain portable
+
+---
+
+## 8. Future: 3D Arena Visualization
+
+Reserved for later implementation:
+
+- [ ] Three.js or similar for 3D rendering
+- [ ] Interactive arena rotation/zoom
+- [ ] Panel placement visualization
+- [ ] Export 3D models for CAD
+
+---
+
 ## Notes
 
 - All web outputs must match MATLAB outputs exactly
@@ -109,3 +196,4 @@ Build experiment configuration tool:
 - Separate repositories:
   - `maDisplayTools` (private) - MATLAB tools
   - `webDisplayTools` (public) - Web tools
+- CI/CD validation ensures MATLAB ↔ Web consistency
