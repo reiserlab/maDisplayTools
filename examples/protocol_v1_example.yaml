@@ -10,6 +10,7 @@ experiment_info:
   name: "Multi-Plugin Visual Stimulus Experiment"
   date_created: "2024-01-15"
   author: "Research Lab"
+  pattern_library:
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -17,7 +18,7 @@ experiment_info:
 arena_info:
   num_rows: 4
   num_cols: 12
-  generation: "G4"
+  generation: "G4.1"
 
 # ============================================================================
 # PLUGIN DEFINITIONS
@@ -138,6 +139,7 @@ pretrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: './patterns/pat0001_test_grid.pat'
+      pattern_ID: 1
       duration: 2000  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -185,6 +187,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: './patterns/pat0002_vertical_bars.pat'
+          pattern_ID: 2
           duration: 5000  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -227,6 +230,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: './patterns/pat0003_horizontal_bars.pat'
+          pattern_ID: 3
           duration: 5000
           mode: 2
           frame_index: 1
@@ -268,6 +272,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: './patterns/pat0004_checkerboard.pat'
+          pattern_ID: 4
           duration: 3000  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -309,6 +314,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: './patterns/pat0005_expanding_grating.pat'
+          pattern_ID: 5
           duration: 4000  # 4 seconds
           mode: 2
           frame_index: 1
@@ -377,6 +383,7 @@ intertrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: './patterns/pat0006_uniform_gray.pat'
+      pattern_ID: 6
       duration: 2000  # 2 second inter-trial interval
       mode: 2
       frame_index: 1
@@ -420,6 +427,7 @@ posttrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: './patterns/pat0007_complete.pat'
+      pattern_ID: 7
       duration: 2000
       mode: 2
       frame_index: 1

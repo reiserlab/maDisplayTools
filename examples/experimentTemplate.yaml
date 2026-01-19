@@ -4,85 +4,165 @@ experiment_info:
     name: 
     date_created:
     author: 
+    pattern_library:
 
 arena_info: 
-  num_rows: 4
-  num_cols: 12
+  num_rows: 
+  num_cols: 
+  generation: 
+
+plugins:
+  - name:
+  - type:
+  # Other fields depending on the plugin
 
 experiment_structure:
-  repetitions: 3
-  randomize: true
+  repetitions: 
+  randomization:
+    enabled: 
+    seed:   # null = random seed; set to integer for reproducibility
+    method:  # "block" is only option right now
 
 pretrial:
-  include: true
-  command: combined_command
-  command_inputs:
-    pattern: "path/to/pattern"
-    duration: 2000
-    mode: 2
-    frame_index: 1
-    frame_rate: 60
-    gain: 0
-    offset: 0
+  include: 
+  commands:
+
+    - type: 
+    # other fields depending on the type/name
+      command_name: 
+      pattern: 
+      pattern_ID: 
+      duration: # in seconds
+      mode:   
+      frame_index: 
+      frame_rate:
+      gain:
+
+    - type: 
+      duration:
 
 block:
   conditions:
-    - id: 1
-      command: combined_command
-      command_inputs:
-        pattern: "path/to/pattern"
-        duration: 2000
-        mode: 2
-        frame_index: 1
-        frame_rate: 60
-        gain: 0
-        offset: 0
-    
-    - id: 2
-      command: combined_command
-      command_inputs:
-        pattern: "path/to/pattern"
-        duration: 2000
-        mode: 2
-        frame_index: 1
-        frame_rate: 60
-        gain: 0
-        offset: 0
-    
-    - id: 3
-      command: combined_command
-      command_inputs:
-        pattern: "path/to/pattern"
-        duration: 2000
-        mode: 2
-        frame_index: 1
-        frame_rate: 60
-        gain: 0
-        offset: 0
+    # id is a name for the condition
+    - id: 
+      commands:
+       
+        
+        - type: 
+          command_name: 
+          pattern: 
+          pattern_ID: 
+          duration:  # seconds
+          mode: 
+          frame_index: 
+          frame_rate: 
+          gain:
 
-intertrial: 
-  include: true
-  command: combined_command
-  command_inputs:
-    pattern: "path/to/pattern"
-    duration: 2000
-    mode: 2
-    frame_index: 1
-    frame_rate: 60
-    gain: 0
-    offset: 0
+
+    - id:
+      commands:
+        
+        - type: 
+          command_name: 
+          pattern:
+          pattern_ID:
+          duration: #seconds
+          mode:
+          frame_index:
+          frame_rate:
+          gain:
+    
+
+    - id:
+      commands:
+        
+        - type: 
+          command_name:
+          pattern: 
+          pattern_ID:
+          duration: # seconds
+          mode:
+          frame_index: 
+          frame_rate:
+          gain:
+    
+    - id:
+      commands:
+
+
+        - type:
+          command_name:
+
+        - type:
+          duration: # second pause
+
+intertrial:
+  include:
+  commands:
+
+    - type:
+      command_name:
+      pattern:
+      pattern_ID:
+      duration:  # seconds
+      mode:
+      frame_index:
+      frame_rate:
+      gain:
 
 posttrial:
-  include: true
-  command: combined_command
-  command_inputs:
-    pattern: "path/to/pattern"
-    duration: 2000
-    mode: 2
-    frame_index: 1
-    frame_rate: 60
-    gain: 0
-    offset: 0
+  include:
+  commands:
+   
+    - type:
+      command_name:
+      pattern:
+      pattern_ID:
+      duration:
+      mode:
+      frame_index:
+      frame_rate:
+      gain:
 
+    - type:
+      plugin_name:
+    
+    - type:
+      duration:
+
+
+# ============================================================================
+# CONTROLLER COMMANDS REFERENCE
+# ============================================================================
+# Available controller commands and their parameters:
+#
+# allOn - Turn all arena panels on
+#   Parameters: (none)
+#
+# allOff - Turn all arena panels off
+#   Parameters: (none)
+# 
+# stopDisplay - stop displaying pattern
+#   Parameters: (none)
+#
+# setPositionX - set the starting frame when displaying a pattern (default 1)
+#   Parameters: posX: integer between 1 and number of frames in pattern
+#
+# setColorDepth - change the arena's accepted grayscale value 
+#   Parameters: gs_val: 2 or 16
+#
+# startG41Trial - start displaying a trial on the G4.1 system
+#   Parameters: mode: integer 2-4 
+#               patID: integer from 1 - number of patterns available  
+#               posX: integer, starting frame number  
+#               dur: duration of the experiment in seconds (converted to deciseconds at runtime) 
+#               frameRate: Frames per second, mode 2 only
+#               gain: integer, mode 4 only
+#
+#
+# Note: streamFrame is also available but should not be used via yaml. 
+#
+#
+# ============================================================================
 
 
