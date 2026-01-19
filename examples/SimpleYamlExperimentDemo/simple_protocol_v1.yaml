@@ -10,6 +10,7 @@ experiment_info:
   name: "Simple arena-only experiment"
   date_created: "12-15-2025"
   author: "Lisa F"
+  pattern_library: ""
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -51,6 +52,7 @@ pretrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+      pattern_ID: 1
       duration: 2  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -74,6 +76,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+          pattern_ID: 1
           duration: 5  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -88,6 +91,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002.pat'
+          pattern_ID: 2
           duration: 5 # 5 seconds
           mode: 2
           frame_index: 1
@@ -101,6 +105,7 @@ block:
         - type: "controller"
           command_name: "startG41Trial"
           pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003.pat'
+          pattern_ID: 3
           duration: 3  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -130,6 +135,7 @@ intertrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+      pattern_ID: 1
       duration: 2  # 2 second inter-trial interval
       mode: 2
       frame_index: 1
@@ -148,6 +154,7 @@ posttrial:
     - type: "controller"
       command_name: "startG41Trial"
       pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0004.pat'
+      pattern_ID: 4
       duration: 2
       mode: 2
       frame_index: 1
