@@ -3,7 +3,7 @@
 %
 % Prerequisites:
 %   1. Run create_test_patterns.m first to generate patterns
-%   2. Insert SD card and note drive letter
+%   2. Insert SD card named PATSD and note drive letter
 %
 % Usage:
 %   test_sd_card_copy        % Uses default drive 'E'
@@ -11,13 +11,13 @@
 
 function test_sd_card_copy(drive_letter)
     if nargin < 1
-        drive_letter = 'E';
+        drive_letter = 'D';
     end
     
-    % Add file_transfer to path
+    % Add utils to path
     this_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(this_dir);
-    addpath(fullfile(repo_root, 'utils', 'file_transfer'));
+    addpath(fullfile(repo_root, 'utils'));
     
     % Find test patterns
     pat_dir = fullfile(this_dir, 'test_patterns');
@@ -40,11 +40,14 @@ function test_sd_card_copy(drive_letter)
     
     fprintf('Found %d patterns to copy\n', length(patterns));
     
-    % Copy to SD card
-    mapping = prepare_sd_card(patterns, drive_letter);
+    % Copy to SD card (format drive, use root directory)
+    mapping = prepare_sd_card(patterns, drive_letter, ...
+        'Format', true, ...
+        'UsePatternFolder', true);
     
     if mapping.success
         fprintf('\nSuccess! %d patterns copied to %s:\n', mapping.num_patterns, mapping.sd_drive);
+        fprintf('Patterns at: %s\n', mapping.target_dir);
     else
         fprintf('\nFailed: %s\n', mapping.error);
     end
