@@ -91,7 +91,7 @@ This means the controller forcibly closed the connection. Possible causes:
 ## Quick Reference
 
 **Key files:**
-- `utils/file_transfer/prepare_sd_card.m` — SD copy function
+- `utils/prepare_sd_card.m` — SD copy function
 - `examples/create_test_patterns.m` — generates test patterns
 - `examples/test_sd_card_copy.m` — copies test patterns to SD
 - `controller/PanelsController.m` — hardware communication
