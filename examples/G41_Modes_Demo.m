@@ -8,25 +8,24 @@
 % initial frame position, gain, and duration. Any parameters not necessary
 % for the particular mode can be left empty []. 
 
-patIDs = [1:20]; %This demo will cycle through patterns with other parameters staying the same. 
-
+patIDs = [1:100]; %This demo will cycle through patterns with other parameters staying the same. 
 % Other parameters could also be made into a cell array to cycle through. 
 % Conditions here are sequential but you could randomize by choosing a
 % random pattern from the cell array on each loop. 
-controlMode = 2;
-initPos = 1; % The frame number to start on
-frameRate = 20;
-gain = 0; % unneeded in mode 2. 
-dur = 5; %seconds, will convert to deciseconds in execution.
+
 
 % IP address for the arena
-ip_add = '10.102.40.47';
+ip_add = '10.102.40.47';controlMode = 2;
+initPos = 1; % The frame number to start on
+frameRate = 16;
+gain = 0; % unneeded in mode 2. 
+dur = 1; %seconds, will convert to deciseconds in execution.
 
 %Steps for a single trial
 panelsController = PanelsController(ip_add);
 panelsController.open(false);
 
-for pat = 1:length(patIDS)
+for pat = 1:length(patIDs)
     disp(["pattern " num2str(pat)])
     patternID = patIDs(pat)
     % panelsController.startG41Trial(self, mode, patID, frameRate, posX, gain, dur*10)
