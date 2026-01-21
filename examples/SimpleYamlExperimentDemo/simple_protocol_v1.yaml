@@ -10,7 +10,7 @@ experiment_info:
   name: "Simple arena-only experiment"
   date_created: "12-15-2025"
   author: "Lisa F"
-  pattern_library: ""
+  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo"
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -51,7 +51,7 @@ pretrial:
     # Display a test pattern to verify arena
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+      pattern: 'pat0001_2row_gs2_sqGrate.pat'
       pattern_ID: 1
       duration: 2  # 2 seconds
       mode: 2  # position mode
@@ -75,7 +75,7 @@ block:
         # Display pattern
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+          pattern: 'pat0001_2row_gs2_sqGrate.pat'
           pattern_ID: 1
           duration: 5  # 5 seconds
           mode: 2  # closed-loop mode
@@ -90,7 +90,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0002.pat'
+          pattern: 'pat0002.pat'
           pattern_ID: 2
           duration: 5 # 5 seconds
           mode: 2
@@ -104,7 +104,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0003.pat'
+          pattern: 'pat0003.pat'
           pattern_ID: 3
           duration: 3  # 3 seconds
           mode: 2  # position mode (static)
@@ -134,7 +134,7 @@ intertrial:
     # Reset to baseline pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0001_2row_gs2_sqGrate.pat'
+      pattern: 'pat0001_2row_gs2_sqGrate.pat'
       pattern_ID: 1
       duration: 2  # 2 second inter-trial interval
       mode: 2
@@ -153,7 +153,7 @@ posttrial:
     # Display posttrial pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo/pat0004.pat'
+      pattern: 'pat0004.pat'
       pattern_ID: 4
       duration: 2
       mode: 2

@@ -29,12 +29,15 @@ function run_protocol(protocolFilePath, arenaIP, varargin)
 %   - All plugins and scripts must be on MATLAB path
 %
 % See also: ProtocolRunner
-
+    [yamlLocation, yamlFilename, ~] = fileparts(protocolFilePath);
+    if isempty(yamlLocation)
+        yamlLocation = '.';
+    end
     % Parse input arguments
     p = inputParser;
     addRequired(p, 'protocolFilePath', @(x) ischar(x) || isstring(x));
     addRequired(p, 'arenaIP', @ischar);
-    addParameter(p, 'OutputDir', './experiments', @(x) ischar(x) || isstring(x));
+    addParameter(p, 'OutputDir', yamlLocation, @(x) ischar(x) || isstring(x));
     addParameter(p, 'Verbose', true, @islogical);
     addParameter(p, 'DryRun', false, @islogical);
     parse(p, protocolFilePath, arenaIP, varargin{:});
