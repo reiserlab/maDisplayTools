@@ -117,10 +117,11 @@ classdef CommandExecutor < handle
                         if mode > 1 && mode < 5
                             switch mode
                                 case 2
-                                    required_fields = {'pattern', 'frame_index', 'duration', 'frame_rate'};
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate'};
                                     self.check_required_fields(command, required_fields);
                                     [~, pattern_name] = fileparts(command.pattern);
-                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
                                     posX = command.frame_index;
                                     dur = command.duration;
                                     frameRate = command.frame_rate;
@@ -130,11 +131,12 @@ classdef CommandExecutor < handle
                                     
         
                                 case 3
-                                    required_fields = {'pattern', 'frame_index', 'duration'};
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration'};
                                     self.check_required_fields(command, required_fields);
                                     
                                     [~, pattern_name] = fileparts(command.pattern);
-                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
                                     posX = command.frame_index;
                                     dur = command.duration;
 
@@ -142,10 +144,11 @@ classdef CommandExecutor < handle
                                     pause(dur);
 
                                 case 4
-                                    required_fields = {'pattern', 'frame_position', 'duration', 'gain'};
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_position', 'duration', 'gain'};
                                     self.check_required_fields(command, required_fields);
                                     [~, pattern_name] = fileparts(command.pattern);
-                                    patID = CommandExecutor.getPatternID(pattern_name);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
                                     posX = command.frame_index;
                                     dur = command.duration;
                                     frameRate = 1; %Not used but need filler to pass in to controller
