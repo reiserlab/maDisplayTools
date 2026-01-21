@@ -10,6 +10,7 @@ experiment_info:
   name: "Multi-Plugin Visual Stimulus Experiment"
   date_created: "2024-01-15"
   author: "Research Lab"
+  pattern_library:
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -17,14 +18,14 @@ experiment_info:
 arena_info:
   num_rows: 4
   num_cols: 12
-  generation: "G4"
+  generation: "G4.1"
 
 # ============================================================================
 # PLUGIN DEFINITIONS
 # ============================================================================
 plugins:
   # Serial Device Plugin - Background illumination control
-  - id: "background_light"
+  - name: "background_light"
     type: "serial_device"
     port_windows: "COM4"
     port_posix: "/dev/ttyUSB0"
@@ -35,7 +36,7 @@ plugins:
       off: "OFF"
 
   # Serial Device Plugin - LED controller
-  - id: "led_controller"
+  - name: "led_controller"
     type: "serial_device"
     port_windows: "COM5"
     port_posix: "/dev/ttyUSB1"
@@ -46,7 +47,7 @@ plugins:
       pulse: "PULSE 100"
 
   # Class Plugin - Camera/video capture system
-  - id: "simple_bias"
+  - name: "simple_bias"
     type: "class"
     matlab:
       class: "maDisplayTools.plugins.SimpleBias"
@@ -56,10 +57,10 @@ plugins:
     config:
       ip: "127.0.0.1"
       port: 5020
-      config_path: "./config/simple_bias_config.json"
+      config_path: './config/simple_bias_config.json'
 
   # Class Plugin - Data acquisition system
-  - id: "daq_system"
+  - name: "daq_system"
     type: "class"
     matlab:
       class: "maDisplayTools.plugins.DAQController"
@@ -72,14 +73,14 @@ plugins:
       device: "Dev1"
 
   # Script Plugin - Custom preprocessing
-  - id: "preprocessing"
+  - name: "preprocessing"
     type: "script"
-    script: "./user_functions/preprocess_data"
+    script: './user_functions/preprocess_data'
 
   # Script Plugin - Post-trial analysis
-  - id: "analysis"
+  - name: "analysis"
     type: "script"
-    script: "./user_functions/analyze_trial"
+    script: './user_functions/analyze_trial'
 
 # ============================================================================
 # EXPERIMENT STRUCTURE
@@ -89,7 +90,7 @@ experiment_structure:
   randomization:
     enabled: true
     seed: null  # null = random seed; set to integer for reproducibility
-    method: "block"  # "block" or "trial"
+    method: "block"  # "block" is only option right now
 
 # ============================================================================
 # PRETRIAL - Execute once before any trials
@@ -99,44 +100,51 @@ pretrial:
   include: true
   commands:
     # Initialize camera system
-    - plugin: "simple_bias"
-      method: "connect"
+    - type: "plugin"
+      plugin_name: "simple_bias"
+      command_name: "connect"
     
-    - plugin: "simple_bias"
-      method: "initialize"
+    - type: "plugin"
+      plugin_name: "simple_bias"
+      command_name: "initialize"
       params:
         resolution: [1920, 1080]
         fps: 30
     
     # Initialize DAQ system
-    - plugin: "daq_system"
-      method: "connect"
+    - type: "plugin"
+      plugin_name: "daq_system"
+      command_name: "connect"
     
-    - plugin: "daq_system"
-      method: "configure"
+    - type: "plugin"
+      plugin_name: "daq_system"
+      command_name: "configure"
       params:
         buffer_size: 10000
     
     # Initialize background lighting
-    - plugin: "background_light"
-      command: "activate"
+    - type: "plugin"
+      plugin_name: "background_light"
+      command_name: "activate"
     
     # Wait for systems to stabilize
     - type: "wait"
       duration: 1000  # 1 second
     
     # Run preprocessing script
-    - plugin: "preprocessing"
+    - type: "plugin"
+      plugin_name: "preprocessing"
     
     # Display a test pattern to verify arena
-    - type: "streamFrame"
-      pattern: "./patterns/pat0001_test_grid.pat"
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0001_test_grid.pat'
+      pattern_ID: 1
       duration: 2000  # 2 seconds
-      mode: 0  # position mode
+      mode: 2  # position mode
       frame_index: 1
       frame_rate: 60
       gain: 0
-      offset: 0
     
     - type: "wait"
       duration: 500  # 0.5 second pause
@@ -151,182 +159,218 @@ block:
     - id: "vertical_bars_right"
       commands:
         # Start recording
-        - plugin: "simple_bias"
-          method: "startCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
-        - plugin: "simple_bias"
-          method: "setVideoFile"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "vertical_bars_right.avi"
         
         # Start DAQ
-        - plugin: "daq_system"
-          method: "startAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
         # Pulse LED to mark trial start
-        - plugin: "led_controller"
-          command: "pulse"
+        - type: "plugin"
+          plugin_name: "led_controller"
+          command_name: "pulse"
         
         # Wait 50ms
         - type: "wait"
           duration: 50
         
         # Display pattern
-        - type: "streamFrame"
-          pattern: "./patterns/pat0002_vertical_bars.pat"
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0002_vertical_bars.pat'
+          pattern_ID: 2
           duration: 5000  # 5 seconds
-          mode: 0  # closed-loop mode
+          mode: 2  # closed-loop mode
           frame_index: 1
           frame_rate: 60
           gain: -90  # degrees per second
-          offset: 0
         
         # Stop recording
-        - plugin: "daq_system"
-          method: "stopAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
-        - plugin: "simple_bias"
-          method: "stopCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 2: Horizontal bars moving up
     - id: "horizontal_bars_up"
       commands:
-        - plugin: "simple_bias"
-          method: "startCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
-        - plugin: "simple_bias"
-          method: "setVideoFile"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "horizontal_bars_up.avi"
         
-        - plugin: "daq_system"
-          method: "startAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
-        - plugin: "led_controller"
-          command: "pulse"
+        - type: "plugin"
+          plugin_name: "led_controller"
+          command_name: "pulse"
         
         - type: "wait"
           duration: 50
         
-        - type: "streamFrame"
-          pattern: "./patterns/pat0003_horizontal_bars.pat"
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0003_horizontal_bars.pat'
+          pattern_ID: 3
           duration: 5000
-          mode: 0
+          mode: 2
           frame_index: 1
           frame_rate: 60
           gain: -90
-          offset: 0
         
-        - plugin: "daq_system"
-          method: "stopAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
-        - plugin: "simple_bias"
-          method: "stopCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 3: Checkerboard pattern (static)
     - id: "checkerboard_static"
       commands:
-        - plugin: "simple_bias"
-          method: "startCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
-        - plugin: "simple_bias"
-          method: "setVideoFile"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "checkerboard.avi"
         
-        - plugin: "daq_system"
-          method: "startAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
-        - plugin: "led_controller"
-          command: "pulse"
+        - type: "plugin"
+          plugin_name: "led_controller"
+          command_name: "pulse"
         
         - type: "wait"
           duration: 50
         
-        - type: "streamFrame"
-          pattern: "./patterns/pat0004_checkerboard.pat"
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0004_checkerboard.pat'
+          pattern_ID: 4
           duration: 3000  # 3 seconds
-          mode: 0  # position mode (static)
+          mode: 2  # position mode (static)
           frame_index: 1
           frame_rate: 60
           gain: 0
-          offset: 0
         
-        - plugin: "daq_system"
-          method: "stopAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
-        - plugin: "simple_bias"
-          method: "stopCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 4: Expanding grating
     - id: "expanding_grating"
       commands:
-        - plugin: "simple_bias"
-          method: "startCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
-        - plugin: "simple_bias"
-          method: "setVideoFile"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "expanding_grating.avi"
         
-        - plugin: "daq_system"
-          method: "startAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
-        - plugin: "led_controller"
-          command: "pulse"
+        - type: "plugin"
+          plugin_name: "led_controller"
+          command_name: "pulse"
         
         - type: "wait"
           duration: 50
         
-        - type: "streamFrame"
-          pattern: "./patterns/pat0005_expanding_grating.pat"
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0005_expanding_grating.pat'
+          pattern_ID: 5
           duration: 4000  # 4 seconds
-          mode: 0
+          mode: 2
           frame_index: 1
           frame_rate: 60
           gain: -45
-          offset: 0
+
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
-        - plugin: "daq_system"
-          method: "stopAcquisition"
-        
-        - plugin: "simple_bias"
-          method: "stopCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 5: Dark (no stimulus)
     - id: "dark_control"
       commands:
-        - plugin: "simple_bias"
-          method: "startCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
-        - plugin: "simple_bias"
-          method: "setVideoFile"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "dark_control.avi"
         
-        - plugin: "daq_system"
-          method: "startAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
-        - plugin: "led_controller"
-          command: "pulse"
+        - type: "plugin"
+          plugin_name: "led_controller"
+          command_name: "pulse"
         
         # Turn off arena
-        - plugin: "background_light"
-          command: "off"
+        - type: "plugin"
+          plugin_name: "background_light"
+          command_name: "off"
         
         # Wait in darkness
         - type: "wait"
           duration: 3000  # 3 seconds
         
         # Turn background back on
-        - plugin: "background_light"
-          command: "activate"
+        - type: "plugin"
+          plugin_name: "background_light"
+          command_name: "activate"
         
-        - plugin: "daq_system"
-          method: "stopAcquisition"
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
-        - plugin: "simple_bias"
-          method: "stopCapture"
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
 
 # ============================================================================
 # INTERTRIAL - Execute between each trial
@@ -336,17 +380,19 @@ intertrial:
   include: true
   commands:
     # Reset to baseline pattern
-    - type: "streamFrame"
-      pattern: "./patterns/pat0006_uniform_gray.pat"
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0006_uniform_gray.pat'
+      pattern_ID: 6
       duration: 2000  # 2 second inter-trial interval
-      mode: 0
+      mode: 2
       frame_index: 1
       frame_rate: 60
       gain: 0
-      offset: 0
     
     # Run analysis script on previous trial
-    - plugin: "analysis"
+    - type: "plugin"
+      plugin_name: "analysis"
     
     # Brief pause
     - type: "wait"
@@ -360,29 +406,68 @@ posttrial:
   include: true
   commands:
     # Stop all recording systems
-    - plugin: "simple_bias"
-      method: "disconnect"
+    - type: "plugin"
+      plugin_name: "simple_bias"
+      command_name: "disconnect"
     
-    - plugin: "daq_system"
-      method: "disconnect"
+    - type: "plugin"
+      plugin_name: "daq_system"
+      command_name: "disconnect"
     
     # Turn off hardware
-    - plugin: "background_light"
-      command: "off"
+    - type: "plugin"
+      plugin_name: "background_light"
+      command_name: "off"
     
-    - plugin: "led_controller"
-      command: "off"
+    - type: "plugin"
+      plugin_name: "led_controller"
+      command_name: "off"
     
     # Display completion message pattern
-    - type: "streamFrame"
-      pattern: "./patterns/pat0007_complete.pat"
+    - type: "controller"
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0007_complete.pat'
+      pattern_ID: 7
       duration: 2000
-      mode: 0
+      mode: 2
       frame_index: 1
       frame_rate: 60
       gain: 0
-      offset: 0
     
     # Final wait before shutdown
     - type: "wait"
       duration: 1000  # 1 second
+
+# ============================================================================
+# CONTROLLER COMMANDS REFERENCE
+# ============================================================================
+# Available controller commands and their parameters:
+#
+# allOn - Turn all arena panels on
+#   Parameters: (none)
+#
+# allOff - Turn all arena panels off
+#   Parameters: (none)
+# 
+# stopDisplay - stop displaying pattern
+#   Parameters: (none)
+#
+# setPositionX - set the starting frame when displaying a pattern (default 1)
+#   Parameters: posX: integer between 1 and number of frames in pattern
+#
+# setColorDepth - change the arena's accepted grayscale value 
+#   Parameters: gs_val: 2 or 16
+#
+# startG41Trial - start displaying a trial on the G4.1 system
+#   Parameters: mode: integer 2-4 
+#               patID: integer from 1 - number of patterns available  
+#               posX: integer, starting frame number  
+#               dur: duration of the experiment in seconds (converted to deciseconds at runtime) 
+#               frameRate: Frames per second, mode 2 only
+#               gain: integer, mode 4 only
+#
+#
+# Note: streamFrame is also available but should not be used via yaml. 
+#
+#
+# ============================================================================

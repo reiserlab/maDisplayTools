@@ -842,6 +842,39 @@ classdef PanelsController < handle
             for i = 1:length(p{8})
                 tmppos = p{8}(i)-1; % TODO: This seems to be needed because of the 0 padding in `G4_conductor_controller.fill_inactive_ao_indices`. Not clear why that padding is needed, though. It only seems to complicate things.
                 self.setAOFunctionID(p{8}(i), p{9}(tmppos));
+            end                                    
+        end
+
+        function rtn = startG41Trial(self, mode, patID, posX, dur, frameRate, gain)
+            arguments
+                self (1,1) PanelsController
+                mode (1,1) {mustBeInteger, mustBeInRange(mode, 2, 4)}
+                patID (1,1) {mustBeInteger}
+                posX (1,1) {mustBeInteger}
+                dur (1,1) {mustBeInteger}                 
+                frameRate (1,1) {mustBeInteger} = 1      % Optional
+                gain (1,1) {mustBeInteger} = 0            % Optional
+            end
+
+            rtn = false;
+            if mode < 2 || mode > 4
+                error("G4.1 only accepts modes 2, 3, and 4");
+            end
+            cmdData = char([12, 8]);
+            %  % Build command with encoded parameters
+%            disp("I'm running the mock startG41Trial command!");
+            self.write([cmdData ...
+            mode ...                        % mode: passed directly (single byte)
+            dec2char(patID, 2) ...          % patID: 2 bytes unsigned
+            dec2char(frameRate, 2) ...      % frameRate: 2 bytes unsigned
+            dec2char(posX, 2) ...           % posX: 2 bytes unsigned
+            signed_16Bit_to_char(gain) ...  % gain: 2 bytes signed
+            dec2char(dur, 2)]);             % dur: 2 bytes unsigned
+
+%            Handle response if needed
+            resp = self.expectResponse(0, 8, [], 0.1);
+            if ~isempty(resp)
+                rtn = true;
             end
         end
 
