@@ -1,102 +1,105 @@
-# To-Do List - Return to Lab (Tuesday)
+# To-Do List - Lab Testing (Started Tuesday Jan 21, 2025)
+
+## Progress Log
+
+### Tuesday Jan 21, 2025 — COMPLETED ✅
+
+**Step 1: PASSED ✅**
+- Power cycled controller
+- Connection test (`pc.open`, `allOn`, `allOff`) worked
+- Loaded 5 known-good patterns from classic G4 repo manually to SD card (PATSD)
+- All 5 displayed correctly using `panelsController.trialParams`
+- Confirmed these are G4.1 format (32 rows)
+
+**Step 2: PASSED ✅**
+- Created `prepare_sd_card_test.m` (simplified version, writes to SD root, validates PATSD name)
+- Root cause identified: Controller uses FAT32 dirIndex (write order), not filenames
+- MANIFEST files written before patterns → controller saw them as patterns 1 & 2
+- Created unified `prepare_sd_card.m` with options:
+  - `'Format', true` — formats SD card for clean FAT32 state (recommended)
+  - `'UsePatternFolder', true/false` — patterns in /patterns or root
+  - `'ValidateDriveName', true` — requires SD card named PATSD
+- Write order fixed: patterns FIRST, then manifests
+
+**Step 3: PASSED ✅**
+- Created `create_test_patterns_100.m` — generates 100 two-digit patterns (00-99)
+- Uses 4x6 pixel font, two digits per 16x16 panel
+- Created `test_sd_card_copy_100.m` — loads patterns in numeric order
+- Successfully generated, copied, and ran all 100 patterns on controller!
+- Pattern naming convention: `pat0001_num00_2x12.pat` (lowercase)
+- Tested with Frank/Peter's controller update — pattern indexing correct!
+
+**Root cause of last week's WSACONNRESET error:**
+- Controller encountering unexpected files it couldn't parse (MANIFEST files, leftover FAT32 entries)
+- FAT32 delete doesn't fully clear directory entries — controller still saw "ghost" files
+- Fix: Format SD card (`'Format', true`) to fully clear FAT32 directory table
+
+**Note on multiple protocols:**
+Current implementation intentionally avoids "clever" deduplication. If an experiment uses multiple protocols that reference the same pattern file, that pattern appears multiple times in the cell array and gets copied with different unique pattern IDs. This keeps things simple and provides a straightforward path to supporting multiple protocols per experiment. Lisa doesn't need to worry about complex deduplication logic.
+
+---
+
+## Final Status: ALL STEPS COMPLETED ✅
+
+**SD card workflow fully functional:**
+- 100 patterns tested end-to-end
+- Controller firmware updated — pattern indexing correct
+- Ready for production use
+
+---
 
 ## Priority 0: Setup
-- [ ] Install Claude on the lab PC (claude.ai or Claude desktop app) to help with debugging
+- [x] Install Claude on the lab PC (claude.ai in browser)
+- [x] Formatted SD card as PATSD
 
 ## Priority 1: Isolate the Problem
-
-### Step 1: Test with known-good patterns (no SD copy code)
-```matlab
-% Manually load existing patterns that have worked before
-% Use PanelsController directly to rule out pattern encoding issues
-pc = PanelsController('YOUR_IP');
-pc.open(false);
-pc.allOn();   % Basic connection test
-pc.allOff();
-% Try panelsController.trialParams with a pattern you know works
-pc.close(true);
-```
-
-Where to find patterns:
-Lisa placed some in /examples
-Laura has made some here: https://github.com/leburnett/G4_Display_Tools/tree/G4-1_test_patterns_protocols/Patterns/Patterns_2x12
-
-### Step 2: If Step 1 works, test SD copy with known-good patterns
-```matlab
-% Use prepare_sd_card with patterns that have worked before
-old_patterns = {
-    'C:\path\to\known_good_pat1.pat'
-    'C:\path\to\known_good_pat2.pat'
-};
-mapping = prepare_sd_card(old_patterns, 'E');
-% Then test on controller
-```
-
-### Step 3: If Step 2 works, test with newly generated patterns
-```matlab
-% Use our test patterns
-test_sd_card_copy('E');
-% Then test on controller
-```
-
-This isolates: connection vs SD copy code vs pattern generation
-
----
+- [x] Step 1: Test with known-good patterns — PASSED
+- [x] Step 2: Test SD copy code — PASSED (after fixes)
+- [x] Step 3: Test with new patterns — PASSED (100 patterns!)
 
 ## Priority 2: Debug Based on Findings
+- [x] Root cause identified and fixed (FAT32 dirIndex + format solution)
 
-### If connection fails (Step 1):
-- [ ] Reset controller (power cycle)
-- [ ] Check network cable
-- [ ] Try `PanelsControllerTeensyFunctionalTest` individual tests
-
-### Known error: `WSA error: WSACONNRESET`
-This means the controller forcibly closed the connection. Possible causes:
-- Controller crashed or reset mid-communication
-- Controller overwhelmed by too many rapid commands
-- Protocol mismatch (bad packet format)
-- Controller in bad state from previous failed test
-
-**Things to try:**
-- [ ] Power cycle the controller (full reset)
-- [ ] Add small delays between commands (e.g., `pause(0.1)`)
-- [ ] Send fewer commands initially (test with single `allOn`/`allOff`)
-- [ ] Check if controller needs firmware reset
-- [ ] Monitor controller serial output if available
-
-### If SD copy fails (Step 2):
-- [ ] Check MANIFEST.bin contents (should be 6 bytes)
-- [ ] Verify pattern files copied correctly (compare sizes)
-- [ ] Check FAT32 filesystem on SD card
-- [ ] Try formatting SD card fresh
-
-### If new patterns fail (Step 3):
-- [ ] Compare header bytes of working vs non-working patterns
-- [ ] Check `load_pat` / `preview_pat` on new patterns
-- [ ] Verify gs_val=2 encoding is correct
-- [ ] Test with just one simple pattern (e.g., all-white)
-
----
-
-## Priority 3: Once Working
-
-- [ ] Run full test suite with all 20 test patterns
-- [ ] Document any fixes made
+## Priority 3: Production Ready
+- [x] Run full test suite with 100 test patterns
+- [x] Document fixes made
 - [ ] Update `create_experiment_folder_g41` to call `prepare_sd_card`
 - [ ] Test end-to-end: YAML → SD card → run experiment
 - [ ] Share with Lisa for integration testing
 
 ---
 
+## Remaining Items for Thursday (or future lab day)
+
+### Integration with Experiment Workflow
+- [ ] Update `create_experiment_folder_g41` to call `prepare_sd_card`
+- [ ] Test with real experiment YAML files
+- [ ] Switch to `'UsePatternFolder', true` for production
+- [ ] Test end-to-end: YAML → SD card → run experiment
+
+### Share with Team
+- [ ] Share `prepare_sd_card.m` with Lisa for integration testing
+- [ ] Document the multiple-protocol pattern approach
+- [ ] Update roadmap with completed SD card milestone
+
+---
+
 ## Quick Reference
 
 **Key files:**
-- `utils/prepare_sd_card.m` — SD copy function
-- `examples/create_test_patterns.m` — generates test patterns
+- `utils/prepare_sd_card.m` — main SD copy function (with Format/UsePatternFolder options)
+- `examples/create_test_patterns.m` — generates 20 test patterns (digits + gratings)
+- `examples/create_test_patterns_100.m` — generates 100 two-digit patterns (00-99)
 - `examples/test_sd_card_copy.m` — copies test patterns to SD
+- `examples/test_sd_card_copy_100.m` — copies 100 patterns in order
 - `controller/PanelsController.m` — hardware communication
 - `logs/` — check for recent MANIFEST logs
 
 **GitHub branch:** `g41-controller-update`
 
 **IP address:** `10.102.40.47` (confirmed correct)
+
+**SD card requirements:**
+- Named "PATSD"
+- FAT32 format
+- Use `'Format', true` option for cleanest results

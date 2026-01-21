@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-18
-> **Next Review**: ~2026-01-21 (after Tuesday lab session)
+> **Last Updated**: 2026-01-21
+> **Next Review**: ~2026-01-23 (after Thursday lab session)
 
 ---
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Completed Work (Jan 15-17)
+## Completed Work (Jan 15-21)
 
 ### ✅ Web Tools Repository Setup
 - Created `webDisplayTools` as separate public repository
@@ -36,6 +36,7 @@
 - Multiple modes: GS2, GS16, 4-Char, LED Map Reference
 - Real-time preview and pattern export
 - Version 6 (migrated from previous standalone version)
+- **Note**: Still needs CI/CD validation workflow (MATLAB reference data → web validation)
 
 ### ✅ Arena Layout Editor (Web)
 - `arena_editor.html` — fully functional
@@ -68,88 +69,138 @@
 - Auto-rotate animation
 - Screenshot export with stats overlay
 
-### ✅ SD Card Deployment
+### ✅ SD Card Deployment — FULLY TESTED (Jan 21)
 - `utils/prepare_sd_card.m` — stages patterns for SD card
-- Renames to PAT0001.pat, PAT0002.pat, etc.
+  - `'Format', true` — formats SD card for clean FAT32 state (recommended)
+  - `'UsePatternFolder', true/false` — patterns in /patterns or root
+  - `'ValidateDriveName', true` — requires SD card named PATSD
+- Renames to pat0001.pat, pat0002.pat, etc. (lowercase)
 - Creates MANIFEST.bin (for microcontroller) and MANIFEST.txt (human-readable)
 - Saves local log to `logs/`
-- Test patterns created in `examples/test_patterns/`
+- **Tested with 100 patterns end-to-end on hardware!**
+- Frank/Peter's controller update — pattern indexing correct
+
+**Root cause of WSACONNRESET errors identified:**
+- Controller encountering unexpected files it couldn't parse
+- FAT32 delete doesn't clear directory entries — controller saw "ghost" files
+- Fix: Format SD card to fully clear FAT32 directory table
+
+**Note on multiple protocols:**
+Current implementation intentionally avoids deduplication. If an experiment uses multiple protocols referencing the same pattern, that pattern appears multiple times with different unique IDs. Simple approach that provides straightforward path to supporting multiple protocols per experiment.
+
+### ✅ Test Pattern Generation
+- `examples/create_test_patterns.m` — 20 patterns (digits 0-9 + gratings)
+- `examples/create_test_patterns_100.m` — 100 two-digit patterns (00-99)
+- `examples/test_sd_card_copy.m` — copies test patterns to SD
+- `examples/test_sd_card_copy_100.m` — copies 100 patterns in numeric order
 
 ### ✅ Documentation
 - `sd_card_deployment_notes.md` — usage guide
 - `tcp_migration_plan.md` — pnet → tcpclient migration
-- `todo_lab_tuesday.md` — hardware debugging checklist
+- `todo_lab_tuesday.md` — hardware debugging checklist (completed!)
 - `CLAUDE.md` in webDisplayTools — AI assistant guidelines
 
 ---
 
-## Current Focus (Sprint 1: Jan 18-24)
+## Current Focus (Sprint 1: Jan 21-24)
 
-### 🎯 Primary Goal: Hardware Validation
-Validate SD card → pattern playback pipeline on G4.1 hardware.
+### 🎯 Primary Goal: TCP Migration & GUI Planning
+With SD card workflow complete, focus shifts to TCP migration testing and planning G4.1 control GUI.
 
-### Tasks
+### Thursday Lab Session (Jan 23) — PRIORITIES
 
-- [ ] **[P0] Tuesday Lab Session** (Jan 21)
-  - [ ] Resolve `WSACONNRESET` errors (see `todo_lab_tuesday.md`)
-  - [ ] Test SD card deployment with known-good patterns
-  - [ ] Validate `prepare_sd_card.m` end-to-end
-  - [ ] Document any firmware/hardware issues discovered
+- [ ] **[P0] TCP Migration Testing**
+  - [ ] Create feature branch `feature/tcpclient-migration`
+  - [ ] Implement `tcpclient` version of PanelsController
+  - [ ] Run Phase 1-3 benchmarks (see `tcp_migration_plan.md`)
+  - [ ] Test on actual hardware in lab
+  - [ ] Document results, decide go/no-go for merge
 
-- [ ] **[P1] Arena Config Spec** (remote work)
-  - [x] Draft JSON schema (see `arena_config_spec.md`) ✅
-  - [ ] Implement MATLAB `load_arena_config.m` / `save_arena_config.m`
-  - [ ] Update `design_arena.m` to export arena config JSON
-  - [ ] Update web arena editor to export matching JSON format
+- [ ] **[P1] G3 PControl Code Review & Feature List**
+  - [ ] Clone [floesche/LED-Display_G3_Software](https://github.com/floesche/LED-Display_G3_Software)
+  - [ ] Review `PControl.m` / `PControl.fig` architecture
+  - [ ] Generate comprehensive feature list from code
+  - [ ] Categorize: implement now / implement later / don't implement
+  - [ ] Decision: adapt existing GUIDE code vs fresh App Designer redesign
 
-- [ ] **[P2] Pattern Editor Assessment**
-  - [ ] Inventory G4_Pattern_Generator_gui.m features
-  - [ ] Identify which features are generation-specific vs universal
-  - [ ] Create baseline regression test patterns (before any changes)
-  - [ ] Document in `docs/pattern_testing/baseline_inventory.md`
+- [ ] **[P2] Experiment Workflow Integration** (dependent on Lisa)
+  - [ ] Update `create_experiment_folder_g41` to call `prepare_sd_card`
+  - [ ] Test end-to-end: YAML → SD card → run experiment
+  - [ ] Switch to `'UsePatternFolder', true` for production
+  - [ ] Awaiting Lisa's update before end of week
 
-- [ ] **[P3] G6 MATLAB Pattern Tools**
-  - [ ] Locate existing G6 MATLAB pattern code
-  - [ ] Move/copy into `maDisplayTools` repo under `G6/` or `utils/patterns/`
-  - [ ] Document what exists vs what's missing
-  - [ ] Ensure MATLAB tools match web tool outputs
-
-### Done Criteria
-- [ ] Can deploy patterns to SD card and play on hardware without errors
-- [ ] Arena config JSON spec documented and MATLAB functions working
-- [ ] Pattern editor feature inventory complete
-- [ ] G6 MATLAB code located and organized
+### Completed This Sprint
+- [x] **Tuesday Lab Session** (Jan 21) — ALL PASSED ✅
+  - [x] Resolved `WSACONNRESET` errors (root cause: unparseable files on SD)
+  - [x] Tested SD card deployment with known-good patterns
+  - [x] Validated `prepare_sd_card.m` end-to-end
+  - [x] Tested with Frank/Peter's controller update
+  - [x] Generated and tested 100 patterns successfully
 
 ---
 
 ## Upcoming (Sprint 2: Jan 25-31)
 
-### 🎯 Primary Goal: Pattern Editor Refactor (Phase 1)
+### 🎯 Primary Goal: Arena Config & G4.1 Control GUI
 
 ### Tasks
 
-- [ ] **[P1] Update G4_Pattern_Generator_gui.m**
+- [ ] **[P1] Arena Config Implementation**
+  - [x] Draft JSON schema (see `arena_config_spec.md`) ✅
+  - [ ] Implement MATLAB `load_arena_config.m` / `save_arena_config.m`
+  - [ ] Update `design_arena.m` to export arena config JSON
+  - [ ] Update web arena editor to load/export arena config JSON
+  - [ ] Define standard arena configs (G6_2x10_full, G6_2x8_flight, etc.)
+
+- [ ] **[P2] G4.1 Control GUI Development**
+  - [ ] Based on Thursday's feature review, begin implementation
+  - [ ] Either: adapt G3 PControl GUIDE code, or fresh App Designer build
+  - [ ] Core features: pattern selection, gain/offset controls, mode selection
+  - [ ] Wrapper around PanelsController.m
+
+- [ ] **[P3] G6 Single Panel Editor CI/CD**
+  - [ ] Generate MATLAB reference data for g6_panel_editor
+  - [ ] Implement validation workflow (like arena editor)
+  - [ ] Add to GitHub Actions
+
+### Done Criteria
+- [ ] Arena config JSON loading/saving works in MATLAB and web
+- [ ] G4.1 Control GUI prototype functional
+- [ ] G6 panel editor has CI/CD validation
+
+---
+
+## Sprint 3 (Feb 1-7)
+
+### 🎯 Primary Goal: Unified Pattern Editor (MATLAB + Web)
+
+### Tasks
+
+- [ ] **[P1] Pattern Editor Assessment**
+  - [ ] Inventory G4_Pattern_Generator_gui.m features
+  - [ ] Identify which features are generation-specific vs universal
+  - [ ] Create baseline regression test patterns (before any changes)
+  - [ ] Document in `docs/pattern_testing/baseline_inventory.md`
+
+- [ ] **[P2] Update G4_Pattern_Generator_gui.m**
   - [ ] Add generation selector (G3, G4, G4.1, G6) — skip G5
   - [ ] Update pixel grid sizes (8×8, 16×16, 20×20)
+  - [ ] Integrate arena config loading
   - [ ] Verify all existing pattern types work for each generation
   - [ ] Run regression tests against baseline patterns
 
-- [ ] **[P2] TCP Migration Testing**
-  - [ ] Create feature branch `feature/tcpclient-migration`
-  - [ ] Implement `tcpclient` version of PanelsController
-  - [ ] Run Phase 1-3 benchmarks (see `tcp_migration_plan.md`)
-  - [ ] Document results, decide go/no-go for merge
-
-- [ ] **[P3] Web Pattern Editor (Single Panel)**
-  - [ ] Consolidate g6_panel_editor into unified panel editor
-  - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20)
-  - [ ] Add "load arena config" to set defaults
-  - [ ] Implement CI/CD validation (like arena editor)
+- [ ] **[P3] Web Pattern Editor (Multi-Panel)**
+  - [ ] Create unified web pattern editor for full arena patterns
+  - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20) panel sizes
+  - [ ] Arena config integration (auto-set dimensions from loaded config)
+  - [ ] Export patterns in appropriate formats per generation
+  - [ ] Implement CI/CD validation (MATLAB reference → web validation)
 
 ### Done Criteria
-- [ ] Pattern editor generates valid patterns for G3, G4, G4.1, G6
+- [ ] MATLAB pattern editor generates valid patterns for G3, G4, G4.1, G6
+- [ ] Web pattern editor functional for multi-panel arena patterns
 - [ ] Regression tests pass (patterns match baseline)
-- [ ] TCP migration benchmarks documented
+- [ ] CI/CD validation in place for pattern editor
 
 ---
 
@@ -166,23 +217,19 @@ Validate SD card → pattern playback pipeline on G4.1 hardware.
    - Reflect current roadmap status (what's complete vs placeholder)
    - Update tool descriptions and status badges
    - Add links to documentation / roadmap
-   - Clarify consolidated pattern editor plan (not separate G4.1/G6)
+   - Clarify consolidated pattern editor plan
 
-3. **Pattern Editor: Multi-Panel Support**
-   - Extend web editor for full arena patterns
-   - Arena config integration (auto-set dimensions)
-   - Export patterns in G4.1 and G6 formats
-
-4. **PControl Revival**
-   - Reference: G3 PControl GUI in [floesche/LED-Display_G3_Software](https://github.com/floesche/LED-Display_G3_Software/tree/main/MATLAB%20Code/controller)
-   - Clone repo and review `PControl.m` / `PControl.fig` for inspiration
-   - Simple UI for pattern preview and mode testing
-   - Wrapper around PanelsController.m
-
-5. **G6 Pattern Format Support**
+3. **G6 Pattern Format Support**
    - Implement G6 .pat file writer (per protocol spec)
    - Panel block formatting with parity
    - Validate against protocol v1 spec
+   - Note: No G6 hardware available yet for testing
+
+4. **Pattern Index Direction Discrepancy**
+   - MATLAB and web tools may count rows/columns in opposite directions (0-up vs 0-down)
+   - Not a fundamental problem — referencing issue
+   - Need to clarify and document convention when consolidating around G6 pattern format
+   - Add validation tests to catch any mismatches
 
 ### Medium Priority
 
@@ -231,11 +278,27 @@ Validate SD card → pattern playback pipeline on G4.1 hardware.
 
 ## Architecture Decisions
 
-### Arena Config
-Single JSON format used by all tools (see `arena_config_spec.md`):
+### Arena Config vs Rig Config
+
+**Arena Config** — Pattern-specific, standalone document:
 ```json
 {
   "format_version": "1.0",
+  "generation": "G6",
+  "num_rows": 2,
+  "num_cols": 10,
+  "panels_installed": [1,2,3,4,5,6,7,8],
+  "orientation": "normal"
+}
+```
+
+**Rig Config** — Hardware-specific, embeds arena config:
+```json
+{
+  "format_version": "1.0",
+  "rig_name": "Fly Arena 1",
+  "ip_address": "10.102.40.47",
+  "sd_drive_letter": "E",
   "arena": {
     "generation": "G6",
     "num_rows": 2,
@@ -243,12 +306,14 @@ Single JSON format used by all tools (see `arena_config_spec.md`):
     "panels_installed": [1,2,3,4,5,6,7,8],
     "orientation": "normal"
   },
-  "rig": {
-    "ip_address": "10.102.40.47",
-    "plugins": { ... }
+  "plugins": {
+    "led_controller": { ... },
+    "camera": { ... }
   }
 }
 ```
+
+**Rationale**: Arena config is needed standalone for pattern design. Once you have a rig, you know the arena configuration, so rig config embeds arena. Both can exist as separate documents.
 
 ### CI/CD Validation Strategy
 Established pattern for ensuring MATLAB ↔ Web consistency:
@@ -258,13 +323,21 @@ Established pattern for ensuring MATLAB ↔ Web consistency:
 4. GitHub Actions runs on push, fails if calculations diverge
 
 **Implemented for**: Arena Editor
-**To implement for**: Pattern Editor, G6 format validation
+**To implement for**: G6 Panel Editor, Pattern Editor
 
 ### Pattern Editor Strategy
-1. **GUIDE GUI** (G4_Pattern_Generator_gui.m) — update for all generations
-2. **Web Editor** — for simple patterns, cross-platform access
-3. **MATLAB backend** — both tools use same pattern generation functions
+1. **MATLAB GUI** (G4_Pattern_Generator_gui.m) — update for all generations (G3, G4, G4.1, G6)
+2. **Web Editor** — unified multi-panel editor for cross-platform access
+3. **Shared backend logic** — both tools use same pattern generation algorithms
 4. **Regression testing** — automated comparison against baseline patterns
+5. **Arena config integration** — load config to auto-set panel dimensions
+
+### SD Card Deployment Strategy
+- SD card must be named "PATSD"
+- Use `'Format', true` option for cleanest FAT32 state
+- Patterns written BEFORE manifest files (FAT32 dirIndex order matters)
+- No deduplication — same pattern can have multiple IDs for multi-protocol experiments
+- MANIFEST files go in root, patterns in root or `/patterns` subfolder
 
 ### Repository Structure
 ```
@@ -276,7 +349,8 @@ maDisplayTools/
 │   ├── pattern_testing/     # Regression test patterns & plan
 │   └── arena-designs/       # PDF exports, reference_data.json
 ├── examples/
-│   └── test_patterns/       # SD card test patterns
+│   ├── test_patterns/       # SD card test patterns (20)
+│   └── test_patterns_100/   # Two-digit patterns (00-99)
 ├── utils/
 │   ├── design_arena.m       # Arena geometry
 │   ├── prepare_sd_card.m    # SD card deployment
@@ -287,9 +361,8 @@ webDisplayTools/
 ├── index.html               # Landing page
 ├── arena_editor.html        # ✅ Complete
 ├── arena_3d_viewer.html     # ✅ Complete  
-├── g6_panel_editor.html     # ✅ Complete (single panel)
-├── g41_pattern_editor.html  # Placeholder
-├── g6_pattern_editor.html   # Placeholder (multi-panel)
+├── g6_panel_editor.html     # ✅ Complete (needs CI/CD)
+├── pattern_editor.html      # Placeholder (Sprint 3)
 ├── experiment_designer.html # Placeholder
 ├── data/
 │   ├── reference_data.json  # MATLAB-generated validation data
@@ -303,6 +376,36 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-21: Tuesday Lab Session — SUCCESS! 🎉
+**Participants**: Michael (lab), Claude (remote assist)
+
+**Completed**:
+- Full SD card workflow validation
+- Root cause of WSACONNRESET identified (unparseable files on FAT32)
+- `prepare_sd_card.m` enhanced with Format/UsePatternFolder/ValidateDriveName options
+- 100 two-digit test patterns generated and tested
+- Frank/Peter's controller update tested — indexing correct
+- All 3 isolation steps passed
+
+**Key Findings**:
+1. Controller uses FAT32 dirIndex (write order), not filenames
+2. MANIFEST files must be written AFTER patterns
+3. FAT32 delete doesn't clear directory entries — format required for clean slate
+4. Pattern naming now lowercase: `pat0001.pat`
+
+**Files Created/Updated**:
+- `utils/prepare_sd_card.m` — unified version with all options
+- `examples/create_test_patterns_100.m` — generates 00-99 patterns
+- `examples/test_sd_card_copy_100.m` — copies 100 patterns in order
+- `docs/todo_lab_tuesday.md` — updated with completion status
+
+**Next Session (Thursday)**:
+- TCP migration testing (priority)
+- G3 PControl code review & feature list
+- Experiment workflow integration (awaiting Lisa)
+
+---
 
 ### 2026-01-18: Initial Planning Session
 **Participants**: Michael, Claude
@@ -321,17 +424,7 @@ webDisplayTools/
 4. Camera work deferred — out of scope for this roadmap
 5. Tuesday lab session priority: SD card playback validation
 
-**New Items Added**:
-- Plugin system (Lisa's work on YAML experiments)
-- PControl revival (simple pattern display UI)
-- Standard arena configs (G6_2x10_full, G6_2x8_flight, etc.)
-
-**Open Questions**:
-- ~~Where is old PControl code?~~ → Found in [floesche/LED-Display_G3_Software](https://github.com/floesche/LED-Display_G3_Software/tree/main/MATLAB%20Code/controller)
-- Exact plugin parameters — awaiting Lisa's YAML spec
-- G6 protocol v1 firmware status — check with Peter/Will
-
-**G3 PControl Architecture Notes** (for G4.1 GUI reference):
+**G3 PControl Architecture Notes** (for reference):
 - `PControl.m` + `PControl.fig` — Main GUIDE-based GUI with X/Y gain/offset sliders, mode selection, position controls
 - `Panel_com.m` — Serial communication layer (switch/case command dispatcher)
 - `PControl_init.m` — State initialization (gain/offset ranges, positions, modes)
@@ -344,11 +437,6 @@ webDisplayTools/
 - `G4G6_ROADMAP.md` (this file)
 - `arena_config_spec.md`
 - `pattern_testing/README.md`
-
-**Next Session Goals**:
-- Review Tuesday lab results
-- Update Sprint 1 completion status
-- Adjust Sprint 2 priorities based on findings
 
 ---
 
@@ -363,18 +451,19 @@ webDisplayTools/
 - [External Interactions Doc](https://docs.google.com/document/d/1sOOfHelMIC74Od7Tmjm4quTOmdrwfoByE4V4sNNtN54/edit) — Camera, LED, temperature
 - `tcp_migration_plan.md` — TCP benchmark procedures
 - `sd_card_deployment_notes.md` — SD card workflow
-- `todo_lab_tuesday.md` — Hardware debugging checklist
+- `todo_lab_tuesday.md` — Hardware debugging checklist (COMPLETED)
 
 ### Code References
 - `G4_Display_Tools/G4_Pattern_Generator/` — Original pattern generator
 - `G4_Display_Tools/PControl_Matlab/` — G4 PControl (GUI files may be missing)
 - [floesche/LED-Display_G3_Software](https://github.com/floesche/LED-Display_G3_Software) — G3 software including original PControl GUI
 - `webDisplayTools/arena_editor.html` — Web arena editor (complete)
-- `webDisplayTools/g6_panel_editor.html` — Single panel editor (complete)
+- `webDisplayTools/g6_panel_editor.html` — Single panel editor (complete, needs CI/CD)
 - `webDisplayTools/arena_3d_viewer.html` — 3D visualization (complete)
 
 ### Hardware
 - G6 LED mapping: See protocol spec "LED Mappings" section
+- SD card: Must be named "PATSD", FAT32 format
 
 ---
 
@@ -382,4 +471,5 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-01-21 | SD card workflow COMPLETE. Reorganized sprints: Sprint 2 = Arena Config + G4.1 GUI, Sprint 3 = Pattern Editors. Added backlog item for pattern index direction discrepancy. Updated architecture with separate arena/rig config. |
 | 2026-01-18 | Initial roadmap created, consolidated from remote_work_plan.md |
