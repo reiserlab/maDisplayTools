@@ -96,9 +96,9 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, staging_di
     
     try
         if isempty(staging_dir)
-            sd_mapping = prepare_sd_card_crossplatform(pattern_paths, sd_drive);
+            sd_mapping = prepare_sd_card(pattern_paths, sd_drive);
         else
-            sd_mapping = prepare_sd_card_crossplatform(pattern_paths, sd_drive, staging_dir);
+            sd_mapping = prepare_sd_card(pattern_paths, sd_drive, 'StagingDir', staging_dir);
         end
     catch ME
         result.error = sprintf('SD card deployment failed: %s', ME.message);
@@ -176,13 +176,13 @@ function update_info = update_yaml_with_sd_mapping(yaml_path, sd_mapping)
     end
     
     % Build mapping: original_path -> SD card ID number
-    % PAT0001.pat = ID 1, PAT0002.pat = ID 2, etc.
+    % Pattern ID is simply the index in sd_mapping.patterns array
+    % (sd_mapping.patterns{1} = ID 1, sd_mapping.patterns{2} = ID 2, etc.)
     path_to_id = containers.Map('KeyType', 'char', 'ValueType', 'double');
     for i = 1:length(sd_mapping.patterns)
         original_path = sd_mapping.patterns{i}.original_path;
-        sd_name = sd_mapping.patterns{i}.new_name;
-        % Extract ID from PAT0001.pat -> 1
-        id_num = sscanf(sd_name, 'PAT%d.pat');
+        % ID is the array index
+        id_num = i;
         path_to_id(original_path) = id_num;
     end
     

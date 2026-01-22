@@ -1,25 +1,32 @@
-function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, staging_dir)
-% PREPARE_SD_CARD_CROSSPLATFORM Cross-platform wrapper for prepare_sd_card
+function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, options)
+% PREPARE_SD_CARD_CROSSPLATFORM Cross-platform version of prepare_sd_card
 %
 %   mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location)
-%   mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, staging_dir)
+%   mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, 'Format', true)
+%   mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, 'UsePatternFolder', false)
+%   mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, 'StagingDir', '/path/to/staging')
 %
-%   Works on Windows, Mac, and Linux. Handles both drive letters (Windows)
-%   and absolute paths (Mac/Linux).
+%   Cross-platform wrapper that works on Windows, Mac, and Linux.
+%   Handles both drive letters (Windows) and absolute paths (Mac/Linux).
 %
 %   INPUTS:
 %       pattern_paths - Cell array of full paths to pattern files (in desired order)
 %       sd_location   - SD card location:
 %                       Windows: Drive letter (e.g., 'E' or 'E:')
 %                       Mac/Linux: Absolute path (e.g., '/Volumes/SD_CARD' or '/tmp/fake_sd')
-%       staging_dir   - (Optional) Path for staging directory
+%       options       - Name-value pairs:
+%           'Format' (false)          - Format SD card before copying (Windows only)
+%           'UsePatternFolder' (true) - Copy patterns to /patterns subfolder
+%           'StagingDir' ('')         - Custom staging directory (default: tempdir/sd_staging)
+%           'ValidateDriveName' (true)- Require SD card named PATSD (Windows only)
 %
 %   OUTPUTS:
-%       mapping - Same struct as prepare_sd_card (see prepare_sd_card.m)
+%       mapping - Struct with same fields as prepare_sd_card.m
 %
 %   EXAMPLES:
 %       % Windows (real SD card)
 %       mapping = prepare_sd_card_crossplatform(patterns, 'E');
+%       mapping = prepare_sd_card_crossplatform(patterns, 'E', 'Format', true);
 %       
 %       % Mac (real SD card)
 %       mapping = prepare_sd_card_crossplatform(patterns, '/Volumes/SD_CARD');
@@ -33,30 +40,58 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, sta
 %   TESTING ON MAC:
 %       % Create fake SD card folder
 %       fake_sd = '/tmp/fake_sd_card';
-%       if isfolder(fake_sd)
-%           rmdir(fake_sd, 's');
-%       end
+%       if isfolder(fake_sd), rmdir(fake_sd, 's'); end
 %       mkdir(fake_sd);
 %       
 %       % Deploy to fake SD card
-%       result = deploy_experiments_to_sd('test.yaml', fake_sd);
+%       patterns = {'pattern1.pat', 'pattern2.pat'};
+%       result = prepare_sd_card_crossplatform(patterns, fake_sd);
 %       
 %       % Check contents
 %       dir(fullfile(fake_sd, 'patterns'))
 %       type(fullfile(fake_sd, 'MANIFEST.txt'))
 %
+%   NOTES:
+%       - Pattern IDs are determined by position in pattern_paths array
+%       - Same file can appear multiple times with different IDs
+%       - Lowercase filenames: pat0001.pat, pat0002.pat, etc.
+%       - MANIFEST files written AFTER patterns for correct FAT32 dirIndex
+%       - Format option only works on Windows
+%       - ValidateDriveName option only applies to Windows
+%
 %   See also: prepare_sd_card, deploy_experiments_to_sd
 
-    %% Input validation
-    if nargin < 2
-        error('Must provide pattern_paths and sd_location');
+    arguments
+        pattern_paths cell
+        sd_location char
+        options.Format (1,1) logical = false
+        options.UsePatternFolder (1,1) logical = true
+        options.StagingDir char = ''
+        options.ValidateDriveName (1,1) logical = true
     end
-    
-    if nargin < 3
-        staging_dir = '';
+
+    %% Initialize mapping struct
+    mapping = struct();
+    mapping.success = false;
+    mapping.error = '';
+    mapping.timestamp = '';
+    mapping.timestamp_unix = uint32(0);
+    mapping.sd_drive = '';
+    mapping.num_patterns = 0;
+    mapping.patterns = {};
+    mapping.log_file = '';
+    mapping.staging_dir = '';
+    mapping.target_dir = '';
+
+    %% Set staging directory
+    if isempty(options.StagingDir)
+        staging_dir = fullfile(tempdir, 'sd_staging');
+    else
+        staging_dir = options.StagingDir;
     end
+    mapping.staging_dir = staging_dir;
     
-    %% Detect platform and SD card type
+    %% Detect platform and location type
     is_windows = ispc;
     
     % Check if sd_location looks like a Windows drive letter
@@ -64,75 +99,53 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, sta
                       ((length(sd_location) == 1 && isletter(sd_location)) || ...
                        (length(sd_location) == 2 && sd_location(2) == ':')));
     
-    %% Handle based on platform and location type
-    if is_windows && is_drive_letter
-        % Windows with drive letter - use original prepare_sd_card
-        if isempty(staging_dir)
-            mapping = prepare_sd_card(pattern_paths, sd_location);
-        else
-            mapping = prepare_sd_card(pattern_paths, sd_location, staging_dir);
+    %% Normalize location to sd_root path
+    if is_drive_letter
+        if ~is_windows
+            % Non-Windows platform but given a drive letter - error
+            mapping.error = 'Drive letters (e.g., ''E:'') are only valid on Windows. On Mac/Linux, provide full path (e.g., ''/Volumes/SD_CARD'')';
+            return;
         end
         
-    elseif ~is_windows && is_drive_letter
-        % Non-Windows platform but given a drive letter - error
-        mapping = struct();
-        mapping.success = false;
-        mapping.error = 'Drive letters (e.g., ''E:'') are only valid on Windows. On Mac/Linux, provide full path (e.g., ''/Volumes/SD_CARD'')';
-        mapping.timestamp = '';
-        mapping.timestamp_unix = uint32(0);
-        mapping.sd_drive = '';
-        mapping.num_patterns = 0;
-        mapping.patterns = {};
-        mapping.log_file = '';
-        mapping.staging_dir = '';
-        
+        % Windows drive letter - normalize
+        sd_drive = upper(strrep(sd_location, ':', ''));
+        if length(sd_drive) ~= 1 || ~isletter(sd_drive)
+            mapping.error = 'sd_location must be a single letter (e.g., ''E'') or full path';
+            return;
+        end
+        mapping.sd_drive = sd_drive;
+        sd_root = [sd_drive, ':'];
     else
-        % Mac/Linux path or Windows path (not drive letter)
-        % Use modified version that handles absolute paths
-        if isempty(staging_dir)
-            mapping = prepare_sd_card_path(pattern_paths, sd_location);
-        else
-            mapping = prepare_sd_card_path(pattern_paths, sd_location, staging_dir);
+        % Absolute path (Mac/Linux or Windows path)
+        sd_root = sd_location;
+        mapping.sd_drive = sd_location;  % Store full path for non-Windows
+    end
+    
+    %% Check location exists
+    if ~isfolder(sd_root)
+        mapping.error = sprintf('SD card location not found: %s', sd_root);
+        return;
+    end
+    
+    %% Validate SD card name (Windows only)
+    if is_windows && is_drive_letter && options.ValidateDriveName
+        try
+            [~, vol_name] = system(['vol ' sd_drive ':']);
+            if ~contains(vol_name, 'PATSD')
+                mapping.error = sprintf('SD card is not named PATSD. Found: %s\nUse ''ValidateDriveName'', false to skip this check.', strtrim(vol_name));
+                return;
+            end
+            fprintf('✓ SD card validated: PATSD\n');
+        catch ME
+            mapping.error = sprintf('Could not validate SD card name: %s', ME.message);
+            return;
         end
-    end
-end
-
-
-function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
-% Modified version of prepare_sd_card that accepts absolute paths
-% This is nearly identical to prepare_sd_card.m but uses sd_path instead of drive letter
-
-    %% Initialize mapping struct early
-    mapping = struct();
-    mapping.success = false;
-    mapping.error = '';
-    mapping.timestamp = '';
-    mapping.timestamp_unix = uint32(0);
-    mapping.sd_drive = sd_path;  % Store full path instead of drive letter
-    mapping.num_patterns = 0;
-    mapping.patterns = {};
-    mapping.log_file = '';
-    mapping.staging_dir = '';
-
-    %% Input validation
-    if nargin < 2
-        mapping.error = 'Must provide pattern_paths and sd_path';
-        return;
+    elseif ~is_windows && options.ValidateDriveName
+        % ValidateDriveName requested but not on Windows - just warn
+        fprintf('Note: ValidateDriveName only applies to Windows drive letters\n');
     end
     
-    if nargin < 3 || isempty(staging_dir)
-        staging_dir = fullfile(tempdir, 'sd_staging');
-    end
-    
-    mapping.staging_dir = staging_dir;
-    
-    % Validate SD path exists or can be created
-    if ~isfolder(sd_path)
-        mapping.error = sprintf('SD card path not found: %s', sd_path);
-        return;
-    end
-    
-    % Validate pattern count
+    %% Validate pattern count
     num_patterns = length(pattern_paths);
     if num_patterns == 0
         mapping.error = 'pattern_paths is empty';
@@ -144,7 +157,7 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
     end
     mapping.num_patterns = num_patterns;
     
-    % Validate all pattern files exist
+    %% Validate all pattern files exist
     for i = 1:num_patterns
         if ~isfile(pattern_paths{i})
             mapping.error = sprintf('Pattern file not found: %s', pattern_paths{i});
@@ -153,9 +166,10 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
     end
     
     %% Generate timestamps
-    timestamp = uint32(posixtime(datetime('now')));
-    timestamp_str = datestr(datetime('now'), 'yyyy-mm-ddTHH:MM:SS');
-    timestamp_filename = datestr(datetime('now'), 'yyyymmdd_HHMMSS');
+    now_dt = datetime('now');
+    timestamp = uint32(floor(posixtime(now_dt)));
+    timestamp_str = datestr(now_dt, 'yyyy-mm-ddTHH:MM:SS');
+    timestamp_filename = datestr(now_dt, 'yyyymmdd_HHMMSS');
     
     mapping.timestamp = timestamp_str;
     mapping.timestamp_unix = timestamp;
@@ -164,7 +178,6 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
     fprintf('Creating staging directory: %s\n', staging_dir);
     
     try
-        % Clean up old staging if exists
         if isfolder(staging_dir)
             rmdir(staging_dir, 's');
         end
@@ -175,14 +188,14 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
         return;
     end
     
-    %% Copy and rename patterns
+    %% Copy and rename patterns to staging
     fprintf('Staging %d patterns...\n', num_patterns);
     
     mapping.patterns = cell(num_patterns, 1);
     
     for i = 1:num_patterns
         old_path = pattern_paths{i};
-        new_name = sprintf('PAT%04d.pat', i);
+        new_name = sprintf('pat%04d.pat', i);  % Lowercase to match boss's version
         new_path = fullfile(staging_dir, 'patterns', new_name);
         
         try
@@ -193,11 +206,10 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
         end
         
         mapping.patterns{i} = struct('new_name', new_name, 'original_path', old_path);
-        
         fprintf('  %s <- %s\n', new_name, old_path);
     end
     
-    %% Create MANIFEST.bin (binary)
+    %% Create MANIFEST.bin (binary) in staging
     bin_path = fullfile(staging_dir, 'MANIFEST.bin');
     try
         fid = fopen(bin_path, 'wb');
@@ -211,10 +223,9 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
         mapping.error = sprintf('Failed to create MANIFEST.bin: %s', ME.message);
         return;
     end
-    
     fprintf('Created MANIFEST.bin (count=%d, timestamp=%d)\n', num_patterns, timestamp);
     
-    %% Create MANIFEST.txt (human-readable)
+    %% Create MANIFEST.txt (human-readable) in staging
     txt_path = fullfile(staging_dir, 'MANIFEST.txt');
     try
         fid = fopen(txt_path, 'w');
@@ -222,14 +233,14 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
             error('Could not open file');
         end
         
-        fprintf(fid, 'Timestamp: %s\n', timestamp_str);
-        fprintf(fid, 'SD Location: %s\n', sd_path);
-        fprintf(fid, 'Pattern Count: %d\n', num_patterns);
-        fprintf(fid, '\n');
-        fprintf(fid, 'Mapping:\n');
+        fprintf(fid, 'Timestamp: %s\r\n', timestamp_str);
+        fprintf(fid, 'SD Location: %s\r\n', sd_root);
+        fprintf(fid, 'Pattern Count: %d\r\n', num_patterns);
+        fprintf(fid, '\r\n');
+        fprintf(fid, 'Mapping:\r\n');
         
         for i = 1:num_patterns
-            fprintf(fid, '%s <- %s\n', mapping.patterns{i}.new_name, mapping.patterns{i}.original_path);
+            fprintf(fid, '%s <- %s\r\n', mapping.patterns{i}.new_name, mapping.patterns{i}.original_path);
         end
         
         fclose(fid);
@@ -241,16 +252,10 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
     
     %% Save local log copy
     try
-        % Try to find maDisplayTools root for logs
-        % If not found, save to current directory
         this_file = mfilename('fullpath');
-        if ~isempty(this_file)
-            [this_dir, ~, ~] = fileparts(this_file);
-            repo_root = fileparts(fileparts(this_dir));  % Go up from utils/file_transfer
-            logs_dir = fullfile(repo_root, 'logs');
-        else
-            logs_dir = fullfile(pwd, 'logs');
-        end
+        [this_dir, ~, ~] = fileparts(this_file);
+        repo_root = fileparts(this_dir);  % Go up one level
+        logs_dir = fullfile(repo_root, 'logs');
         
         if ~isfolder(logs_dir)
             mkdir(logs_dir);
@@ -263,29 +268,64 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
         fprintf('Saved local log: %s\n', log_path);
     catch ME
         warning('Failed to save local log: %s', ME.message);
-        % Don't return - this is non-critical
     end
     
-    %% Copy to SD card
-    sd_root = sd_path;
-    sd_patterns = fullfile(sd_root, 'patterns');
+    %% Determine target directory on SD card
+    if options.UsePatternFolder
+        target_dir = fullfile(sd_root, 'patterns');
+    else
+        target_dir = sd_root;
+    end
+    mapping.target_dir = target_dir;
     
-    fprintf('\nCopying to SD card (%s)...\n', sd_root);
+    %% Format or clear SD card
+    fprintf('\nPreparing SD card (%s)...\n', sd_root);
     
-    % Check SD card is accessible
-    if ~isfolder(sd_root)
-        mapping.error = sprintf('SD card path not found: %s', sd_root);
-        return;
+    if options.Format
+        if ~is_windows || ~is_drive_letter
+            % Format only works on Windows with drive letters
+            fprintf('  Warning: Format option only works on Windows with drive letters. Skipping format.\n');
+            % Continue with manual cleanup instead
+            options.Format = false;
+        end
     end
     
-    try
-        % Delete old patterns folder if exists
-        if isfolder(sd_patterns)
-            fprintf('  Removing old patterns folder...\n');
-            rmdir(sd_patterns, 's');
+    if options.Format && is_windows && is_drive_letter
+        % Format the SD card (FAT32, label PATSD) - Windows only
+        fprintf('  Formatting as FAT32 (PATSD)...\n');
+        [status, result] = system(sprintf('format %s: /FS:FAT32 /V:PATSD /Q /Y', sd_drive));
+        if status ~= 0
+            mapping.error = sprintf('Format failed: %s', result);
+            return;
+        end
+        fprintf('  ✓ SD card formatted\n');
+        
+        % Create patterns folder if needed
+        if options.UsePatternFolder
+            mkdir(target_dir);
+            fprintf('  ✓ Created patterns folder\n');
+        end
+    else
+        % Manual cleanup (works on all platforms)
+        if options.UsePatternFolder
+            % Remove and recreate patterns folder
+            if isfolder(target_dir)
+                fprintf('  Removing old patterns folder...\n');
+                rmdir(target_dir, 's');
+            end
+            mkdir(target_dir);
+        else
+            % Delete all files in root (but not directories)
+            old_files = dir(fullfile(sd_root, '*.*'));
+            for i = 1:length(old_files)
+                if ~old_files(i).isdir
+                    delete(fullfile(sd_root, old_files(i).name));
+                end
+            end
+            fprintf('  ✓ Cleared existing files\n');
         end
         
-        % Delete old manifest files if exist
+        % Delete old manifest files from root (in case switching modes)
         old_manifest_bin = fullfile(sd_root, 'MANIFEST.bin');
         old_manifest_txt = fullfile(sd_root, 'MANIFEST.txt');
         if isfile(old_manifest_bin)
@@ -294,37 +334,47 @@ function mapping = prepare_sd_card_path(pattern_paths, sd_path, staging_dir)
         if isfile(old_manifest_txt)
             delete(old_manifest_txt);
         end
-        
-        % Create patterns folder on SD
-        mkdir(sd_patterns);
-        
-        % Copy patterns one by one (preserves order on FAT32)
-        fprintf('  Copying %d patterns...\n', num_patterns);
+    end
+    
+    %% Copy patterns to SD card (FIRST - for correct dirIndex order)
+    fprintf('  Copying %d patterns...\n', num_patterns);
+    try
         for i = 1:num_patterns
-            src = fullfile(staging_dir, 'patterns', sprintf('PAT%04d.pat', i));
-            dst = fullfile(sd_patterns, sprintf('PAT%04d.pat', i));
+            src = fullfile(staging_dir, 'patterns', sprintf('pat%04d.pat', i));
+            dst = fullfile(target_dir, sprintf('pat%04d.pat', i));
             copyfile(src, dst);
         end
-        
-        % Copy manifest files
+    catch ME
+        mapping.error = sprintf('Failed to copy patterns to SD card: %s', ME.message);
+        return;
+    end
+    fprintf('  ✓ Copied %d patterns\n', num_patterns);
+    
+    %% Copy manifest files to SD card (AFTER patterns for correct dirIndex)
+    try
         copyfile(bin_path, fullfile(sd_root, 'MANIFEST.bin'));
         copyfile(txt_path, fullfile(sd_root, 'MANIFEST.txt'));
     catch ME
-        mapping.error = sprintf('Failed to copy to SD card: %s', ME.message);
+        mapping.error = sprintf('Failed to copy manifest files: %s', ME.message);
         return;
     end
-    
-    fprintf('\nDone! Copied %d patterns to %s\n', num_patterns, sd_root);
+    fprintf('  ✓ Copied manifest files\n');
     
     %% Verify
-    verify_count = length(dir(fullfile(sd_patterns, '*.pat')));
+    verify_count = length(dir(fullfile(target_dir, '*.pat')));
     if verify_count ~= num_patterns
         mapping.error = sprintf('Verification failed: expected %d patterns, found %d on SD card', ...
             num_patterns, verify_count);
         return;
     end
     
-    fprintf('Verification passed: %d patterns on SD card\n', verify_count);
+    %% Summary
+    fprintf('\n=== SD Card Ready ===\n');
+    fprintf('Location: %s\n', sd_root);
+    fprintf('Target: %s\n', target_dir);
+    fprintf('Patterns: %d (dirIndex 0-%d)\n', num_patterns, num_patterns-1);
+    fprintf('Manifests: dirIndex %d-%d\n', num_patterns, num_patterns+1);
+    fprintf('Verification: PASSED\n');
     
     %% Success
     mapping.success = true;
