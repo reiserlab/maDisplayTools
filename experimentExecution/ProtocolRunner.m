@@ -276,9 +276,8 @@ classdef ProtocolRunner < handle
         end
         
         function getExperimentDirectory(self)
-
-            [self.experimentDir, ~] = fileparts(self.protocolFilePath);
-
+            % Use OutputDir parameter if provided, otherwise use YAML location
+            self.experimentDir = self.outputDir;
         end
         
         function initializeLogger(self)
