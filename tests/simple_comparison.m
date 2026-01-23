@@ -101,7 +101,7 @@ function r = run_simple_tests(pc, name)
     fprintf('  streamFrame: ');
     try
         % Create a frame for 2x12 panel config (32 rows x 192 cols)
-        frame = make_framevector_gs16(zeros(32, 192), 0);  % ~3176 bytes
+        frame = maDisplayTools.make_framevector_gs16(zeros(32, 192), 0);  % ~3176 bytes
         [r.stream.passed, r.stream.failed, r.stream.time_ms] = test_command(@() pc.streamFrame(0, 0, frame), 5);
         fprintf('%d/5, %.1f ms avg (%d bytes)\n', r.stream.passed, r.stream.time_ms, length(frame));
     catch ME
@@ -114,8 +114,13 @@ function r = run_simple_tests(pc, name)
 end
 
 
-function [passed, failed, avg_ms] = test_command(fn, n)
+function [passed, failed, avg_ms] = test_command(fn, n, delay)
 %TEST_COMMAND Test a command n times and measure timing
+%   delay - optional pause between commands (default: 0.05s for reliability)
+    if nargin < 3
+        delay = 0.05;  % 50ms between commands for reliable testing
+    end
+
     passed = 0;
     failed = 0;
     times = zeros(1, n);
@@ -134,6 +139,11 @@ function [passed, failed, avg_ms] = test_command(fn, n)
         catch
             times(i) = toc * 1000;
             failed = failed + 1;
+        end
+
+        % Small delay between commands for reliability
+        if i < n && delay > 0
+            pause(delay);
         end
     end
 
