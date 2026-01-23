@@ -19,7 +19,7 @@ function results = run_comparison(ip, options)
 %       results - Struct with comparison results
 
     arguments
-        ip (1,:) char = 'localhost'
+        ip (1,:) char = '192.168.10.62'
         options.QuickTest (1,1) logical = false
         options.SkipStreaming (1,1) logical = false
         options.SkipReliability (1,1) logical = false
