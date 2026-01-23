@@ -1,9 +1,9 @@
 function results = benchmark_timing(pc, backend_name, iterations)
-%BENCHMARK_TIMING Measure command latency
+%BENCHMARK_TIMING Measure command latency for G4.1
 %
 %   results = benchmark_timing(pc, backend_name, iterations)
 %
-%   Measures round-trip latency for various commands.
+%   Measures round-trip latency for G4.1-supported commands.
 %
 %   Inputs:
 %       pc           - PanelsController or PanelsControllerNative instance
@@ -29,7 +29,7 @@ function results = benchmark_timing(pc, backend_name, iterations)
     % Ensure connection
     if ~pc.isOpen
         try
-            pc.open();
+            pc.open(false);
         catch ME
             fprintf('ERROR: Could not connect: %s\n', ME.message);
             results.error = ME.message;
@@ -37,13 +37,11 @@ function results = benchmark_timing(pc, backend_name, iterations)
         end
     end
 
-    % Commands to benchmark
+    % G4.1-supported commands to benchmark
     commands = {
         'allOn',       @() pc.allOn();
         'allOff',      @() pc.allOff();
         'stopDisplay', @() pc.stopDisplay();
-        'setControlMode', @() pc.setControlMode(0);
-        'setPatternID', @() pc.setPatternID(1);
     };
 
     for i = 1:size(commands, 1)
@@ -70,6 +68,8 @@ function results = benchmark_timing(pc, backend_name, iterations)
                 if ~success
                     errors = errors + 1;
                 end
+
+                pause(0.05);  % 50ms delay for reliability
             end
 
             results.commands.(name) = struct(...
@@ -89,9 +89,9 @@ function results = benchmark_timing(pc, backend_name, iterations)
 
             % Try to recover
             try
-                pc.close();
+                pc.close(true);
                 pause(1);
-                pc.open();
+                pc.open(false);
                 fprintf('  (recovered connection)\n');
             catch
                 fprintf('  STOPPED: could not recover\n');
@@ -101,7 +101,7 @@ function results = benchmark_timing(pc, backend_name, iterations)
             end
         end
 
-        pause(0.1);  % Brief pause between command types
+        pause(0.2);  % Brief pause between command types
     end
 
     fprintf('\n');

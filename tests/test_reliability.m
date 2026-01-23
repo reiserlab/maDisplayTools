@@ -1,10 +1,10 @@
 function results = test_reliability(pc, backend_name, duration_min)
-%TEST_RELIABILITY Test connection reliability over extended period
+%TEST_RELIABILITY Test connection reliability over extended period (G4.1)
 %
 %   results = test_reliability(pc, backend_name, duration_min)
 %
-%   Runs continuous commands for specified duration to measure reliability.
-%   Target: >99.9% success rate
+%   Runs continuous G4.1-compatible commands for specified duration to
+%   measure reliability. Target: >99.9% success rate
 %
 %   Inputs:
 %       pc           - PanelsController or PanelsControllerNative instance
@@ -29,7 +29,7 @@ function results = test_reliability(pc, backend_name, duration_min)
     % Ensure connection
     if ~pc.isOpen
         try
-            pc.open();
+            pc.open(false);
         catch ME
             fprintf('ERROR: Could not connect: %s\n', ME.message);
             results.error = ME.message;
@@ -55,7 +55,7 @@ function results = test_reliability(pc, backend_name, duration_min)
                 disconnects = disconnects + 1;
                 fprintf('  [%.1f min] Disconnected! Attempting reconnect...\n', toc(start_time)/60);
                 try
-                    pc.open();
+                    pc.open(false);
                     fprintf('  Reconnected.\n');
                 catch
                     fprintf('  STOPPED: could not reconnect\n');
@@ -63,7 +63,7 @@ function results = test_reliability(pc, backend_name, duration_min)
                 end
             end
 
-            % Run command
+            % Run G4.1-supported command
             try
                 if pc.allOn()
                     success = success + 1;
@@ -83,7 +83,7 @@ function results = test_reliability(pc, backend_name, duration_min)
                 last_report = elapsed;
             end
 
-            pause(0.05);  % ~20 commands per second
+            pause(0.05);  % 50ms delay for reliability (~20 commands per second)
         end
     catch ME
         if strcmp(ME.identifier, 'MATLAB:interrupt')

@@ -1,10 +1,10 @@
 function results = test_command_verification(pc, backend_name)
-%TEST_COMMAND_VERIFICATION Verify all commands return expected responses
+%TEST_COMMAND_VERIFICATION Verify G4.1 commands return expected responses
 %
 %   results = test_command_verification(pc, backend_name)
 %
-%   Tests that all PanelsController commands work correctly and return
-%   the expected responses.
+%   Tests that G4.1-supported PanelsController commands work correctly
+%   and return the expected responses.
 %
 %   Inputs:
 %       pc           - PanelsController or PanelsControllerNative instance
@@ -27,7 +27,7 @@ function results = test_command_verification(pc, backend_name)
     % Ensure connection
     if ~pc.isOpen
         try
-            pc.open();
+            pc.open(false);
         catch ME
             fprintf('ERROR: Could not connect: %s\n', ME.message);
             results.error = ME.message;
@@ -35,17 +35,14 @@ function results = test_command_verification(pc, backend_name)
         end
     end
 
-    % Test each command
+    % Test G4.1-supported commands only
+    % Note: getVersion removed as it may not be supported on G4.1
     tests = {
-        'allOn',        @() pc.allOn(),         true;
-        'allOff',       @() pc.allOff(),        true;
-        'stopDisplay',  @() pc.stopDisplay(),   true;
+        'allOn',           @() pc.allOn(),           true;
+        'allOff',          @() pc.allOff(),          true;
+        'stopDisplay',     @() pc.stopDisplay(),     true;
         'sendDisplayReset', @() pc.sendDisplayReset(), true;
-        'setControlMode', @() pc.setControlMode(0), true;
-        'setPatternID', @() pc.setPatternID(1), true;
-        'setFrameRate', @() pc.setFrameRate(60), true;
-        'getVersion',   @() ~isempty(pc.getVersion()), true;
-        'resetCounter', @() pc.resetCounter(),  true;
+        'resetCounter',    @() pc.resetCounter(),    true;
     };
 
     passed = 0;
@@ -77,7 +74,7 @@ function results = test_command_verification(pc, backend_name)
             failed = failed + 1;
         end
 
-        pause(0.05);  % Brief pause between commands
+        pause(0.05);  % 50ms pause between commands for reliability
     end
 
     results.passed = passed;

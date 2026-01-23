@@ -1,15 +1,15 @@
 function results = run_comparison(ip, options)
-%RUN_COMPARISON Compare pnet and native TCP implementations
+%RUN_COMPARISON Compare pnet and native TCP implementations for G4.1
 %
 %   results = run_comparison(ip)
 %   results = run_comparison(ip, 'QuickTest', true)
 %   results = run_comparison(ip, 'SkipStreaming', true)
 %
 %   Runs benchmarks on both PanelsController (pnet) and
-%   PanelsControllerNative (tcpclient) implementations.
+%   PanelsControllerNative (tcpclient) implementations for G4.1/Teensy.
 %
 %   Inputs:
-%       ip      - Host IP address (default: 'localhost')
+%       ip      - Host IP address (default: '192.168.10.62')
 %       Options:
 %           QuickTest     - Run with fewer iterations (default: false)
 %           SkipStreaming - Skip streaming benchmarks (default: false)
@@ -27,9 +27,9 @@ function results = run_comparison(ip, options)
 
     fprintf('\n');
     fprintf('========================================\n');
-    fprintf('     TCP Backend Comparison Test\n');
+    fprintf('   TCP Backend Comparison Test (G4.1)\n');
     fprintf('========================================\n');
-    fprintf('Host: %s:62222\n', ip);
+    fprintf('Host: %s\n', ip);
     fprintf('Quick test: %s\n', mat2str(options.QuickTest));
     fprintf('========================================\n');
 
@@ -50,8 +50,8 @@ function results = run_comparison(ip, options)
     fprintf('\n\n*** Testing PanelsController (pnet) ***\n');
 
     try
-        pc_pnet = PanelsController(ip, 62222);
-        pc_pnet.open();
+        pc_pnet = PanelsController(ip);
+        pc_pnet.open(false);
 
         results.pnet.verification = test_command_verification(pc_pnet, 'pnet');
         results.pnet.timing = benchmark_timing(pc_pnet, 'pnet', timing_iterations);
@@ -64,7 +64,7 @@ function results = run_comparison(ip, options)
             results.pnet.streaming = benchmark_streaming(pc_pnet, 'pnet');
         end
 
-        pc_pnet.close();
+        pc_pnet.close(true);
 
     catch ME
         fprintf('pnet testing failed: %s\n', ME.message);
@@ -77,8 +77,8 @@ function results = run_comparison(ip, options)
     fprintf('\n\n*** Testing PanelsControllerNative (tcpclient) ***\n');
 
     try
-        pc_native = PanelsControllerNative(ip, 62222);
-        pc_native.open();
+        pc_native = PanelsControllerNative(ip);
+        pc_native.open(false);
 
         results.native.verification = test_command_verification(pc_native, 'native');
         results.native.timing = benchmark_timing(pc_native, 'native', timing_iterations);
@@ -91,7 +91,7 @@ function results = run_comparison(ip, options)
             results.native.streaming = benchmark_streaming(pc_native, 'native');
         end
 
-        pc_native.close();
+        pc_native.close(true);
 
     catch ME
         fprintf('native testing failed: %s\n', ME.message);
@@ -120,10 +120,10 @@ function print_comparison_summary(results)
     pnet_ok = isfield(results, 'pnet') && ~isfield(results.pnet, 'error');
     native_ok = isfield(results, 'native') && ~isfield(results.native, 'error');
 
-    if ~pnet_ok
+    if ~pnet_ok && isfield(results, 'pnet') && isfield(results.pnet, 'error')
         fprintf('pnet: ERROR - %s\n', results.pnet.error);
     end
-    if ~native_ok
+    if ~native_ok && isfield(results, 'native') && isfield(results.native, 'error')
         fprintf('native: ERROR - %s\n', results.native.error);
     end
 
@@ -149,6 +149,7 @@ function print_comparison_summary(results)
         for i = 1:length(commands)
             cmd = commands{i};
             if isfield(results.pnet.timing.commands.(cmd), 'mean_ms') && ...
+               isfield(results.native.timing, 'commands') && ...
                isfield(results.native.timing.commands, cmd) && ...
                isfield(results.native.timing.commands.(cmd), 'mean_ms')
 
@@ -172,19 +173,18 @@ function print_comparison_summary(results)
 
     % Streaming comparison
     if isfield(results.pnet, 'streaming') && isfield(results.native, 'streaming')
-        fprintf('\nStreaming Max FPS:\n');
+        fprintf('\nStreaming (streamFrame):\n');
         fprintf('  %-20s %8s %8s\n', '', 'pnet', 'native');
 
-        if isfield(results.pnet.streaming, 'mode3') && isfield(results.native.streaming, 'mode3')
-            fprintf('  %-20s %8d %8d\n', 'Mode 3', ...
-                results.pnet.streaming.mode3.max_fps, ...
-                results.native.streaming.mode3.max_fps);
+        pnet_max = 0;
+        native_max = 0;
+        if isfield(results.pnet.streaming, 'streaming') && isfield(results.pnet.streaming.streaming, 'max_fps')
+            pnet_max = results.pnet.streaming.streaming.max_fps;
         end
-        if isfield(results.pnet.streaming, 'mode5') && isfield(results.native.streaming, 'mode5')
-            fprintf('  %-20s %8d %8d\n', 'Mode 5', ...
-                results.pnet.streaming.mode5.max_fps, ...
-                results.native.streaming.mode5.max_fps);
+        if isfield(results.native.streaming, 'streaming') && isfield(results.native.streaming.streaming, 'max_fps')
+            native_max = results.native.streaming.streaming.max_fps;
         end
+        fprintf('  %-20s %8d %8d\n', 'Max FPS', pnet_max, native_max);
     end
 
     % Recommendation
@@ -192,16 +192,36 @@ function print_comparison_summary(results)
     fprintf('Recommendation: ');
 
     % Simple heuristic: if native has similar or better performance, recommend it
-    if isfield(results.pnet, 'timing') && isfield(results.native, 'timing')
-        pnet_mean = mean(structfun(@(x) x.mean_ms, results.pnet.timing.commands));
-        native_mean = mean(structfun(@(x) x.mean_ms, results.native.timing.commands));
+    if isfield(results.pnet, 'timing') && isfield(results.pnet.timing, 'commands') && ...
+       isfield(results.native, 'timing') && isfield(results.native.timing, 'commands')
 
-        if native_mean <= pnet_mean * 1.2  % Native within 20%
-            fprintf('native (tcpclient)\n');
-            fprintf('  Reason: Cross-platform, no MEX required, comparable performance\n');
+        pnet_times = [];
+        native_times = [];
+        commands = fieldnames(results.pnet.timing.commands);
+        for i = 1:length(commands)
+            cmd = commands{i};
+            if isfield(results.pnet.timing.commands.(cmd), 'mean_ms')
+                pnet_times(end+1) = results.pnet.timing.commands.(cmd).mean_ms;
+            end
+            if isfield(results.native.timing.commands, cmd) && ...
+               isfield(results.native.timing.commands.(cmd), 'mean_ms')
+                native_times(end+1) = results.native.timing.commands.(cmd).mean_ms;
+            end
+        end
+
+        if ~isempty(pnet_times) && ~isempty(native_times)
+            pnet_mean = mean(pnet_times);
+            native_mean = mean(native_times);
+
+            if native_mean <= pnet_mean * 1.2  % Native within 20%
+                fprintf('native (tcpclient)\n');
+                fprintf('  Reason: Cross-platform, no MEX required, comparable performance\n');
+            else
+                fprintf('pnet (for now)\n');
+                fprintf('  Reason: Better performance, but consider native for portability\n');
+            end
         else
-            fprintf('pnet (for now)\n');
-            fprintf('  Reason: Better performance, but consider native for portability\n');
+            fprintf('Insufficient data for recommendation\n');
         end
     else
         fprintf('Insufficient data for recommendation\n');
