@@ -1,6 +1,6 @@
 # G6 Tools Migration Plan
 
-**Status:** Step 1 Complete ✓  
+**Status:** Step 2 Complete ✓
 **Goal:** Get G6 tools into maDisplayTools with minimal changes
 
 ---
@@ -13,11 +13,19 @@
 - [x] Write `g6_quickstart.md`
 - [x] Simplified encoding: row-major order, (0,0) at bottom-left (no LED_MAP)
 
-### Step 2: Stabilize & Validate
-- [ ] Generate test patterns (known inputs → expected outputs)
-- [ ] Create validation data files (JSON or .mat) for cross-platform testing
-- [ ] Update web tools (webDisplayTools) to use same encoding convention
-- [ ] Implement CI/CD workflow for automated testing
+### Step 2: Stabilize & Validate ✓ DONE
+- [x] Generate test patterns (known inputs → expected outputs)
+- [x] Create validation data files (JSON) for cross-platform testing
+- [x] Update web tools (webDisplayTools) to use same encoding convention
+- [x] Implement CI/CD workflow for automated testing
+
+**Files created:**
+- `g6/generate_g6_encoding_reference.m` - MATLAB reference data generator
+- `g6/g6_encoding_reference.json` - Generated reference data
+- webDisplayTools: `js/g6-encoding.js` - Shared encoding module
+- webDisplayTools: `tests/validate-g6-encoding.js` - Validation test script
+- webDisplayTools: `.github/workflows/validate-g6-encoding.yml` - CI/CD workflow
+- webDisplayTools: `data/g6_encoding_reference.json` - Reference data copy
 
 ### Step 3: Full Integration (Future)
 - [ ] Add `Generation` parameter to `maDisplayTools.m`
@@ -79,15 +87,21 @@ bit_pos = 7 - mod(pixel_num, 8);
 
 ### Validation Data Format
 ```
-test_vectors/
-├── g6_test_vectors.json      # Shared between MATLAB & web
-└── g6_test_vectors.mat       # MATLAB-native copy
+maDisplayTools/g6/
+├── generate_g6_encoding_reference.m   # Generates reference JSON
+└── g6_encoding_reference.json         # MATLAB-generated test data
+
+webDisplayTools/
+├── data/g6_encoding_reference.json    # Copy of reference data
+├── js/g6-encoding.js                  # Shared encoding module
+├── tests/validate-g6-encoding.js      # Node.js validation script
+└── .github/workflows/validate-g6-encoding.yml  # CI/CD workflow
 ```
 
-### CI/CD Workflow
-- GitHub Actions for MATLAB tests (on push/PR)
-- Web tools validation via Node.js or browser tests
-- Cross-check: MATLAB output == web editor output
+### CI/CD Workflow ✓ IMPLEMENTED
+- GitHub Actions runs on push/PR to main (when relevant files change)
+- Node.js test script compares JavaScript encoding against MATLAB reference
+- 25 tests: module validation, sanity checks, test vectors, pattern encoding
 
 ---
 
