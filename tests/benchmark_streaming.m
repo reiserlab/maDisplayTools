@@ -39,7 +39,8 @@ function results = benchmark_streaming(pc, backend_name)
     fprintf('  Panel config: 2x12 (32 rows x 192 cols)\n');
     fprintf('  Frame size: ~3176 bytes\n\n');
 
-    results.streaming = benchmark_streamframe(pc, [5, 10, 15, 20, 25, 30]);
+    % Conservative FPS list - stop at 10 to avoid controller lockup
+    results.streaming = benchmark_streamframe(pc, [5, 10]);
 
     % Summary
     fprintf('\n--- Summary ---\n');
