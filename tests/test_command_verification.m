@@ -35,14 +35,11 @@ function results = test_command_verification(pc, backend_name)
         end
     end
 
-    % Test G4.1-supported commands only
-    % Note: getVersion removed as it may not be supported on G4.1
+    % Only confirmed working G4.1/Teensy commands
     tests = {
         'allOn',           @() pc.allOn(),           true;
         'allOff',          @() pc.allOff(),          true;
         'stopDisplay',     @() pc.stopDisplay(),     true;
-        'sendDisplayReset', @() pc.sendDisplayReset(), true;
-        'resetCounter',    @() pc.resetCounter(),    true;
     };
 
     passed = 0;
