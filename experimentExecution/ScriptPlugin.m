@@ -105,6 +105,11 @@ classdef ScriptPlugin < handle
             end
         end
         
+        function close(self)
+            % Close plugin (called by PluginManager.closeAll)
+            self.cleanup();
+        end
+
         function cleanup(self)
             % Remove added paths
             
