@@ -108,59 +108,47 @@ classdef CommandExecutor < handle
                         self.logger.log('INFO', sprintf('set color depth success: %d', suc));
                     end
 
-                case 'startG41Trial'
-                    if ~isfield(command, 'mode') 
-                        self.logger.log('ERROR', sprintf('start G41 Trial failed due to missing mode'));
-                        error('mode parameter missing, cannot execute startG41Trial');
-                    else
-                        mode = command.mode;
-                        if mode > 1 && mode < 5
-                            switch mode
-                                case 2
-                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate'};
-                                    self.check_required_fields(command, required_fields);
-                                    [~, pattern_name] = fileparts(command.pattern);
-                                    %patID = CommandExecutor.getPatternID(pattern_name);
-                                    patID = command.pattern_ID;
-                                    posX = command.frame_index;
-                                    dur = command.duration;
-                                    frameRate = command.frame_rate;
+                case {'startG41Trial', 'trialParams'}
+                    % Unified trial execution using trialParams()
+                    % Supports both 'startG41Trial' and 'trialParams' command names
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate);
-                                    pause(dur);
-                                    
-        
-                                case 3
-                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration'};
-                                    self.check_required_fields(command, required_fields);
-                                    
-                                    [~, pattern_name] = fileparts(command.pattern);
-                                    %patID = CommandExecutor.getPatternID(pattern_name);
-                                    patID = command.pattern_ID;
-                                    posX = command.frame_index;
-                                    dur = command.duration;
+                    % All fields required for unified interface
+                    required_fields = {'mode', 'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate', 'gain'};
+                    self.check_required_fields(command, required_fields);
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10);
-                                    pause(dur);
+                    mode = command.mode;
+                    if mode < 2 || mode > 4
+                        self.logger.log('ERROR', sprintf('Trial failed: mode must be 2, 3, or 4 (got %d)', mode));
+                        error('Trial failed: mode must be 2, 3, or 4');
+                    end
 
-                                case 4
-                                    required_fields = {'pattern', 'pattern_ID', 'frame_position', 'duration', 'gain'};
-                                    self.check_required_fields(command, required_fields);
-                                    [~, pattern_name] = fileparts(command.pattern);
-                                    %patID = CommandExecutor.getPatternID(pattern_name);
-                                    patID = command.pattern_ID;
-                                    posX = command.frame_index;
-                                    dur = command.duration;
-                                    frameRate = 1; %Not used but need filler to pass in to controller
-                                    gain = command.gain; 
+                    % Extract parameters
+                    patID = command.pattern_ID;
+                    posX = command.frame_index;
+                    dur = command.duration;
+                    frameRate = command.frame_rate;
+                    gain = command.gain;
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate, gain);
-                                    pause(dur);
-                            end
-                        else
-                            self.logger.log('ERROR', sprintf('start G4.1 trial failed due to unrecognized mode %d', mode));
-                            error('start G4.1 trial failed due to unrecognized mode');
+                    % Log info about parameters ignored by specific modes
+                    if mode == 2 && gain ~= 0
+                        self.logger.log('INFO', sprintf('Note: gain=%d is ignored in mode 2 (constant rate)', gain));
+                    elseif mode == 3
+                        if frameRate ~= 0
+                            self.logger.log('INFO', sprintf('Note: frame_rate=%d is ignored in mode 3 (position stream)', frameRate));
                         end
+                        if gain ~= 0
+                            self.logger.log('INFO', sprintf('Note: gain=%d is ignored in mode 3 (position stream)', gain));
+                        end
+                    elseif mode == 4 && frameRate ~= 0
+                        self.logger.log('INFO', sprintf('Note: frame_rate=%d is ignored in mode 4 (closed-loop ADC)', frameRate));
+                    end
+
+                    % Execute using trialParams which waits for "Sequence completed"
+                    self.logger.log('INFO', sprintf('Trial: mode=%d, patID=%d, pos=%d, dur=%.1fs, fps=%d, gain=%d', ...
+                        mode, patID, posX, dur, frameRate, gain));
+                    suc = self.arenaController.trialParams(mode, patID, frameRate, posX, gain, dur*10, true);
+                    if ~suc
+                        self.logger.log('WARNING', 'trialParams returned false - trial may not have completed successfully');
                     end
  
                 otherwise
