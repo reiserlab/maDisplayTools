@@ -1,7 +1,10 @@
 # G4.1 Experiment Pipeline Guide
 
 **Last Updated:** 2026-01-21  
+
 **Status:** Implemented and initial testing (real life testing needed)
+
+**Dependencies:** Please make sure you have the matlab add-on called yaml by Martin Koch installed. It can be found under Add-ons in the matlab toolbar.
 
 ---
 
