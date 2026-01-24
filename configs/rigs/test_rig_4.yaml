@@ -1,0 +1,20 @@
+# Test Rig 4 (2nd floor)
+# MAC: 02:E8:61:0C:D4:D7
+
+format_version: "1.0"
+name: "Test Rig 4"
+description: "Test rig at 10.102.40.47 (2nd floor)"
+
+arena: "../arenas/G41_2x12_ccw.yaml"
+
+controller:
+  host: "10.102.40.47"
+  port: 62222
+
+plugins:
+  backlight:
+    enabled: false
+  camera:
+    enabled: false
+  temperature:
+    enabled: false

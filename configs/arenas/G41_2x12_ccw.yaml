@@ -1,0 +1,15 @@
+# Arena configuration for G4.1 display
+# Standard G4.1 arena with counter-clockwise column order (historical default)
+
+format_version: "1.0"
+name: "G41_2x12_ccw"
+description: "Standard G4.1 arena, 2 rows × 12 columns, 360° coverage, CCW column order"
+
+arena:
+  generation: "G4.1"
+  num_rows: 2
+  num_cols: 12
+  panels_installed: null    # null = all installed
+  orientation: "normal"
+  column_order: "ccw"       # G4.1 historically uses counter-clockwise
+  angle_offset_deg: 0

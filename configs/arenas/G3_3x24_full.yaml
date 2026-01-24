@@ -1,0 +1,15 @@
+# Arena configuration for G3 display
+# Full 3-row, 24-column G3 arena (360 degree coverage)
+
+format_version: "1.0"
+name: "G3_3x24_full"
+description: "Full G3 arena, 3 rows x 24 columns, 360 degree coverage"
+
+arena:
+  generation: "G3"
+  num_rows: 3
+  num_cols: 24
+  panels_installed: null  # All panels installed
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: 0

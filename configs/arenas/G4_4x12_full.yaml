@@ -1,0 +1,15 @@
+# Arena configuration for G4 display
+# Standard 4-row G4 arena
+
+format_version: "1.0"
+name: "G4_4x12_full"
+description: "G4 arena, 4 rows × 12 columns, 360° coverage"
+
+arena:
+  generation: "G4"
+  num_rows: 4
+  num_cols: 12
+  panels_installed: null    # null = all installed
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: 0

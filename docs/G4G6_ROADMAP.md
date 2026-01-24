@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-24
+> **Last Updated**: 2026-01-24 (PM session)
 > **Next Review**: ~2026-01-28
 
 ---
@@ -184,16 +184,23 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 - [ ] **[P1] Arena Config Implementation** (HIGH PRIORITY)
   - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
+  - [x] Switched to YAML for arena/rig/experiment configs ✅
+  - [x] Created `configs/arenas/` with 9 standard arena configs ✅
+  - [x] Created `configs/rigs/` with rig configs (reference arena YAML) ✅
+  - [x] Implement MATLAB `load_arena_config.m`, `load_rig_config.m`, etc. ✅
+  - [x] Update `design_arena.m` with column_order field ✅
+  - [x] Web arena editor redesigned with view/create modes ✅
+  - [x] Web 3D viewer redesigned with config dropdown ✅
+  - [x] CI/CD workflow to sync configs from maDisplayTools to webDisplayTools ✅
   - [ ] **Audit maDisplayTools** for arena-specific details, map out how to minimize redundancy
   - [ ] **Audit G4 pattern editor** to map how it can use new arena config (feeds P3 and Sprint 3 P1)
-  - [ ] Port/improve `design_arena.m` from g41-controller-update
   - [ ] Remove G5 from valid arena designs (nonfunctional, not worth supporting)
-  - [ ] Implement MATLAB `load_arena_config.m` / `save_arena_config.m`
-  - [ ] Update `design_arena.m` to export arena config JSON
-  - [ ] Update web arena editor to load/export arena config JSON
-  - [ ] Define standard arena configs (G6_2x10_full, G6_2x8_flight, etc.)
 
 - [ ] **[P2] Update webDisplayTools**
+  - [x] Arena editor: Dropdown for 9 standard configs, view/create modes ✅
+  - [x] 3D viewer: Dropdown for configs, removed manual gen/row controls ✅
+  - [x] CI/CD workflow: Auto-sync arena configs from maDisplayTools ✅
+  - [x] Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD) ✅
   - [ ] Update landing page to reflect current status
   - [ ] Update tool descriptions and status badges
   - [ ] Add links to documentation / roadmap
@@ -394,7 +401,16 @@ Established pattern for ensuring MATLAB ↔ Web consistency:
 ### Repository Structure
 ```
 maDisplayTools/
-├── controller/          # PanelsController, TCP code
+├── configs/
+│   ├── arenas/              # Standard arena configs (YAML)
+│   │   ├── G6_2x10_full.yaml
+│   │   ├── G6_2x8_walking.yaml
+│   │   ├── G41_2x12_ccw.yaml
+│   │   └── ... (9 configs total)
+│   └── rigs/                # Rig configs (reference arena YAML)
+│       ├── test_rig_1.yaml
+│       └── ...
+├── controller/              # PanelsController, TCP code
 ├── docs/
 │   ├── G4G6_ROADMAP.md      # This file
 │   ├── arena_config_spec.md # Arena config JSON schema
@@ -404,32 +420,95 @@ maDisplayTools/
 │   ├── test_patterns/       # SD card test patterns (20)
 │   └── test_patterns_100/   # Two-digit patterns (00-99)
 ├── utils/
-│   ├── design_arena.m       # Arena geometry
+│   ├── design_arena.m       # Arena geometry (with column_order)
 │   ├── prepare_sd_card.m    # SD card deployment
-│   └── (arena config functions TBD)
+│   ├── load_arena_config.m  # Load arena YAML
+│   ├── load_rig_config.m    # Load rig YAML (resolves arena ref)
+│   └── load_experiment_config.m
 └── logs/                    # MANIFEST logs
 
 webDisplayTools/
 ├── index.html               # Landing page
-├── arena_editor.html        # ✅ Complete
-├── arena_3d_viewer.html     # ✅ Complete  
+├── arena_editor.html        # ✅ Complete (view/create modes, config dropdown)
+├── arena_3d_viewer.html     # ✅ Complete (config dropdown, accurate LED specs)
 ├── g6_panel_editor.html     # ✅ Complete (CI/CD validated)
 ├── pattern_editor.html      # Placeholder (Sprint 3)
 ├── experiment_designer.html # Placeholder
+├── scripts/
+│   └── generate-arena-configs.js  # CI/CD: YAML → JS generator
+├── .github/workflows/
+│   └── sync-arena-configs.yml     # CI/CD: Weekly sync from maDisplayTools
 ├── data/
 │   ├── reference_data.json  # MATLAB-generated validation data
-│   └── arena_configs/       # Standard arena config JSONs (TBD)
+│   └── g6_encoding_reference.json
 ├── js/
+│   ├── arena-configs.js     # ✅ Auto-generated (STANDARD_CONFIGS, PANEL_SPECS)
 │   ├── arena-calculations.js
-│   └── g6-encoding.js           # G6 panel encoding module
+│   └── g6-encoding.js       # G6 panel encoding module
 └── tests/
     ├── validate-arena-calculations.js
-    └── validate-g6-encoding.js  # G6 encoding validation
+    └── validate-g6-encoding.js
 ```
 
 ---
 
 ## Session Notes
+
+### 2026-01-24 (PM): Web Tools UI Redesign + Arena Config System
+
+**Focus**: Arena configs as single source of truth for web tools
+
+**Completed**:
+1. **YAML Config System** (maDisplayTools):
+   - Created `configs/arenas/` with 9 standard arena configs (G6_2x10_full, G6_2x8_walking, G41_2x12_ccw, G41_2x12_cw, G4_3x12_full, G4_4x12_full, G4_3x18_partial, G3_4x12_full, G3_3x24_full)
+   - Created `configs/rigs/` with rig configs that reference arena YAMLs
+   - Created MATLAB load functions: `load_arena_config.m`, `load_rig_config.m`, `load_experiment_config.m`
+   - Updated `design_arena.m` with `column_order` field
+
+2. **CI/CD Config Sync** (webDisplayTools):
+   - Created `scripts/generate-arena-configs.js` — Node.js script to parse YAML and generate JS
+   - Created `.github/workflows/sync-arena-configs.yml` — Weekly sync + manual trigger
+   - Generated `js/arena-configs.js` with STANDARD_CONFIGS and PANEL_SPECS
+
+3. **Arena Editor Redesign** (`arena_editor.html`):
+   - **View mode** (default): Dropdown to select from 9 configs, read-only properties
+   - **Create mode**: "+ Create New Arena" or "Clone as New" to edit
+   - Single toggle button for column numbers (near SVG)
+   - Exports YAML configs, "View in 3D" passes `?config=NAME`
+
+4. **3D Viewer Redesign** (`arena_3d_viewer.html`):
+   - Removed generation tabs and row controls
+   - Added config dropdown and "Load from File" button
+   - URL params: `?config=G6_2x10_full` (new) or legacy `?gen=G6&cols=10...`
+   - Fixed label positioning: panel labels on back, column labels on ground
+   - Updated LED specs with accurate dimensions:
+     - G3: 3mm diameter round (4mm pitch)
+     - G4: 1.9mm diameter round
+     - G4.1: 0603 SMD (1.6mm × 0.8mm) at 45°
+     - G6: 0402 SMD (1.0mm × 0.5mm) at 45°
+
+**Files Created/Modified**:
+- `maDisplayTools/configs/arenas/*.yaml` — 9 arena configs
+- `maDisplayTools/configs/rigs/*.yaml` — Rig configs
+- `maDisplayTools/utils/load_arena_config.m`, `load_rig_config.m`, etc.
+- `webDisplayTools/scripts/generate-arena-configs.js`
+- `webDisplayTools/.github/workflows/sync-arena-configs.yml`
+- `webDisplayTools/js/arena-configs.js` (generated)
+- `webDisplayTools/arena_editor.html` — Major rewrite
+- `webDisplayTools/arena_3d_viewer.html` — Major rewrite
+
+**Remaining Work** (future session):
+- Test all 9 configs in both web tools
+- Test "Load from File" with YAML files
+- Test "Create New Arena" workflow end-to-end
+- Update webDisplayTools landing page
+- Consider: Add `description` field to STANDARD_CONFIGS for better dropdown labels
+
+**Versions Verified**:
+- Node.js: v24.12.0 (current LTS)
+- Three.js: 0.182.0 (latest as of Jan 2026)
+
+---
 
 ### 2026-01-24: TCP Migration Testing + Experiment Workflow Fixes
 
@@ -593,6 +672,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-24 (PM) | Web tools UI redesign complete. Arena configs now single source of truth. Created 9 standard arena YAML configs in maDisplayTools. CI/CD workflow syncs configs to webDisplayTools. Arena editor & 3D viewer redesigned with config dropdowns. Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD). Fixed 3D viewer label positioning. Node v24.12.0, Three.js 0.182.0 (both current). |
 | 2026-01-24 | Sprint 1 COMPLETE. Added Active Branches section. TCP migration partial (PanelsControllerNative works, needs more testing). Experiment workflow complete (PR open). Updated Sprint 2 priorities: Arena Config P1 (with audit steps), webDisplayTools P2, Pattern Editor P3, Branch Reconciliation P4 (goal: complete items to main). GUI deferred. Sprint 3: Large pattern = many frames, web editor = direct port of MATLAB + GIF/MPG export. Remove G5 from valid arenas. Pattern index convention agreed: (0,0) lower left. |
 | 2026-01-23 | G6 Panel Editor CI/CD COMPLETE. Updated encoding to simplified row-major (removed LED_MAP). Created shared g6-encoding.js module. 25 validation tests passing. Sprint 2 P3 marked complete. |
 | 2026-01-21 | SD card workflow COMPLETE. Reorganized sprints: Sprint 2 = Arena Config + G4.1 GUI, Sprint 3 = Pattern Editors. Added backlog item for pattern index direction discrepancy. Updated architecture with separate arena/rig config. |

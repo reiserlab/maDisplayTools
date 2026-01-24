@@ -1,0 +1,16 @@
+# Arena configuration for G4 display
+# Partial G4 arena: 3 rows, 18-column grid with 6 columns missing (12 installed)
+# Common configuration with rear gap for equipment access
+
+format_version: "1.0"
+name: "G4_3x18_partial"
+description: "G4 arena, 3 rows × 18-column grid, 12 columns installed (240° coverage)"
+
+arena:
+  generation: "G4"
+  num_rows: 3
+  num_cols: 18
+  panels_installed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]  # First 12 columns (0-indexed)
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: -20  # Centers the 120° gap at the bottom (left-right symmetric)

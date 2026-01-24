@@ -1,0 +1,33 @@
+# Example rig configuration
+# Copy and modify this file for your specific setup
+
+format_version: "1.0"
+name: "Example Rig"
+description: "Example rig configuration - customize for your setup"
+
+# Reference to arena configuration (relative path from this file)
+arena: "../arenas/G41_2x12_ccw.yaml"
+
+# Controller settings
+controller:
+  host: "10.102.40.47"    # Replace with your controller IP
+  port: 62222
+
+# Plugin configurations (optional)
+plugins:
+  backlight:
+    enabled: false
+    com_port: "COM3"      # Replace with your COM port
+    ir_power: 50
+    red_power: 0
+    green_power: 0
+    blue_power: 0
+  camera:
+    enabled: false
+    type: "BIAS"
+    ip: "127.0.0.1"
+    port: 5010
+  temperature:
+    enabled: false
+    daq_device: "ni"
+    channel: "ai0"

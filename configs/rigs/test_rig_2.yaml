@@ -1,0 +1,20 @@
+# Test Rig 2
+# MAC: 02:E8:61:08:96:d7
+
+format_version: "1.0"
+name: "Test Rig 2"
+description: "Test rig at 10.102.40.174"
+
+arena: "../arenas/G41_2x12_ccw.yaml"
+
+controller:
+  host: "10.102.40.174"
+  port: 62222
+
+plugins:
+  backlight:
+    enabled: false
+  camera:
+    enabled: false
+  temperature:
+    enabled: false
