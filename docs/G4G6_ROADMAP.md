@@ -32,7 +32,7 @@
 | `g41-controller-update` | Earlier G4.1 work, arena design | Stable | Has design_arena.m, docs, LEDController |
 | `pcontrol` | PControl GUI work | TBD | Not yet started |
 
-**Branch workflow**: Feature branches → PR → merge to `feature/g6-tools`
+**Branch workflow**: Feature branches → PR → merge to `main`
 
 ---
 
@@ -184,12 +184,14 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 - [ ] **[P1] Arena Config Implementation** (HIGH PRIORITY)
   - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
-  - [ ] Port/improve `design_arena.m` from g41-controller-update to feature/g6-tools
+  - [ ] **Audit maDisplayTools** for arena-specific details, map out how to minimize redundancy
+  - [ ] **Audit G4 pattern editor** to map how it can use new arena config (feeds P3 and Sprint 3 P1)
+  - [ ] Port/improve `design_arena.m` from g41-controller-update
+  - [ ] Remove G5 from valid arena designs (nonfunctional, not worth supporting)
   - [ ] Implement MATLAB `load_arena_config.m` / `save_arena_config.m`
   - [ ] Update `design_arena.m` to export arena config JSON
   - [ ] Update web arena editor to load/export arena config JSON
   - [ ] Define standard arena configs (G6_2x10_full, G6_2x8_flight, etc.)
-  - [ ] After consolidation: merge/reconcile with g41-controller-update
 
 - [ ] **[P2] Update webDisplayTools**
   - [ ] Update landing page to reflect current status
@@ -203,10 +205,11 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [ ] Plan update strategy for multi-generation support
 
 - [ ] **[P4] Branch Reconciliation** (after P1 arena work complete)
-  - [ ] Merge consolidated arena work from feature/g6-tools
-  - [ ] Port remaining g41-controller-update items (LEDController, docs, test patterns)
-  - [ ] Reconcile with Lisa's experiment execution system (already in feature/g6-tools)
-  - [ ] Clean up stale branches (g41-controller-update, old claude/ branches)
+  - **Goal**: Get complete, tested items that don't require substantial further work onto `main` and close branches
+  - [ ] Merge consolidated arena work to main
+  - [ ] Port remaining g41-controller-update items (LEDController, docs, test patterns) to main
+  - [ ] Reconcile with Lisa's experiment execution system (already in main)
+  - [ ] Close stale branches (g41-controller-update, old claude/ branches)
 
 ### Deferred to Later
 - G4.1 Control GUI Development — wait until arena config and pattern editor work is more mature
@@ -232,18 +235,18 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 - [ ] **[P2] Complete TCP Migration + Large Pattern Testing**
   - [ ] Investigate controller lockup at >10 FPS streaming
-  - [ ] **Large pattern stress testing** — verify G4.1 handles full-size patterns
+  - [ ] **Large pattern stress testing** — "large" means many frames (not varying arena size)
   - [ ] **Mode 3 reliability testing** — pre-rendered playback streaming stability
-  - [ ] Test with various pattern sizes (1-row through 4-row arenas)
   - [ ] Create `tests/benchmark_large_patterns.m`
-  - [ ] Document maximum reliable streaming rate per arena size
+  - [ ] Document maximum reliable streaming rate
   - [ ] Report findings to Peter/Frank
   - [ ] Decision: merge PanelsControllerNative or keep parallel
 
 - [ ] **[P3] Web Pattern Editor (Multi-Panel)**
-  - [ ] Create unified web pattern editor for full arena patterns
-  - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20) panel sizes
-  - [ ] Arena config integration
+  - [ ] **Direct port** of updated G4 pattern editor to web
+  - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20) — skip G5
+  - [ ] Maybe add 3D preview integration
+  - [ ] Export as GIF files or MPGs
   - [ ] CI/CD validation
 
 ### Done Criteria
@@ -274,11 +277,11 @@ Current implementation intentionally avoids deduplication. If an experiment uses
    - Validate against protocol v1 spec
    - Note: No G6 hardware available yet for testing
 
-4. **Pattern Index Direction Discrepancy**
-   - MATLAB and web tools may count rows/columns in opposite directions (0-up vs 0-down)
-   - Not a fundamental problem — referencing issue
-   - Need to clarify and document convention when consolidating around G6 pattern format
+4. **Pattern Index Direction Verification**
+   - **Convention agreed**: (0,0) at lower left, increasing up and to the right
+   - Keep as verification item to confirm as we move to whole patterns
    - Add validation tests to catch any mismatches
+   - Document convention clearly in pattern tools
 
 ### Medium Priority
 
@@ -590,7 +593,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
-| 2026-01-24 | Sprint 1 COMPLETE. Added Active Branches section. TCP migration partial (PanelsControllerNative works, needs more testing). Experiment workflow complete (PR open). Updated Sprint 2 priorities: Arena Config P1, webDisplayTools P2, Pattern Editor P3, Branch Reconciliation P4. GUI deferred. Added Large Pattern/Mode 3 testing to Sprint 3. |
+| 2026-01-24 | Sprint 1 COMPLETE. Added Active Branches section. TCP migration partial (PanelsControllerNative works, needs more testing). Experiment workflow complete (PR open). Updated Sprint 2 priorities: Arena Config P1 (with audit steps), webDisplayTools P2, Pattern Editor P3, Branch Reconciliation P4 (goal: complete items to main). GUI deferred. Sprint 3: Large pattern = many frames, web editor = direct port of MATLAB + GIF/MPG export. Remove G5 from valid arenas. Pattern index convention agreed: (0,0) lower left. |
 | 2026-01-23 | G6 Panel Editor CI/CD COMPLETE. Updated encoding to simplified row-major (removed LED_MAP). Created shared g6-encoding.js module. 25 validation tests passing. Sprint 2 P3 marked complete. |
 | 2026-01-21 | SD card workflow COMPLETE. Reorganized sprints: Sprint 2 = Arena Config + G4.1 GUI, Sprint 3 = Pattern Editors. Added backlog item for pattern index direction discrepancy. Updated architecture with separate arena/rig config. |
 | 2026-01-18 | Initial roadmap created, consolidated from remote_work_plan.md |
