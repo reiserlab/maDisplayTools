@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-23
-> **Next Review**: ~2026-01-27
+> **Last Updated**: 2026-01-24
+> **Next Review**: ~2026-01-28
 
 ---
 
@@ -18,6 +18,21 @@
 **Cross-repo Project Board**: [G4.1 & G6 project planning](https://github.com/users/floesche/projects/6) (maintained by floesche)
 
 **GitHub Pages**: https://reiserlab.github.io/webDisplayTools/
+
+---
+
+## Active Development Branches
+
+| Branch | Purpose | Status | Notes |
+|--------|---------|--------|-------|
+| `feature/g6-tools` | Main dev branch, G6 tools, roadmap | Active | Primary development |
+| `claude/switchable-tcp-controller-qQRKM` | TCP migration testing (pnet vs tcpclient) | Testing | PanelsControllerNative.m + test suite |
+| `claude/bugfix-trialparams-executor-80r3o` | YAML experiment workflow fixes | PR open | Fixes for CommandExecutor, ProtocolRunner, ScriptPlugin |
+| `yamlSystem` | Lisa's YAML experiment system | Active | Base branch for experiment workflow |
+| `g41-controller-update` | Earlier G4.1 work, arena design | Stable | Has design_arena.m, docs, LEDController |
+| `pcontrol` | PControl GUI work | TBD | Not yet started |
+
+**Branch workflow**: Feature branches → PR → merge to `feature/g6-tools`
 
 ---
 
@@ -100,107 +115,141 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - `todo_lab_tuesday.md` — hardware debugging checklist (completed!)
 - `CLAUDE.md` in webDisplayTools — AI assistant guidelines
 
----
-
-## Current Focus (Sprint 1: Jan 21-24)
-
-### 🎯 Primary Goal: TCP Migration & GUI Planning
-With SD card workflow complete, focus shifts to TCP migration testing and planning G4.1 control GUI.
-
-### Thursday Lab Session (Jan 23) — PRIORITIES
-
-- [ ] **[P0] TCP Migration Testing**
-  - [ ] Create feature branch `feature/tcpclient-migration`
-  - [ ] Implement `tcpclient` version of PanelsController
-  - [ ] Run Phase 1-3 benchmarks (see `tcp_migration_plan.md`)
-  - [ ] Test on actual hardware in lab
-  - [ ] Document results, decide go/no-go for merge
-
-- [ ] **[P1] G3 PControl Code Review & Feature List**
-  - [ ] Clone [floesche/LED-Display_G3_Software](https://github.com/floesche/LED-Display_G3_Software)
-  - [ ] Review `PControl.m` / `PControl.fig` architecture
-  - [ ] Generate comprehensive feature list from code
-  - [ ] Categorize: implement now / implement later / don't implement
-  - [ ] Decision: adapt existing GUIDE code vs fresh App Designer redesign
-
-- [ ] **[P2] Experiment Workflow Integration** (dependent on Lisa)
-  - [ ] Update `create_experiment_folder_g41` to call `prepare_sd_card`
-  - [ ] Test end-to-end: YAML → SD card → run experiment
-  - [ ] Switch to `'UsePatternFolder', true` for production
-  - [ ] Awaiting Lisa's update before end of week
-
-### Completed This Sprint
-- [x] **Tuesday Lab Session** (Jan 21) — ALL PASSED ✅
-  - [x] Resolved `WSACONNRESET` errors (root cause: unparseable files on SD)
-  - [x] Tested SD card deployment with known-good patterns
-  - [x] Validated `prepare_sd_card.m` end-to-end
-  - [x] Tested with Frank/Peter's controller update
-  - [x] Generated and tested 100 patterns successfully
+### ✅ G6 Pattern Tools & CI/CD (Jan 23-24)
+- Created `g6/` directory with pattern encoding tools
+  - `g6_save_pattern.m` — user-facing pattern creation
+  - `g6_encode_panel.m` — internal 20×20 panel encoding (GS2/GS16)
+  - `generate_g6_encoding_reference.m` — reference data generator
+  - `test_g6_encoding.m` — encoding validation script
+- Agreed encoding convention with Will: row-major order, (0,0) at bottom-left
+- CI/CD validation workflow:
+  - MATLAB generates `g6_encoding_reference.json`
+  - webDisplayTools: `js/g6-encoding.js` (shared module)
+  - webDisplayTools: `tests/validate-g6-encoding.js`
+  - GitHub Actions workflow for automated testing
+- Documentation: `g6_quickstart.md`, `g6_migration_plan.md`
 
 ---
 
-## Upcoming (Sprint 2: Jan 25-31)
+## Sprint 1 (Jan 21-24) — COMPLETED
 
-### 🎯 Primary Goal: Arena Config & G4.1 Control GUI
+### [P0] TCP Migration Testing ✅ PARTIAL
+- [x] Created parallel implementations on `claude/switchable-tcp-controller-qQRKM`
+  - PanelsController.m (pnet) - unchanged
+  - PanelsControllerNative.m (tcpclient) - new
+- [x] Basic benchmarks run on hardware
+- [x] Performance comparable between backends
+- [x] Test suite updated for G4.1 commands only (allOn, allOff, stopDisplay, streamFrame)
+- [x] 50ms delay between commands for reliability
+- ⚠️ Controller locks up at streaming >10 FPS — need feedback to Peter/Frank
+- 🔄 More careful testing needed with updated procedures
+
+### [P1] G3 PControl Code Review — NOT STARTED
+- Deferred to later sprint
+- `pcontrol` branch exists but empty
+
+### [P2] Experiment Workflow Integration ✅ COMPLETE
+- [x] Extensive testing with Lisa (Jan 24)
+- [x] Fixed multiple bugs:
+  - CommandExecutor: switched to trialParams() for trial execution
+  - ProtocolRunner: fixed OutputDir parameter being ignored
+  - ScriptPlugin: added missing close() method
+  - deploy_experiments_to_sd.m: now formats SD card each time
+- [x] Created comprehensive `docs/experiment_pipeline_guide.md`
+- [x] PR open: `claude/bugfix-trialparams-executor-80r3o`
+
+### [P3] G6 Panel Editor CI/CD ✅ COMPLETE
+- Already marked complete — see Completed Work section
+
+### [P4] G6 Pattern Tools Migration ✅ COMPLETE
+- [x] Created `g6/` directory with pattern tools
+- [x] Agreed encoding convention with Will: row-major, (0,0) bottom-left
+- [x] CI/CD validation infrastructure in place
+- [x] Documentation: `g6_quickstart.md`, `g6_migration_plan.md`
+
+### Tuesday Lab Session (Jan 21) — ALL PASSED ✅
+- [x] Resolved `WSACONNRESET` errors (root cause: unparseable files on SD)
+- [x] Tested SD card deployment with known-good patterns
+- [x] Validated `prepare_sd_card.m` end-to-end
+- [x] Tested with Frank/Peter's controller update
+- [x] Generated and tested 100 patterns successfully
+
+---
+
+## Current Focus (Sprint 2: Jan 27-31)
+
+### 🎯 Primary Goal: Arena Config & Web Tools Update
 
 ### Tasks
 
-- [ ] **[P1] Arena Config Implementation**
-  - [x] Draft JSON schema (see `arena_config_spec.md`) ✅
+- [ ] **[P1] Arena Config Implementation** (HIGH PRIORITY)
+  - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
+  - [ ] Port/improve `design_arena.m` from g41-controller-update to feature/g6-tools
   - [ ] Implement MATLAB `load_arena_config.m` / `save_arena_config.m`
   - [ ] Update `design_arena.m` to export arena config JSON
   - [ ] Update web arena editor to load/export arena config JSON
   - [ ] Define standard arena configs (G6_2x10_full, G6_2x8_flight, etc.)
+  - [ ] After consolidation: merge/reconcile with g41-controller-update
 
-- [ ] **[P2] G4.1 Control GUI Development**
-  - [ ] Based on Thursday's feature review, begin implementation
-  - [ ] Either: adapt G3 PControl GUIDE code, or fresh App Designer build
-  - [ ] Core features: pattern selection, gain/offset controls, mode selection
-  - [ ] Wrapper around PanelsController.m
+- [ ] **[P2] Update webDisplayTools**
+  - [ ] Update landing page to reflect current status
+  - [ ] Update tool descriptions and status badges
+  - [ ] Add links to documentation / roadmap
+  - [ ] Clarify which tools are complete vs placeholder
 
-- [x] **[P3] G6 Single Panel Editor CI/CD** ✅ COMPLETE
-  - [x] Generate MATLAB reference data for g6_panel_editor
-  - [x] Implement validation workflow (like arena editor)
-  - [x] Add to GitHub Actions
+- [ ] **[P3] Pattern Editor Assessment**
+  - [ ] Inventory G4_Pattern_Generator_gui.m features
+  - [ ] Identify generation-specific vs universal features
+  - [ ] Plan update strategy for multi-generation support
+
+- [ ] **[P4] Branch Reconciliation** (after P1 arena work complete)
+  - [ ] Merge consolidated arena work from feature/g6-tools
+  - [ ] Port remaining g41-controller-update items (LEDController, docs, test patterns)
+  - [ ] Reconcile with Lisa's experiment execution system (already in feature/g6-tools)
+  - [ ] Clean up stale branches (g41-controller-update, old claude/ branches)
+
+### Deferred to Later
+- G4.1 Control GUI Development — wait until arena config and pattern editor work is more mature
 
 ### Done Criteria
 - [ ] Arena config JSON loading/saving works in MATLAB and web
-- [ ] G4.1 Control GUI prototype functional
-- [x] G6 panel editor has CI/CD validation ✅
+- [ ] webDisplayTools landing page accurately reflects project status
+- [ ] Pattern editor requirements documented
 
 ---
 
-## Sprint 3 (Feb 1-7)
+## Sprint 3 (Feb 3-7)
 
-### 🎯 Primary Goal: Unified Pattern Editor (MATLAB + Web)
+### 🎯 Primary Goal: Pattern Editor Update + TCP Migration Completion
 
 ### Tasks
 
-- [ ] **[P1] Pattern Editor Assessment**
-  - [ ] Inventory G4_Pattern_Generator_gui.m features
-  - [ ] Identify which features are generation-specific vs universal
-  - [ ] Create baseline regression test patterns (before any changes)
-  - [ ] Document in `docs/pattern_testing/baseline_inventory.md`
-
-- [ ] **[P2] Update G4_Pattern_Generator_gui.m**
+- [ ] **[P1] Update G4_Pattern_Generator_gui.m**
   - [ ] Add generation selector (G3, G4, G4.1, G6) — skip G5
   - [ ] Update pixel grid sizes (8×8, 16×16, 20×20)
   - [ ] Integrate arena config loading
-  - [ ] Verify all existing pattern types work for each generation
-  - [ ] Run regression tests against baseline patterns
+  - [ ] Run regression tests
+
+- [ ] **[P2] Complete TCP Migration + Large Pattern Testing**
+  - [ ] Investigate controller lockup at >10 FPS streaming
+  - [ ] **Large pattern stress testing** — verify G4.1 handles full-size patterns
+  - [ ] **Mode 3 reliability testing** — pre-rendered playback streaming stability
+  - [ ] Test with various pattern sizes (1-row through 4-row arenas)
+  - [ ] Create `tests/benchmark_large_patterns.m`
+  - [ ] Document maximum reliable streaming rate per arena size
+  - [ ] Report findings to Peter/Frank
+  - [ ] Decision: merge PanelsControllerNative or keep parallel
 
 - [ ] **[P3] Web Pattern Editor (Multi-Panel)**
   - [ ] Create unified web pattern editor for full arena patterns
   - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20) panel sizes
-  - [ ] Arena config integration (auto-set dimensions from loaded config)
-  - [ ] Export patterns in appropriate formats per generation
-  - [ ] Implement CI/CD validation (MATLAB reference → web validation)
+  - [ ] Arena config integration
+  - [ ] CI/CD validation
 
 ### Done Criteria
 - [ ] MATLAB pattern editor generates valid patterns for G3, G4, G4.1, G6
+- [ ] TCP migration testing complete with documented limits
 - [ ] Web pattern editor functional for multi-panel arena patterns
-- [ ] Regression tests pass (patterns match baseline)
-- [ ] CI/CD validation in place for pattern editor
 
 ---
 
@@ -379,6 +428,44 @@ webDisplayTools/
 
 ## Session Notes
 
+### 2026-01-24: TCP Migration Testing + Experiment Workflow Fixes
+
+**TCP Migration** (branch: `claude/switchable-tcp-controller-qQRKM`):
+- Created PanelsControllerNative.m using MATLAB tcpclient
+- Both backends (pnet and tcpclient) work and perform comparably
+- Key limitations discovered:
+  - Only 4 G4.1 commands work: allOn, allOff, stopDisplay, streamFrame
+  - Need 50ms delay between commands for reliability
+  - Controller locks up if streaming frames >10 FPS
+  - sendDisplayReset, resetCounter NOT G4.1 commands
+- Test files created/updated:
+  - tests/simple_comparison.m — primary test, 100% reliable
+  - tests/test_command_verification.m — G4.1 commands only
+  - tests/benchmark_timing.m, test_reliability.m — updated
+  - tests/benchmark_streaming.m — limited to 5-10 FPS
+
+**Experiment Workflow** (branch: `claude/bugfix-trialparams-executor-80r3o`):
+- Extensive testing with Lisa
+- Fixed CommandExecutor trial execution (trialParams())
+- Fixed ProtocolRunner OutputDir parameter
+- Added ScriptPlugin.close() method
+- Updated deploy_experiments_to_sd.m to format SD each time
+- Created docs/experiment_pipeline_guide.md (comprehensive guide)
+- PR opened for review
+
+**Next Steps**:
+- Merge experiment workflow PR after review
+- More careful TCP testing to understand FPS limitations
+- **Large pattern / Mode 3 reliability testing**:
+  - Test streamFrame with full-size patterns (2x12, 4-row arenas)
+  - Verify Mode 3 (single frame streaming) stability for pre-rendered playback
+  - Determine maximum reliable FPS for different pattern sizes
+  - Document any size/rate limitations for Peter/Frank
+- Report streaming issues to Peter/Frank
+- Begin arena config implementation
+
+---
+
 ### 2026-01-23: G6 Panel Editor CI/CD Complete 🎉
 **Participants**: Michael, Claude
 
@@ -503,6 +590,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-24 | Sprint 1 COMPLETE. Added Active Branches section. TCP migration partial (PanelsControllerNative works, needs more testing). Experiment workflow complete (PR open). Updated Sprint 2 priorities: Arena Config P1, webDisplayTools P2, Pattern Editor P3, Branch Reconciliation P4. GUI deferred. Added Large Pattern/Mode 3 testing to Sprint 3. |
 | 2026-01-23 | G6 Panel Editor CI/CD COMPLETE. Updated encoding to simplified row-major (removed LED_MAP). Created shared g6-encoding.js module. 25 validation tests passing. Sprint 2 P3 marked complete. |
 | 2026-01-21 | SD card workflow COMPLETE. Reorganized sprints: Sprint 2 = Arena Config + G4.1 GUI, Sprint 3 = Pattern Editors. Added backlog item for pattern index direction discrepancy. Updated architecture with separate arena/rig config. |
 | 2026-01-18 | Initial roadmap created, consolidated from remote_work_plan.md |
