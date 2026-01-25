@@ -37,6 +37,13 @@ function [arena_info, fig_handle] = design_arena(config, varargin)
 %   G6:   45.4mm panel, 20x20 pixels, dual 5-pin headers (from KiCad)
 %   Note: G5 is deprecated and no longer supported
 %
+% Column Order Convention:
+%   'cw'  - Clockwise: c0 is just LEFT of south, columns increase CCW
+%           (G6 default, matches G6 protocol document)
+%   'ccw' - Counter-clockwise: c0 is just RIGHT of south, columns increase CW
+%           (G4.1 historical default, mirror image of CW)
+%   In both cases, the c0/cN-1 boundary is at south (straight down, -Y axis)
+%
 % Examples:
 %   % From YAML config struct
 %   config = load_arena_config('configs/arenas/G6_2x10_full.yaml');
@@ -130,8 +137,21 @@ alpha = 2*pi/num_panels;  % angle subtended by one panel from center
 c_radius = panel_width / (tan(alpha/2)) / 2;
 back_c_radius = c_radius + panel_depth;
 
-% Angular positions
-alphas = (0:alpha:2*pi-0.01) + opts.angle_offset;
+% Angular positions - c0/cN-1 boundary at south (-pi/2)
+% CW: c0 just LEFT of south (CCW from S), columns increase counter-clockwise
+% CCW: c0 just RIGHT of south (CW from S), columns increase clockwise (mirror)
+% Offset by half a panel so c0 starts at the boundary, not centered on south
+half_panel = alpha / 2;
+
+if strcmpi(opts.column_order, 'cw')
+    % CW order: c0 starts just LEFT of south, columns increase CCW (going left)
+    start_angle = -pi/2 - half_panel;  % c0 center is just right of south line
+    alphas = start_angle - (0:num_panels-1) * alpha + opts.angle_offset;
+else
+    % CCW order: c0 starts just RIGHT of south, columns increase CW (going right)
+    start_angle = -pi/2 + half_panel;  % c0 center is just left of south line
+    alphas = start_angle + (0:num_panels-1) * alpha + opts.angle_offset;
+end
 P_angle = alphas + pi/2;
 
 % Resolution and coverage calculations
@@ -175,6 +195,35 @@ for j = opts.panels_installed
     end
 end
 
+%% Draw column labels outside the ring
+label_radius = back_c_radius * 1.15;  % Position labels outside the panels
+label_color = [0 0.53 0.48];  % Teal color matching G6 protocol doc
+
+for j = 1:num_panels
+    % Only label installed columns
+    if ismember(j, opts.panels_installed)
+        label_x = label_radius * cos(alphas(j));
+        label_y = label_radius * sin(alphas(j));
+        col_num = j - 1;  % Convert to 0-indexed column number
+        text(label_x, label_y, sprintf('c%d', col_num), ...
+            'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'middle', ...
+            'FontSize', 9, ...
+            'FontWeight', 'bold', ...
+            'Color', 'white', ...
+            'BackgroundColor', label_color, ...
+            'Margin', 2, ...
+            'EdgeColor', label_color);
+    end
+end
+
+%% Draw compass indicators
+compass_radius = fig_size * 0.95;
+text(0, compass_radius, 'N', 'HorizontalAlignment', 'center', ...
+    'VerticalAlignment', 'bottom', 'FontSize', 12, 'FontWeight', 'bold');
+text(0, -compass_radius, 'S', 'HorizontalAlignment', 'center', ...
+    'VerticalAlignment', 'top', 'FontSize', 12, 'FontWeight', 'bold');
+
 %% Format figure
 axis equal;
 lim = fig_size * 1.05;
@@ -183,8 +232,9 @@ ylim([-lim lim]);
 grid on;
 
 % Title with arena info
-title_str = sprintf('%d of %d Panel (%s) Arena Layout', ...
-    length(opts.panels_installed), num_panels, upper(panel_type));
+title_str = sprintf('%d of %d Panel (%s) ring, in %s; resolution of %.1f%s per pixel', ...
+    length(opts.panels_installed), num_panels, upper(panel_type), ...
+    unit_label, degs_per_pixel, char(176));
 title(title_str, 'FontSize', 12, 'FontWeight', 'bold');
 
 % X-axis label with coverage info

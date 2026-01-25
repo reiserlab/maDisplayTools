@@ -19,10 +19,11 @@ classdef ProtocolParser < handle
     end
 
     properties (Constant)
-        SUPPORTED_VERSIONS = [1];
-        REQUIRED_YAML_SECTIONS = {'experiment_info', 'arena_info', 'experiment_structure', 'block'};
+        SUPPORTED_VERSIONS = [1, 2];  % Version 2 uses rig references
+        REQUIRED_YAML_SECTIONS_V1 = {'experiment_info', 'arena_info', 'experiment_structure', 'block'};
+        REQUIRED_YAML_SECTIONS_V2 = {'experiment_info', 'rig', 'experiment_structure', 'block'};
         REQUIRED_ARENA_FIELDS = {'num_rows', 'num_cols', 'generation'};
-        SUPPORTED_GENERATIONS = {'G4', 'G4.1', 'G6'};
+        SUPPORTED_GENERATIONS = {'G3', 'G4', 'G4.1', 'G6'};  % Added G3, removed G5
         SUPPORTED_RANDOMIZATION_METHODS = {'block'};
         SUPPORTED_PLUGIN_TYPES = {'serial_device', 'class', 'script'};
 
@@ -158,21 +159,33 @@ classdef ProtocolParser < handle
                     data.version, ...
                     mat2str(self.SUPPORTED_VERSIONS));
             end
-            
-            
+
+            % Determine required sections based on version
+            if data.version >= 2
+                required_sections = self.REQUIRED_YAML_SECTIONS_V2;
+            else
+                required_sections = self.REQUIRED_YAML_SECTIONS_V1;
+            end
+
             % Check major sections exist
-            for i = 1:length(self.REQUIRED_YAML_SECTIONS)
-                section = self.REQUIRED_YAML_SECTIONS{i};
+            for i = 1:length(required_sections)
+                section = required_sections{i};
                 if ~isfield(data, section)
                     self.throwValidationError('Protocol missing required "%s" section', section);
                 end
             end
-            
+
             % Validate experiment_info
             self.validateExperimentInfo(data.experiment_info);
-            
-            % Validate arena_info
-            self.validateArenaInfo(data.arena_info);
+
+            % Validate arena/rig configuration based on version
+            if data.version >= 2
+                % Version 2+: uses rig reference (which contains arena)
+                self.validateRigReference(data.rig);
+            else
+                % Version 1: uses inline arena_info
+                self.validateArenaInfo(data.arena_info);
+            end
             
             % Validate experiment_structure
             self.validateExperimentStructure(data.experiment_structure);
@@ -203,8 +216,8 @@ classdef ProtocolParser < handle
         end
         
         function validateArenaInfo(self, arenaInfo)
-            % Validate arena_info section
-            
+            % Validate arena_info section (Version 1 format)
+
             % Check required fields
             for i = 1:length(self.REQUIRED_ARENA_FIELDS)
                 field = self.REQUIRED_ARENA_FIELDS{i};
@@ -212,22 +225,99 @@ classdef ProtocolParser < handle
                     self.throwValidationError('arena_info missing required "%s" field', field);
                 end
             end
-            
+
             % Validate num_rows
             if ~isnumeric(arenaInfo.num_rows) || arenaInfo.num_rows < 1
                 self.throwValidationError('arena_info.num_rows must be a positive integer');
             end
-            
+
             % Validate num_cols
             if ~isnumeric(arenaInfo.num_cols) || arenaInfo.num_cols < 1
                 self.throwValidationError('arena_info.num_cols must be a positive integer');
             end
-            
+
             % Validate generation
+            if strcmpi(arenaInfo.generation, 'G5')
+                self.throwValidationError('G5 is deprecated. Use G6 for 20x20 pixel panels.');
+            end
             if ~ismember(arenaInfo.generation, self.SUPPORTED_GENERATIONS)
                 self.throwValidationError('arena_info.generation must be one of: %s', ...
                                          strjoin(self.SUPPORTED_GENERATIONS, ', '));
             end
+        end
+
+        function validateRigReference(self, rigRef)
+            % Validate rig reference (Version 2 format)
+            %
+            % The rig field should be a path to a rig YAML file which
+            % contains the arena configuration and controller settings.
+
+            if ~ischar(rigRef) && ~isstring(rigRef)
+                self.throwValidationError(['rig field must be a file path string.\n' ...
+                    'Example: rig: "configs/rigs/my_rig.yaml"']);
+            end
+
+            % Resolve path relative to protocol file
+            rig_path = self.resolveRelativePath(rigRef);
+
+            if ~isfile(rig_path)
+                self.throwValidationError('Rig config file not found: %s', rig_path);
+            end
+
+            % Load and validate the rig config
+            try
+                rig_config = load_rig_config(rig_path);
+
+                % Validate that rig has resolved arena
+                if ~isfield(rig_config, 'arena')
+                    self.throwValidationError('Rig config missing arena configuration');
+                end
+
+                % Validate arena fields
+                arena = rig_config.arena;
+                for i = 1:length(self.REQUIRED_ARENA_FIELDS)
+                    field = self.REQUIRED_ARENA_FIELDS{i};
+                    if ~isfield(arena, field)
+                        self.throwValidationError('Rig arena missing required "%s" field', field);
+                    end
+                end
+
+                % Validate generation
+                if strcmpi(arena.generation, 'G5')
+                    self.throwValidationError('G5 is deprecated. Use G6 for 20x20 pixel panels.');
+                end
+                if ~ismember(arena.generation, self.SUPPORTED_GENERATIONS)
+                    self.throwValidationError('arena.generation must be one of: %s', ...
+                                             strjoin(self.SUPPORTED_GENERATIONS, ', '));
+                end
+
+                if self.verbose
+                    fprintf('  Rig config loaded: %s\n', rig_config.name);
+                    fprintf('  Arena: %s (%dx%d)\n', arena.generation, ...
+                            arena.num_rows, arena.num_cols);
+                end
+
+            catch ME
+                self.throwValidationError('Failed to load rig config: %s\nError: %s', ...
+                                         rig_path, ME.message);
+            end
+        end
+
+        function resolved = resolveRelativePath(self, rel_path)
+            % Resolve a relative path from the protocol file location
+
+            [protocol_dir, ~, ~] = fileparts(self.filepath);
+
+            % Handle absolute paths
+            if (ispc() && length(rel_path) >= 2 && rel_path(2) == ':') || ...
+               (~ispc() && startsWith(rel_path, '/'))
+                resolved = rel_path;
+            else
+                resolved = fullfile(protocol_dir, rel_path);
+            end
+
+            % Normalize path
+            resolved = char(java.io.File(resolved).getCanonicalPath());
         end
         
         function validateExperimentStructure(self, experimentStructure)
@@ -523,12 +613,31 @@ classdef ProtocolParser < handle
             
             % Store version
             protocol.version = data.version;
-            
+
             % Extract experiment metadata
             protocol.experimentInfo = data.experiment_info;
-            
-            % Extract arena configuration
-            protocol.arenaConfig = data.arena_info;
+
+            % Extract arena/rig configuration based on version
+            if data.version >= 2
+                % Version 2+: load rig config (which includes arena)
+                rig_path = self.resolveRelativePath(data.rig);
+                rig_config = load_rig_config(rig_path);
+
+                protocol.rigConfig = rig_config;
+                protocol.arenaConfig = rig_config.arena;
+                protocol.derivedConfig = rig_config.derived;
+                protocol.rigFilepath = rig_path;
+                protocol.arenaFilepath = rig_config.arena_file;
+
+                if self.verbose
+                    fprintf('  Loaded rig: %s\n', rig_config.name);
+                end
+            else
+                % Version 1: inline arena_info
+                protocol.arenaConfig = data.arena_info;
+                protocol.rigConfig = [];
+                protocol.derivedConfig = [];
+            end
             
             % Extract experiment structure
             protocol.experimentStructure = data.experiment_structure;
@@ -628,10 +737,16 @@ classdef ProtocolParser < handle
                 fprintf('Date Created: %s\n', protocol.experimentInfo.date_created);
             end
             
+            if isfield(protocol, 'rigConfig') && ~isempty(protocol.rigConfig)
+                fprintf('Rig: %s\n', protocol.rigConfig.name);
+            end
             fprintf('Arena: %dx%d panels (%s)\n', ...
                     protocol.arenaConfig.num_rows, ...
                     protocol.arenaConfig.num_cols, ...
                     protocol.arenaConfig.generation);
+            if isfield(protocol.arenaConfig, 'column_order')
+                fprintf('Column order: %s\n', protocol.arenaConfig.column_order);
+            end
             
             fprintf('Repetitions: %d\n', protocol.experimentStructure.repetitions);
             

@@ -15,4 +15,4 @@ arena:
   panels_installed: [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18]
   orientation: "normal"
   column_order: "cw"
-  angle_offset_deg: -72  # Centers the 72° gap at the bottom (left-right symmetric)
+  angle_offset_deg: 0  # Gap (c0+c9) already straddles south with new baseline
