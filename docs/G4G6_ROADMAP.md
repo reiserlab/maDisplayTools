@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-24 (PM session)
+> **Last Updated**: 2026-01-25
 > **Next Review**: ~2026-01-28
 
 ---
@@ -185,7 +185,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - [ ] **[P1] Arena Config Implementation** (HIGH PRIORITY)
   - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
   - [x] Switched to YAML for arena/rig/experiment configs ✅
-  - [x] Created `configs/arenas/` with 9 standard arena configs ✅
+  - [x] Created `configs/arenas/` with 10 standard arena configs ✅
   - [x] Created `configs/rigs/` with rig configs (reference arena YAML) ✅
   - [x] Implement MATLAB `load_arena_config.m`, `load_rig_config.m`, etc. ✅
   - [x] Update `design_arena.m` with column_order field ✅
