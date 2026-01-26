@@ -196,15 +196,15 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - ~[ ] **Audit G4 pattern editor** to map how it can use new arena config~ → Done via PatternGeneratorApp
   - [ ] Remove G5 from valid arena designs (nonfunctional, not worth supporting)
 
-- [ ] **[P2] Update webDisplayTools** (REMAINING)
+- [x] **[P2] Update webDisplayTools** ✅ COMPLETE
   - [x] Arena editor: Dropdown for 9 standard configs, view/create modes ✅
   - [x] 3D viewer: Dropdown for configs, removed manual gen/row controls ✅
   - [x] CI/CD workflow: Auto-sync arena configs from maDisplayTools ✅
   - [x] Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD) ✅
-  - [ ] Update landing page to reflect current status
-  - [ ] Update tool descriptions and status badges
-  - [ ] Add links to documentation / roadmap
-  - [ ] Clarify which tools are complete vs placeholder
+  - [x] Update landing page to reflect current status ✅
+  - [x] Update tool descriptions and status badges ✅
+  - [x] Add links to documentation / roadmap ✅
+  - [x] Clarify which tools are complete vs placeholder ✅
 
 - [x] **[P3] Pattern Editor Assessment & Implementation** ✅ COMPLETE (core)
   - [x] Inventory G4_Pattern_Generator_gui.m features (see `docs/g4_pattern_editor_assessment.md`)
@@ -233,7 +233,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ### Done Criteria
 - [x] Arena config YAML loading/saving works in MATLAB and web ✅
-- [ ] webDisplayTools landing page accurately reflects project status
+- [x] webDisplayTools landing page accurately reflects project status ✅
 - [x] Pattern editor requirements documented ✅
 - [x] PatternGeneratorApp functional with multi-generation support ✅
 
@@ -433,20 +433,15 @@ These are started projects that need to be picked up and completed. Each section
 
 ### 6. Web Tools Landing Page
 
-**Status**: Placeholder. Needs update to reflect current project status.
+**Status**: ✅ COMPLETE
 
 **Current State**:
 - Arena Editor: ✅ Complete
 - Arena 3D Viewer: ✅ Complete
 - G6 Panel Editor: ✅ Complete (CI/CD validated)
-- Pattern Editor: ❌ Placeholder
-- Experiment Designer: ❌ Placeholder
-
-**To Pick Up**:
-1. Update `index.html` in webDisplayTools
-2. Add status badges to each tool (Complete/In Progress/Planned)
-3. Link to documentation/roadmap
-4. Clarify what's usable vs placeholder
+- Pattern Editor: ❌ Placeholder (noted on landing page)
+- Experiment Designer: ❌ Placeholder (noted on landing page)
+- Landing page updated with status badges and descriptions
 
 ---
 
@@ -513,11 +508,11 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
    - ~~Web tools read/write same format~~ → CI/CD syncs configs
    - ~~Pre-defined standard configs~~ → 10 standard configs in `configs/arenas/`
 
-2. **Update webDisplayTools Landing Page** (see In-Flight Work #6)
-   - Reflect current roadmap status (what's complete vs placeholder)
-   - Update tool descriptions and status badges
-   - Add links to documentation / roadmap
-   - Clarify which tools are complete vs placeholder
+2. ~~**Update webDisplayTools Landing Page**~~ ✅ COMPLETE
+   - ~~Reflect current roadmap status~~ → Done
+   - ~~Update tool descriptions and status badges~~ → Done
+   - ~~Add links to documentation / roadmap~~ → Done
+   - ~~Clarify which tools are complete vs placeholder~~ → Done
 
 3. **G6 Pattern Format Support**
    - Implement G6 .pat file writer (per protocol spec)
@@ -590,40 +585,37 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
 
 ### Arena Config vs Rig Config
 
-**Arena Config** — Pattern-specific, standalone document:
-```json
-{
-  "format_version": "1.0",
-  "generation": "G6",
-  "num_rows": 2,
-  "num_cols": 10,
-  "panels_installed": [1,2,3,4,5,6,7,8],
-  "orientation": "normal"
-}
+**Arena Config** — Pattern-specific, standalone YAML document:
+```yaml
+# configs/arenas/G6_2x10_full.yaml
+arena:
+  generation: "G6"
+  num_rows: 2
+  num_cols: 10
+  column_order: "ccw"
+  orientation: "normal"
+  panels_installed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 ```
 
-**Rig Config** — Hardware-specific, embeds arena config:
-```json
-{
-  "format_version": "1.0",
-  "rig_name": "Fly Arena 1",
-  "ip_address": "10.102.40.47",
-  "sd_drive_letter": "E",
-  "arena": {
-    "generation": "G6",
-    "num_rows": 2,
-    "num_cols": 10,
-    "panels_installed": [1,2,3,4,5,6,7,8],
-    "orientation": "normal"
-  },
-  "plugins": {
-    "led_controller": { ... },
-    "camera": { ... }
-  }
-}
+**Rig Config** — Hardware-specific, references arena config by filename:
+```yaml
+# configs/rigs/test_rig_1.yaml
+rig:
+  name: "Fly Arena 1"
+  arena_config: "G6_2x10_full.yaml"  # Reference, not embedded
+  controller:
+    ip_address: "10.102.40.47"
+    port: 62222
+  sd_card:
+    drive_path: "/Volumes/PATSD"  # macOS
+    # drive_path: "E:"  # Windows
+  plugins:
+    led_controller:
+      enabled: true
+      port: "COM3"
 ```
 
-**Rationale**: Arena config is needed standalone for pattern design. Once you have a rig, you know the arena configuration, so rig config embeds arena. Both can exist as separate documents.
+**Rationale**: Arena config is needed standalone for pattern design. Rig config references arena by filename (not embedded) to avoid duplication. YAML chosen over JSON for readability and comments.
 
 ### CI/CD Validation Strategy
 Established pattern for ensuring MATLAB ↔ Web consistency:
