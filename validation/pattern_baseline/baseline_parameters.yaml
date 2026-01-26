@@ -1,0 +1,54 @@
+# Baseline pattern parameters for validation
+# Generated: 2026-01-25 15:49:17
+# MATLAB version: 25.2.0.3055257 (R2025b) Update 2
+
+generation: G4
+arena:
+  pixels_per_panel: 16
+  num_rows: 3
+  num_cols: 12
+  panels_in_circle: 18
+
+common_parameters:
+  gs_val: 4
+  levels: [15, 0, 7]
+  aa_samples: 15
+
+square_grating:
+  pattern_type: "square grating"
+  motion_type: "rotation"
+  spat_freq_deg: 30.0
+  step_size_deg: 3.0
+  num_frames: 10
+
+sine_grating:
+  pattern_type: "sine grating"
+  motion_type: "rotation"
+  spat_freq_deg: 45.0
+  step_size_deg: 2.0
+  num_frames: 23
+
+edge:
+  pattern_type: "edge"
+  motion_type: "rotation"
+  spat_freq_deg: 360.0
+  step_size_deg: 5.0
+  num_frames: 73
+
+starfield:
+  pattern_type: "starfield"
+  motion_type: "rotation"
+  spat_freq_deg: 360.0
+  step_size_deg: 3.0
+  num_frames: 120
+  num_dots: 100
+  dot_radius_deg: 5.0
+  random_seed: 42
+
+off_on:
+  pattern_type: "off-on"
+  motion_type: "rotation"
+  spat_freq_deg: 360.0
+  step_size_deg: 1.0
+  num_frames: 16
+

@@ -176,13 +176,13 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ---
 
-## Current Focus (Sprint 2: Jan 27-31)
+## Current Focus (Sprint 2: Jan 27-31) — WRAPPING UP
 
 ### 🎯 Primary Goal: Arena Config & Web Tools Update
 
 ### Tasks
 
-- [ ] **[P1] Arena Config Implementation** (HIGH PRIORITY)
+- [x] **[P1] Arena Config Implementation** ✅ COMPLETE
   - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
   - [x] Switched to YAML for arena/rig/experiment configs ✅
   - [x] Created `configs/arenas/` with 10 standard arena configs ✅
@@ -192,11 +192,11 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [x] Web arena editor redesigned with view/create modes ✅
   - [x] Web 3D viewer redesigned with config dropdown ✅
   - [x] CI/CD workflow to sync configs from maDisplayTools to webDisplayTools ✅
-  - [ ] **Audit maDisplayTools** for arena-specific details, map out how to minimize redundancy
-  - [ ] **Audit G4 pattern editor** to map how it can use new arena config (feeds P3 and Sprint 3 P1)
+  - ~[ ] **Audit maDisplayTools** for arena-specific details~ → Deferred (arena config propagation is in-flight work below)
+  - ~[ ] **Audit G4 pattern editor** to map how it can use new arena config~ → Done via PatternGeneratorApp
   - [ ] Remove G5 from valid arena designs (nonfunctional, not worth supporting)
 
-- [ ] **[P2] Update webDisplayTools**
+- [ ] **[P2] Update webDisplayTools** (REMAINING)
   - [x] Arena editor: Dropdown for 9 standard configs, view/create modes ✅
   - [x] 3D viewer: Dropdown for configs, removed manual gen/row controls ✅
   - [x] CI/CD workflow: Auto-sync arena configs from maDisplayTools ✅
@@ -206,7 +206,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [ ] Add links to documentation / roadmap
   - [ ] Clarify which tools are complete vs placeholder
 
-- [x] **[P3] Pattern Editor Assessment & Implementation** ✅ IN PROGRESS
+- [x] **[P3] Pattern Editor Assessment & Implementation** ✅ COMPLETE (core)
   - [x] Inventory G4_Pattern_Generator_gui.m features (see `docs/g4_pattern_editor_assessment.md`)
   - [x] Identify generation-specific vs universal features
   - [x] Plan update strategy for multi-generation support (see plan file)
@@ -216,13 +216,13 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [x] Added LED-accurate preview with green phosphor colormap
   - [x] Added playback controls (Play/Stop, FPS selection)
   - [x] Added arena info display (panels, pixels, deg/px horizontal)
-  - [ ] **Next**: Compare full functionality to G4 Pattern Generator
-  - [ ] **Next**: Add missing pattern parameter controls
-  - [ ] **Next**: Review pixel vs pattern rendering options
-  - [ ] **Next**: Add GIF/stim icon export (or punt to web tools)
+  - Remaining feature parity work moved to Sprint 3
 
 - [ ] **[P4] Branch Reconciliation** (after P1 arena work complete)
   - **Goal**: Get complete, tested items that don't require substantial further work onto `main` and close branches
+  - **Strategy**: Merge everything to main in one go that doesn't impact others' work
+    - Anything touching Lisa's code → PR through Lisa
+    - Anything touching PanelController → PR through Frank
   - [ ] Merge consolidated arena work to main
   - [ ] Port remaining g41-controller-update items (LEDController, docs, test patterns) to main
   - [ ] Reconcile with Lisa's experiment execution system (already in main)
@@ -232,29 +232,32 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - G4.1 Control GUI Development — wait until arena config and pattern editor work is more mature
 
 ### Done Criteria
-- [x] Arena config JSON loading/saving works in MATLAB and web ✅
+- [x] Arena config YAML loading/saving works in MATLAB and web ✅
 - [ ] webDisplayTools landing page accurately reflects project status
 - [x] Pattern editor requirements documented ✅
 - [x] PatternGeneratorApp functional with multi-generation support ✅
 
 ---
 
-## Sprint 3 (Feb 3-7)
+## Sprint 3 (Feb 2-5)
 
-### 🎯 Primary Goal: Pattern Editor Completion + TCP Migration Completion
+### 🎯 Primary Goal: PatternGeneratorApp Feature Parity + TCP Migration Testing
 
 ### Tasks
 
-- [ ] **[P1] Complete PatternGeneratorApp**
+- [ ] **[P1] Complete PatternGeneratorApp Feature Parity**
   - [x] Add generation selector (G3, G4, G4.1, G6) — skip G5 ✅
   - [x] Update pixel grid sizes (8×8, 16×16, 20×20) ✅
   - [x] Integrate arena config loading ✅
-  - [ ] Compare to G4_Pattern_Generator_gui.m — add missing parameters
+  - [ ] Add missing features from G4 GUI (see `docs/g4_pattern_editor_assessment.md`):
+    - High priority: Duty cycle, brightness levels (low/high/background)
+    - Medium priority: Pole coordinates, motion angle, arena pitch, pattern FOV, mask options
+    - Low priority: Starfield options, anti-aliasing, Mercator view
   - [ ] Review rendering options (pixel vs pattern visualization)
   - [ ] Add export options (GIF, stim icons) or punt to web tools
   - [ ] Run regression tests against G4 baseline patterns
 
-- [ ] **[P2] Complete TCP Migration + Large Pattern Testing**
+- [ ] **[P2] TCP Migration Testing** (requires lab time)
   - [ ] Investigate controller lockup at >10 FPS streaming
   - [ ] **Large pattern stress testing** — "large" means many frames (not varying arena size)
   - [ ] **Mode 3 reliability testing** — pre-rendered playback streaming stability
@@ -263,7 +266,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [ ] Report findings to Peter/Frank
   - [ ] Decision: merge PanelsControllerNative or keep parallel
 
-- [ ] **[P3] Web Pattern Editor (Multi-Panel)**
+- [ ] **[P3] Web Pattern Editor (Multi-Panel)** — if time permits
   - [ ] **Direct port** of updated G4 pattern editor to web
   - [ ] Support G3 (8×8), G4/G4.1 (16×16), G6 (20×20) — skip G5
   - [ ] Maybe add 3D preview integration
@@ -272,8 +275,232 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ### Done Criteria
 - [ ] MATLAB pattern editor generates valid patterns for G3, G4, G4.1, G6
-- [ ] TCP migration testing complete with documented limits
-- [ ] Web pattern editor functional for multi-panel arena patterns
+- [ ] TCP migration testing complete with documented limits (if lab time available)
+- [ ] Web pattern editor functional for multi-panel arena patterns (stretch goal)
+
+---
+
+## In-Flight Work
+
+These are started projects that need to be picked up and completed. Each section describes current state, what's left, and how to resume.
+
+### 1. TCP Migration Testing
+
+**Branch**: `claude/switchable-tcp-controller-qQRKM`
+
+**Status**: Parallel implementations created and basic testing done. More careful testing needed.
+
+**Current State**:
+- `PanelsController.m` (pnet) — unchanged, working
+- `PanelsControllerNative.m` (tcpclient) — new, basic tests pass
+- Both backends perform comparably in benchmarks
+- Test suite updated for G4.1 commands only (allOn, allOff, stopDisplay, streamFrame)
+
+**Known Issues**:
+- Controller locks up if streaming >10 FPS
+- Need 50ms delay between commands for reliability
+- `sendDisplayReset`, `resetCounter` are NOT G4.1 commands
+
+**To Pick Up**:
+1. Need lab time with hardware to test properly
+2. Run `tests/simple_comparison.m` to verify both backends still work
+3. Investigate FPS limitation — create `tests/benchmark_large_patterns.m`
+4. Document maximum reliable streaming rate
+5. Report findings to Peter/Frank
+6. Decision: merge PanelsControllerNative or keep as parallel option
+
+**Files to Review**:
+- `controller/PanelsControllerNative.m`
+- `tests/simple_comparison.m`, `tests/benchmark_streaming.m`
+- `docs/tcp_migration_plan.md`
+
+---
+
+### 2. Experiment Workflow / Lisa's Code
+
+**Branch**: `claude/bugfix-trialparams-executor-80r3o` (PR open)
+
+**Status**: Bugs fixed, PR open for review. Arena config propagation needs discussion.
+
+**Current State**:
+- Fixed CommandExecutor trial execution (uses `trialParams()`)
+- Fixed ProtocolRunner OutputDir parameter
+- Added ScriptPlugin.close() method
+- Updated `deploy_experiments_to_sd.m` to format SD each time
+- Comprehensive guide: `docs/experiment_pipeline_guide.md`
+
+**Open Question** (document for later):
+> How should arena config propagate through Lisa's experiment system? What's the tradeoff between:
+> - Experiment YAML referencing arena config
+> - Arena config embedded in experiment
+> - Runtime arena config lookup from rig config
+>
+> Need to think about this more before deciding.
+
+**To Pick Up**:
+1. Get PR merged (needs Lisa's review)
+2. Later: Design arena config integration with experiment system
+
+**Files to Review**:
+- `docs/experiment_pipeline_guide.md`
+- PR changes in `claude/bugfix-trialparams-executor-80r3o`
+
+---
+
+### 3. Cross-Platform SD Card Copying
+
+**Status**: Not started. This is a new consideration.
+
+**Problem**: We develop/test on Mac but always run experiments on Windows. Currently can only prepare SD cards on Windows. Would be nicer to copy files on Mac.
+
+**Considerations**:
+- Need to investigate SD card formatting on macOS
+- FAT32 directory entry behavior may differ across platforms
+- `prepare_sd_card.m` currently uses Windows-specific path handling
+
+**Related Idea**: Consider GitHub for experiment-specific organization
+- Would include timestamps
+- Pattern library management
+- Could enable better versioning of experiments
+
+**To Pick Up**:
+1. Research macOS FAT32 formatting tools
+2. Test `prepare_sd_card.m` on macOS (may need path handling updates)
+3. Consider if git-based experiment organization makes SD copying less critical
+
+---
+
+### 4. PatternGeneratorApp Missing Features
+
+**Status**: Core functionality complete. Missing advanced features from G4 GUI.
+
+**Current State**: See `docs/g4_pattern_editor_assessment.md` for full comparison.
+
+**Missing Features** (will go through 1-by-1, probably need all):
+
+| Priority | Feature | Notes |
+|----------|---------|-------|
+| High | Duty cycle | Grating on/off ratio |
+| High | Brightness levels | Low/high/background level controls |
+| Medium | Pole coordinates | Azimuth/elevation for local patterns |
+| Medium | Motion angle | Direction of motion |
+| Medium | Arena pitch | Tilt angle |
+| Medium | Pattern FOV | Full-field vs local (mask-centered) |
+| Medium | Mask options | Solid angle, lat/long masks |
+| Low | Starfield options | Dot count, radius, size, occlusion, level |
+| Low | Anti-aliasing | Rendering smoothing options |
+| Low | Mercator view | Alternative visualization mode |
+
+**To Pick Up**:
+1. Open PatternGeneratorApp in App Designer
+2. Add controls for high-priority features first
+3. Test each feature against G4 Pattern Generator output
+4. Add regression tests for pattern validation
+
+**Files**:
+- `patternGenerator/PatternGeneratorApp.m`
+- `docs/g4_pattern_editor_assessment.md` (detailed feature inventory)
+
+---
+
+### 5. Branch Reconciliation
+
+**Status**: Multiple branches with completed work need to be merged to main.
+
+**Active Branches**:
+| Branch | Status | Action |
+|--------|--------|--------|
+| `feature/g6-tools` | Active dev | Continue using, merge when stable |
+| `claude/switchable-tcp-controller-qQRKM` | Testing | Merge after TCP testing complete |
+| `claude/bugfix-trialparams-executor-80r3o` | PR open | Merge after Lisa's review |
+| `yamlSystem` | Lisa's branch | Coordinate with Lisa |
+| `g41-controller-update` | Stable | Port useful items, then close |
+| `pcontrol` | Not started | Keep for future PControl work |
+
+**Merge Strategy**:
+- Merge everything to main in one go that doesn't impact others' work
+- Anything touching Lisa's code → PR through Lisa
+- Anything touching PanelController → PR through Frank
+- Can merge arena config, PatternGeneratorApp, SD card tools independently
+
+**To Pick Up**:
+1. List all changes on each branch
+2. Identify which changes are ready vs need more work
+3. Create PRs for independent pieces
+4. Coordinate with Lisa/Frank for their code
+
+---
+
+### 6. Web Tools Landing Page
+
+**Status**: Placeholder. Needs update to reflect current project status.
+
+**Current State**:
+- Arena Editor: ✅ Complete
+- Arena 3D Viewer: ✅ Complete
+- G6 Panel Editor: ✅ Complete (CI/CD validated)
+- Pattern Editor: ❌ Placeholder
+- Experiment Designer: ❌ Placeholder
+
+**To Pick Up**:
+1. Update `index.html` in webDisplayTools
+2. Add status badges to each tool (Complete/In Progress/Planned)
+3. Link to documentation/roadmap
+4. Clarify what's usable vs placeholder
+
+---
+
+### 7. Pattern Validation / Regression Testing
+
+**Status**: Planned but not implemented.
+
+**Goal**: Ensure PatternGeneratorApp produces identical output to G4_Pattern_Generator_gui for same inputs.
+
+**To Pick Up**:
+1. Generate baseline patterns using G4 tools (before any changes)
+2. Store in `validation/pattern_baseline/`
+3. Create comparison script `validation/compare_patterns.m`
+4. Run after each PatternGeneratorApp update
+
+**See**: Plan file at `~/.claude/plans/wild-bubbling-key.md` has detailed validation approach
+
+---
+
+## Why PatternGeneratorApp (Not G4 GUI Update)
+
+We created a new `PatternGeneratorApp.m` using App Designer instead of updating the existing `G4_Pattern_Generator_gui.m`. Here's why:
+
+### GUIDE Limitations
+
+The original G4 Pattern Generator uses MATLAB's legacy GUIDE framework:
+- **`.fig` files contain hardcoded callback references** — Callback names like `pushbutton1_Callback` are embedded in the binary `.fig` file and reference specific function names in the `.m` file
+- **No programmatic way to modify `.fig` callbacks** — You can't reliably rename or reorganize callbacks without breaking the GUI
+- **Callback function names are fragile** — Changing `G4_Pattern_Generator_gui.m` to `Pattern_Generator_gui.m` would break all callbacks unless you manually edit the `.fig` file in GUIDE
+- **GUIDE is deprecated** — MathWorks recommends App Designer for new GUIs
+
+### App Designer Advantages
+
+App Designer (`PatternGeneratorApp.m`) provides:
+- **Single file contains both UI and code** — No separate `.fig` file
+- **Callbacks are methods** — Renaming is straightforward
+- **Modern UI components** — Better styling, responsive layouts
+- **Better maintainability** — Code is more readable and testable
+- **Cross-platform consistency** — More reliable appearance across OS
+
+### Our Approach
+
+1. **Reference, don't modify** — Keep G4_Pattern_Generator_gui.m for reference
+2. **Fresh implementation** — Build PatternGeneratorApp.m from scratch using App Designer
+3. **Feature parity goal** — Implement same features, validate output matches
+4. **Single source of truth** — Use `get_generation_specs.m` and YAML arena configs
+
+### Files for Reference
+
+Legacy G4 files (in G4_Display_Tools, kept for reference):
+- `G4_Pattern_Generator_gui.m` + `.fig` — Original GUIDE GUI
+- `configure_arena.m` + `.fig` — Arena setup dialog
+- `mask_options.m` + `.fig` — Mask configuration
+- `more_options.m` + `.fig` — Advanced rendering options
 
 ---
 
@@ -281,16 +508,16 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ### High Priority
 
-1. **Unified Arena Config Implementation**
-   - MATLAB struct ↔ JSON bidirectional conversion
-   - Web tools read/write same format
-   - Pre-defined standard configs (G6_2x10_full, G6_2x8_flight, etc.)
+1. ~~**Unified Arena Config Implementation**~~ ✅ COMPLETE
+   - ~~MATLAB struct ↔ JSON bidirectional conversion~~ → YAML configs implemented
+   - ~~Web tools read/write same format~~ → CI/CD syncs configs
+   - ~~Pre-defined standard configs~~ → 10 standard configs in `configs/arenas/`
 
-2. **Update webDisplayTools Landing Page**
+2. **Update webDisplayTools Landing Page** (see In-Flight Work #6)
    - Reflect current roadmap status (what's complete vs placeholder)
    - Update tool descriptions and status badges
    - Add links to documentation / roadmap
-   - Clarify consolidated pattern editor plan
+   - Clarify which tools are complete vs placeholder
 
 3. **G6 Pattern Format Support**
    - Implement G6 .pat file writer (per protocol spec)
@@ -304,48 +531,58 @@ Current implementation intentionally avoids deduplication. If an experiment uses
    - Add validation tests to catch any mismatches
    - Document convention clearly in pattern tools
 
+5. **Cross-Platform SD Card Workflow** (NEW)
+   - Test `prepare_sd_card.m` on macOS
+   - Research macOS FAT32 formatting tools
+   - Enable develop-on-Mac, run-on-Windows workflow
+
 ### Medium Priority
 
-5. **Plugin System Foundation**
+6. **GitHub for Experiment Organization** (NEW - under consideration)
+   - Version control for experiment configurations
+   - Pattern library management with timestamps
+   - Could reduce need for SD card copying across platforms
+   - Needs design discussion
+
+7. **Plugin System Foundation**
    - Define plugin interface in YAML experiment files
    - LEDController.m integration (backlight)
    - BIAS camera integration (existing code)
    - NI DAQ temperature logging
 
-6. **Experiment Designer (Web)**
+8. **Experiment Designer (Web)**
    - YAML-based experiment configuration
    - Trial sequence builder
    - Export for MATLAB execution
 
-7. **Pure MATLAB Exploration**
-   - TCP: `tcpclient` migration (in progress)
-   - Camera: Evaluate Image Acquisition Toolbox vs BIAS
-   - Create experimental branches for testing
+9. ~~**Pure MATLAB Exploration**~~ → Partially complete
+   - TCP: `tcpclient` migration → In-flight work (PanelsControllerNative.m exists)
+   - Camera: Evaluate Image Acquisition Toolbox vs BIAS → Deferred
 
 ### Low Priority (Future)
 
-8. **3D Arena Visualization Enhancements**
-   - Load custom patterns from file
-   - Angular resolution histogram (per-pixel calculation)
-   - Export 3D models for CAD
+10. **3D Arena Visualization Enhancements**
+    - Load custom patterns from file
+    - Angular resolution histogram (per-pixel calculation)
+    - Export 3D models for CAD
 
-9. **Pattern Visualization & Export**
-   - Export patterns as images (PNG), GIFs, or movies (MP4)
-   - Pattern "icon" representations for libraries/catalogs:
-     - Unrolled flat view (full arena unwrapped)
-     - 3D perspective views (above, behind, 3/4 angle)
-     - Static thumbnails for pattern browsers
-     - Dynamic/animated icons with motion blur to indicate temporal patterns
-   - Useful for documentation, papers, pattern selection UIs
+11. **Pattern Visualization & Export**
+    - Export patterns as images (PNG), GIFs, or movies (MP4)
+    - Pattern "icon" representations for libraries/catalogs:
+      - Unrolled flat view (full arena unwrapped)
+      - 3D perspective views (above, behind, 3/4 angle)
+      - Static thumbnails for pattern browsers
+      - Dynamic/animated icons with motion blur to indicate temporal patterns
+    - Useful for documentation, papers, pattern selection UIs
 
-10. **G6 Protocol v2+ Features**
+12. **G6 Protocol v2+ Features**
     - PSRAM pattern storage
     - TSI file generation
     - Mode 1 support
 
-11. **App Designer Migration**
-    - Evaluate only after GUIDE version is stable
-    - Would enable better cross-platform support
+13. ~~**App Designer Migration**~~ ✅ DONE
+    - ~~Evaluate only after GUIDE version is stable~~ → PatternGeneratorApp uses App Designer
+    - ~~Would enable better cross-platform support~~ → Implemented
 
 ---
 
@@ -475,6 +712,42 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-26 (PM): Roadmap Comprehensive Update
+
+**Focus**: Document in-flight work, decisions, and why PatternGeneratorApp
+
+**Added**:
+1. **In-Flight Work section** — 7 items with detailed "To Pick Up" instructions:
+   - TCP Migration Testing (needs lab time)
+   - Experiment Workflow / Lisa's Code (PR open)
+   - Cross-Platform SD Card Copying (new consideration)
+   - PatternGeneratorApp Missing Features (feature list)
+   - Branch Reconciliation (merge strategy)
+   - Web Tools Landing Page (status update)
+   - Pattern Validation / Regression Testing (planned)
+
+2. **"Why PatternGeneratorApp" section** — Documents why we created new App Designer GUI instead of updating G4 GUIDE GUI:
+   - GUIDE `.fig` files have hardcoded callbacks
+   - Can't programmatically rename callbacks
+   - GUIDE is deprecated
+   - App Designer advantages (single file, modern, maintainable)
+
+**Updated**:
+- Sprint 2 status → marked P1 (Arena Config) and P3 (Pattern Editor core) complete
+- Sprint 3 dates → Feb 2-5 (was Feb 3-7)
+- Sprint 3 P2 (TCP) → notes "requires lab time"
+- Backlog → marked completed items, added new items (cross-platform SD, GitHub for experiments)
+- Branch reconciliation → added merge strategy (PRs through Lisa/Frank for their code)
+
+**Decisions Documented**:
+- Arena config in experiments: "Document as question for later" (open question)
+- TCP migration: Wait for Sprint 3 (needs lab time)
+- Cross-platform workflow: Develop on Mac, run on Windows. GitHub for experiment org worth considering.
+- PatternGeneratorApp features: Will need all features, go through 1-by-1
+- Merge strategy: One big merge to main, PRs through owners for their code
+
+---
 
 ### 2026-01-26: PatternGeneratorApp Created
 
@@ -739,6 +1012,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-26 (PM) | **Comprehensive roadmap update** — Added In-Flight Work section with 7 items and "To Pick Up" instructions. Added "Why PatternGeneratorApp" section documenting GUIDE limitations. Updated Sprint 2 (P1, P3 complete), Sprint 3 dates (Feb 2-5). Added merge strategy (PRs through Lisa/Frank for their code). Updated backlog: marked completed items, added cross-platform SD and GitHub for experiments. |
 | 2026-01-26 | **PatternGeneratorApp created** — New App Designer GUI for multi-generation pattern creation. Features: arena config dropdown (YAML integration), LED green phosphor colormap, playback controls (1/5/10/20 FPS), arena info display (deg/px horizontal to 3 decimal places), step size in pixel equivalents. Single source of truth: `get_generation_specs.m` for panel specs. Updated README.md with comprehensive documentation. |
 | 2026-01-25 | Column numbering convention fixed (GitHub Issue #4). CW/CCW column ordering implemented with south baseline. c0 starts at south for both conventions (CW: left of south, CCW: right of south). MATLAB design_arena.m updated with column labels (c#) and compass indicators (N/S). Web tools updated: arena_editor.html and arena_3d_viewer.html. Added G6_3x18_partial config (10 standard configs total). Fixed 3D viewer fly view camera position. Statistics panel moved to floating right panel. LED specs added to PANEL_SPECS (led_type, dimensions). Created arena_config_audit.md documenting single-source-of-truth issues. |
 | 2026-01-24 (PM) | Web tools UI redesign complete. Arena configs now single source of truth. Created 9 standard arena YAML configs in maDisplayTools. CI/CD workflow syncs configs to webDisplayTools. Arena editor & 3D viewer redesigned with config dropdowns. Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD). Fixed 3D viewer label positioning. Node v24.12.0, Three.js 0.182.0 (both current). |
