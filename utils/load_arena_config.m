@@ -35,7 +35,7 @@ function config = load_arena_config(filepath)
 %   config = load_arena_config('configs/arenas/G6_2x10_full.yaml');
 %   fprintf('Grid size: %d x %d pixels\n', config.derived.total_pixels_x, config.derived.total_pixels_y);
 %
-% See also: load_rig_config, load_experiment_config, show_resolved_config
+% See also: get_generation_specs, load_rig_config, load_experiment_config
 
 %% Handle file selection
 if nargin < 1 || isempty(filepath)
@@ -134,25 +134,8 @@ end
 
 %% Helper: Compute derived properties
 function derived = compute_derived_properties(arena)
-    % Generation specifications lookup
-    gen_specs = struct();
-    gen_specs.G3.pixels_per_panel = 8;
-    gen_specs.G3.panel_width_mm = 32;
-    gen_specs.G4.pixels_per_panel = 16;
-    gen_specs.G4.panel_width_mm = 40.45;
-    gen_specs.G41.pixels_per_panel = 16;  % G4.1 stored as G41
-    gen_specs.G41.panel_width_mm = 40;
-    gen_specs.G6.pixels_per_panel = 20;
-    gen_specs.G6.panel_width_mm = 45.4;
-
-    % Normalize generation name for lookup
-    gen_key = upper(strrep(arena.generation, '.', ''));
-
-    if ~isfield(gen_specs, gen_key)
-        error('Unknown generation: %s', arena.generation);
-    end
-
-    specs = gen_specs.(gen_key);
+    % Get generation specs from single source of truth
+    specs = get_generation_specs(arena.generation);
 
     % Compute derived values
     derived = struct();

@@ -313,74 +313,8 @@ end
 
 %% Helper function: Get panel specifications
 function specs = get_panel_specs(panel_type)
-    % Panel specifications database
-    % Sources:
-    %   G6: KiCad files from https://github.com/iorodeo/LED-Display_G6_Hardware_Panel
-    %   G4/G4.1/G5: Historical measurements from arena layout scripts
-    %   G3: Legacy panel specifications
-
-    panel_db = struct();
-
-    % G3 - Legacy 32mm panels
-    panel_db.G3.panel_width_mm = 32;
-    panel_db.G3.panel_depth_mm = 18;      % ~0.7 inches
-    panel_db.G3.pixels_per_panel = 8;
-    panel_db.G3.num_pins = 8;
-    panel_db.G3.pin_dist_mm = 15.24;      % ~0.6 inches
-    panel_db.G3.pin_spacing_mm = 2.54;
-    panel_db.G3.pin_config = 'single';
-    panel_db.G3.pins_to_plot = [];
-
-    % G4 - 40.45mm panels (original G4)
-    panel_db.G4.panel_width_mm = 40.45;
-    panel_db.G4.panel_depth_mm = 18;      % ~0.7 inches
-    panel_db.G4.pixels_per_panel = 16;
-    panel_db.G4.num_pins = 15;
-    panel_db.G4.pin_dist_mm = 13;         % ~0.51 inches
-    panel_db.G4.pin_spacing_mm = 2.54;
-    panel_db.G4.pin_config = 'single';
-    panel_db.G4.pins_to_plot = [];
-
-    % G4.1 - 40mm panels (thinner, updated design)
-    % Also known as "G41" in some contexts
-    panel_db.G41.panel_width_mm = 40;
-    panel_db.G41.panel_depth_mm = 6.35;   % ~0.25 inches (thinner)
-    panel_db.G41.pixels_per_panel = 16;
-    panel_db.G41.num_pins = 15;
-    panel_db.G41.pin_dist_mm = 4.57;      % ~0.18 inches
-    panel_db.G41.pin_spacing_mm = 2.54;
-    panel_db.G41.pin_config = 'single';
-    panel_db.G41.pins_to_plot = [];
-
-    % G5 - DEPRECATED (removed from supported types)
-    % G5 panels are no longer functional and not supported
-
-    % G6 - 45.4mm panels with 20x20 pixels, dual 5-pin headers
-    % Dimensions from KiCad: board outline (49.8,49.8) to (95.2,95.2) = 45.4mm
-    % Headers: J2/J3 at y=90.135 (bottom), J4/J5 at y=53.9 (top)
-    %          J2/J4 at x=87.9 (right), J3/J5 at x=57.1 (left)
-    % Header separation: 30.8mm between left/right headers
-    panel_db.G6.panel_width_mm = 45.4;
-    panel_db.G6.panel_depth_mm = 3.45;    % Estimated from comment in original
-    panel_db.G6.pixels_per_panel = 20;
-    panel_db.G6.num_pins = 10;            % 2 x 5-pin headers
-    panel_db.G6.pin_dist_mm = 4.57;       % ~0.18 inches (estimated)
-    panel_db.G6.pin_spacing_mm = 2.54;
-    panel_db.G6.pin_config = 'dual';
-    panel_db.G6.header_separation_mm = 30.8;  % Distance between the two headers
-    panel_db.G6.pins_to_plot = [1:5];     % Plot 5 pins per header (will be mirrored)
-
-    % Lookup panel type
-    type_upper = upper(strrep(panel_type, '.', ''));
-
-    if isfield(panel_db, type_upper)
-        specs = panel_db.(type_upper);
-    elseif strcmpi(type_upper, 'G5')
-        error('G5 panels are deprecated and no longer supported. Use G6 for 20x20 pixel panels.');
-    else
-        error('Unknown panel type: %s. Valid types: G3, G4, G4.1, G6', panel_type);
-    end
-
+    % Get panel specs from single source of truth
+    specs = get_generation_specs(panel_type);
     specs.panel_type = panel_type;
 end
 

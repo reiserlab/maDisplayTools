@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-25
-> **Next Review**: ~2026-01-28
+> **Last Updated**: 2026-01-26
+> **Next Review**: ~2026-01-29
 
 ---
 
@@ -206,10 +206,20 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [ ] Add links to documentation / roadmap
   - [ ] Clarify which tools are complete vs placeholder
 
-- [ ] **[P3] Pattern Editor Assessment**
-  - [ ] Inventory G4_Pattern_Generator_gui.m features
-  - [ ] Identify generation-specific vs universal features
-  - [ ] Plan update strategy for multi-generation support
+- [x] **[P3] Pattern Editor Assessment & Implementation** ✅ IN PROGRESS
+  - [x] Inventory G4_Pattern_Generator_gui.m features (see `docs/g4_pattern_editor_assessment.md`)
+  - [x] Identify generation-specific vs universal features
+  - [x] Plan update strategy for multi-generation support (see plan file)
+  - [x] Created `PatternGeneratorApp.m` — new App Designer GUI
+  - [x] Implemented multi-generation support (G3, G4, G4.1, G6)
+  - [x] Integrated arena YAML configs via dropdown
+  - [x] Added LED-accurate preview with green phosphor colormap
+  - [x] Added playback controls (Play/Stop, FPS selection)
+  - [x] Added arena info display (panels, pixels, deg/px horizontal)
+  - [ ] **Next**: Compare full functionality to G4 Pattern Generator
+  - [ ] **Next**: Add missing pattern parameter controls
+  - [ ] **Next**: Review pixel vs pattern rendering options
+  - [ ] **Next**: Add GIF/stim icon export (or punt to web tools)
 
 - [ ] **[P4] Branch Reconciliation** (after P1 arena work complete)
   - **Goal**: Get complete, tested items that don't require substantial further work onto `main` and close branches
@@ -222,23 +232,27 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - G4.1 Control GUI Development — wait until arena config and pattern editor work is more mature
 
 ### Done Criteria
-- [ ] Arena config JSON loading/saving works in MATLAB and web
+- [x] Arena config JSON loading/saving works in MATLAB and web ✅
 - [ ] webDisplayTools landing page accurately reflects project status
-- [ ] Pattern editor requirements documented
+- [x] Pattern editor requirements documented ✅
+- [x] PatternGeneratorApp functional with multi-generation support ✅
 
 ---
 
 ## Sprint 3 (Feb 3-7)
 
-### 🎯 Primary Goal: Pattern Editor Update + TCP Migration Completion
+### 🎯 Primary Goal: Pattern Editor Completion + TCP Migration Completion
 
 ### Tasks
 
-- [ ] **[P1] Update G4_Pattern_Generator_gui.m**
-  - [ ] Add generation selector (G3, G4, G4.1, G6) — skip G5
-  - [ ] Update pixel grid sizes (8×8, 16×16, 20×20)
-  - [ ] Integrate arena config loading
-  - [ ] Run regression tests
+- [ ] **[P1] Complete PatternGeneratorApp**
+  - [x] Add generation selector (G3, G4, G4.1, G6) — skip G5 ✅
+  - [x] Update pixel grid sizes (8×8, 16×16, 20×20) ✅
+  - [x] Integrate arena config loading ✅
+  - [ ] Compare to G4_Pattern_Generator_gui.m — add missing parameters
+  - [ ] Review rendering options (pixel vs pattern visualization)
+  - [ ] Add export options (GIF, stim icons) or punt to web tools
+  - [ ] Run regression tests against G4 baseline patterns
 
 - [ ] **[P2] Complete TCP Migration + Large Pattern Testing**
   - [ ] Investigate controller lockup at >10 FPS streaming
@@ -406,7 +420,7 @@ maDisplayTools/
 │   │   ├── G6_2x10_full.yaml
 │   │   ├── G6_2x8_walking.yaml
 │   │   ├── G41_2x12_ccw.yaml
-│   │   └── ... (9 configs total)
+│   │   └── ... (10 configs total)
 │   └── rigs/                # Rig configs (reference arena YAML)
 │       ├── test_rig_1.yaml
 │       └── ...
@@ -414,13 +428,21 @@ maDisplayTools/
 ├── docs/
 │   ├── G4G6_ROADMAP.md      # This file
 │   ├── arena_config_spec.md # Arena config JSON schema
+│   ├── g4_pattern_editor_assessment.md  # Feature inventory
 │   ├── pattern_testing/     # Regression test patterns & plan
 │   └── arena-designs/       # PDF exports, reference_data.json
 ├── examples/
 │   ├── test_patterns/       # SD card test patterns (20)
 │   └── test_patterns_100/   # Two-digit patterns (00-99)
+├── patternGenerator/        # Pattern generation tools
+│   ├── PatternGeneratorApp.m    # NEW: App Designer GUI
+│   ├── Pattern_Generator.m      # Core pattern engine
+│   ├── arena_coordinates.m      # Arena pixel coordinates
+│   ├── configure_arena.m/.fig   # Arena config dialog
+│   └── support/                 # Helper functions
 ├── utils/
 │   ├── design_arena.m       # Arena geometry (with column_order)
+│   ├── get_generation_specs.m   # Panel specs (single source of truth)
 │   ├── prepare_sd_card.m    # SD card deployment
 │   ├── load_arena_config.m  # Load arena YAML
 │   ├── load_rig_config.m    # Load rig YAML (resolves arena ref)
@@ -453,6 +475,51 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-26: PatternGeneratorApp Created
+
+**Focus**: New App Designer GUI for multi-generation pattern creation
+
+**Completed**:
+1. **PatternGeneratorApp.m** — Modern App Designer replacement for G4_Pattern_Generator_gui
+   - Multi-generation support (G3, G4, G4.1, G6) via arena config dropdown
+   - Pattern types: Square grating, sine grating, edge, starfield, off-on
+   - Motion types: Rotation, translation, expansion-contraction
+   - Grayscale modes: Binary (1-bit) and grayscale (4-bit)
+   - Real-time preview with LED-accurate green phosphor colormap (568nm peak)
+   - Playback controls: Play/Stop button with FPS dropdown (1/5/10/20)
+   - Arena info display: panels, pixels, deg/px horizontal (3 decimal places)
+   - Step size shows pixel equivalent, spinner step = half deg/pixel
+   - Default arena config: G41_2x12_ccw
+   - Window size: 1350×600 pixels
+
+2. **get_generation_specs.m** — Single source of truth for panel specs
+   - Moved from hardcoded values in multiple files
+   - Used by load_arena_config.m, load_rig_config.m, design_arena.m
+
+3. **Documentation updates**
+   - Updated README.md with PatternGeneratorApp documentation
+   - Updated g4_pattern_editor_assessment.md with feature inventory
+
+**Key Design Decisions**:
+- Used App Designer instead of GUIDE for modern UI and better maintainability
+- Integrated with existing YAML arena configs (no separate config system)
+- LED colormap uses phosphor green (RGB [0.6, 1.0, 0.2] at peak)
+- Step size initialized to 1 pixel (deg/pixel value)
+
+**Files Created/Modified**:
+- `patternGenerator/PatternGeneratorApp.m` — NEW: ~580 lines App Designer GUI
+- `utils/get_generation_specs.m` — NEW: panel specs single source of truth
+- `README.md` — Updated with comprehensive documentation
+- `docs/G4G6_ROADMAP.md` — Updated with progress
+
+**Next Steps**:
+1. Compare PatternGeneratorApp to G4_Pattern_Generator_gui.m features
+2. Add missing pattern parameter controls (starfield options, mask settings, etc.)
+3. Review rendering options (pixel vs pattern visualization modes)
+4. Add export options (GIF, stim icons) or punt to webDisplayTools
+
+---
 
 ### 2026-01-24 (PM): Web Tools UI Redesign + Arena Config System
 
@@ -672,6 +739,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-26 | **PatternGeneratorApp created** — New App Designer GUI for multi-generation pattern creation. Features: arena config dropdown (YAML integration), LED green phosphor colormap, playback controls (1/5/10/20 FPS), arena info display (deg/px horizontal to 3 decimal places), step size in pixel equivalents. Single source of truth: `get_generation_specs.m` for panel specs. Updated README.md with comprehensive documentation. |
 | 2026-01-25 | Column numbering convention fixed (GitHub Issue #4). CW/CCW column ordering implemented with south baseline. c0 starts at south for both conventions (CW: left of south, CCW: right of south). MATLAB design_arena.m updated with column labels (c#) and compass indicators (N/S). Web tools updated: arena_editor.html and arena_3d_viewer.html. Added G6_3x18_partial config (10 standard configs total). Fixed 3D viewer fly view camera position. Statistics panel moved to floating right panel. LED specs added to PANEL_SPECS (led_type, dimensions). Created arena_config_audit.md documenting single-source-of-truth issues. |
 | 2026-01-24 (PM) | Web tools UI redesign complete. Arena configs now single source of truth. Created 9 standard arena YAML configs in maDisplayTools. CI/CD workflow syncs configs to webDisplayTools. Arena editor & 3D viewer redesigned with config dropdowns. Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD). Fixed 3D viewer label positioning. Node v24.12.0, Three.js 0.182.0 (both current). |
 | 2026-01-24 | Sprint 1 COMPLETE. Added Active Branches section. TCP migration partial (PanelsControllerNative works, needs more testing). Experiment workflow complete (PR open). Updated Sprint 2 priorities: Arena Config P1 (with audit steps), webDisplayTools P2, Pattern Editor P3, Branch Reconciliation P4 (goal: complete items to main). GUI deferred. Sprint 3: Large pattern = many frames, web editor = direct port of MATLAB + GIF/MPG export. Remove G5 from valid arenas. Pattern index convention agreed: (0,0) lower left. |

@@ -30,7 +30,7 @@ function config = load_rig_config(filepath)
 %   fprintf('Controller: %s:%d\n', config.controller.host, config.controller.port);
 %   fprintf('Arena: %s (%s)\n', config.arena.generation, config.name);
 %
-% See also: load_arena_config, load_experiment_config, show_resolved_config
+% See also: get_generation_specs, load_arena_config, load_experiment_config
 
 %% Handle file selection
 if nargin < 1 || isempty(filepath)
@@ -152,24 +152,8 @@ end
 
 %% Helper: Compute derived properties for inline arena
 function derived = compute_arena_derived(arena)
-    % Same logic as in load_arena_config
-    gen_specs = struct();
-    gen_specs.G3.pixels_per_panel = 8;
-    gen_specs.G3.panel_width_mm = 32;
-    gen_specs.G4.pixels_per_panel = 16;
-    gen_specs.G4.panel_width_mm = 40.45;
-    gen_specs.G41.pixels_per_panel = 16;
-    gen_specs.G41.panel_width_mm = 40;
-    gen_specs.G6.pixels_per_panel = 20;
-    gen_specs.G6.panel_width_mm = 45.4;
-
-    gen_key = upper(strrep(arena.generation, '.', ''));
-
-    if ~isfield(gen_specs, gen_key)
-        error('Unknown generation: %s', arena.generation);
-    end
-
-    specs = gen_specs.(gen_key);
+    % Get generation specs from single source of truth
+    specs = get_generation_specs(arena.generation);
 
     derived = struct();
     derived.pixels_per_panel = specs.pixels_per_panel;
