@@ -1,225 +1,217 @@
-# G4 Pattern Editor Assessment
+# Pattern Editor Assessment
 
-Assessment of `G4_Pattern_Generator_gui.m` for multi-generation support update.
+Assessment of pattern generation tools and feature comparison between the original G4_Pattern_Generator_gui.m and the new PatternGeneratorApp.m.
 
-**Source**: `/Users/reiserm/Documents/GitHub/G4_Display_Tools/G4_Pattern_Generator/`
-
----
-
-## Feature Inventory
-
-### Pattern Types (popupmenu1)
-| Pattern | Description | Generation-Specific? |
-|---------|-------------|---------------------|
-| Square grating | Rectangular wave pattern | No - universal |
-| Sine grating | Sinusoidal intensity pattern | No - universal |
-| Edge | Single edge stimulus | No - universal |
-| Starfield | Random dot pattern (optic flow) | No - universal |
-| Off-On | Simple on/off pattern | No - universal |
-
-### Motion Types (popupmenu2)
-| Motion | Description |
-|--------|-------------|
-| Rotation | Azimuthal rotation around arena |
-| Translation | Linear translation |
-| Expansion-contraction | Radial expansion/contraction |
-
-### Grayscale Modes (popupmenu5)
-| Mode | Description | Generation Support |
-|------|-------------|-------------------|
-| 1 bit | Binary (on/off) | All generations |
-| 4 bits | 16 levels (0-15) | G4, G4.1, G6 |
-
-### Pattern FOV (popupmenu7)
-| Mode | Description |
-|------|-------------|
-| Full-field | Pattern covers entire arena |
-| Local (mask-centered) | Pattern centered on specified mask |
-
-### Visualization Modes (popupmenu6)
-| Mode | Description |
-|------|-------------|
-| Mercator projection | Cylindrical projection view |
-| Grid projection | Direct pixel grid view |
-
-### Starfield Options
-- Dot count (num_dots)
-- Dot radius (degrees)
-- Dot size: static or distance-relative
-- Dot occlusion: closest, sum, or mean
-- Dot level: fixed, random spread, or random binary
+**Last Updated**: 2026-01-26
 
 ---
 
-## Arena Configuration
+## Current Status
 
-### Current Implementation
-The G4 Pattern Generator loads arena configuration from a MAT file:
-- Default path: `C:\matlabroot\G4\Arena\arena_parameters.mat`
-- Uses `arena_coordinates.m` to generate pixel coordinates
+### PatternGeneratorApp.m (NEW - App Designer)
 
-### Arena Parameters (aparam struct)
-| Parameter | Description | Current Value |
-|-----------|-------------|---------------|
-| Psize | Pixels per panel edge | **16** (G4 hardcoded) |
-| Pcols | Panel columns | Variable |
-| Prows | Panel rows | Variable |
-| Pcircle | Panels in full circle | Variable |
-| rot180 | Arena upside-down flag | 0/1 |
-| model | Cylinder model | 'poly' or 'smooth' |
-| rotations | [yaw, pitch, roll] | radians |
-| translations | [x, y, z] | arena units |
+Modern App Designer GUI created for multi-generation pattern support.
 
-### Generation-Specific Changes Needed
-| Generation | Psize | Notes |
-|------------|-------|-------|
-| G3 | 8 | 8x8 pixel panels |
-| G4 | 16 | 16x16 pixel panels |
-| G4.1 | 16 | 16x16 pixel panels |
-| G6 | 20 | 20x20 pixel panels |
+**Implemented Features:**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Arena config dropdown | ✅ Done | Loads YAML configs from `configs/arenas/` |
+| Generation detection | ✅ Done | Auto-detected from arena config |
+| Pattern types | ✅ Done | Square grating, sine grating, edge, starfield, off-on |
+| Motion types | ✅ Done | Rotation, translation, expansion-contraction |
+| Grayscale modes | ✅ Done | Binary (1-bit), Grayscale (4-bit) |
+| Spatial frequency | ✅ Done | Degrees input |
+| Step size | ✅ Done | Degrees input with pixel equivalent display |
+| LED preview | ✅ Done | Green phosphor colormap (568nm) |
+| Frame playback | ✅ Done | Play/Stop with 1/5/10/20 FPS |
+| Frame slider | ✅ Done | Discrete ticks per frame |
+| Arena info display | ✅ Done | Panels, pixels, deg/px horizontal |
+| Save pattern (.mat) | ✅ Done | Standard MATLAB format |
+| Export script | ✅ Done | Generates standalone MATLAB script |
 
----
-
-## Universal vs Generation-Specific Features
-
-### Universal Features (No Changes Needed)
-- Pattern type selection (gratings, edge, starfield, off-on)
-- Motion type (rotation, translation, expansion-contraction)
-- Grayscale mode selection
-- Pattern preview (mercator and grid projections)
-- Frame navigation
-- Masking options (solid angle, lat/long)
-- Anti-aliasing settings
-- Pattern export to .mat and .pat files
-
-### Generation-Specific Features (Changes Required)
-
-1. **Panel pixel size**
-   - Currently hardcoded to 16x16
-   - Need to support: 8x8 (G3), 16x16 (G4/G4.1), 20x20 (G6)
-
-2. **Arena coordinate calculation**
-   - `arena_coordinates.m` needs Psize parameter from generation
-   - Different generations have different panel widths (affects radius)
-
-3. **Pattern file format**
-   - G4: Uses `save_pattern_G4.m` with G4 binary format
-   - G6: Uses `g6_save_pattern.m` with G6 binary format
-   - Need to select correct save function based on generation
-
-4. **Panel specifications** (from `design_arena.m`)
-   - G3: 32mm panel
-   - G4: 40.45mm panel
-   - G4.1: 40mm panel
-   - G6: 45.4mm panel
+**Missing Features (from G4 GUI):**
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Duty cycle | High | Grating on/off ratio |
+| Brightness levels | High | Low/high/background level controls |
+| Pole coordinates | Medium | Azimuth/elevation for local patterns |
+| Motion angle | Medium | Direction of motion |
+| Arena pitch | Medium | Tilt angle |
+| Pattern FOV | Medium | Full-field vs local (mask-centered) |
+| Mask options | Medium | Solid angle, lat/long masks |
+| Anti-aliasing | Low | Rendering smoothing options |
+| Mercator view | Low | Alternative visualization mode |
+| Starfield options | Low | Dot count, radius, size, occlusion, level |
+| More Options dialog | Low | Advanced rendering settings |
+| Configure Arena dialog | Low | Manual arena setup (replaced by YAML) |
 
 ---
 
-## UI Components
+## Feature Comparison
 
-### Main Window Elements
-| Component | Type | Purpose |
-|-----------|------|---------|
-| Pattern type | Popup menu | Select pattern algorithm |
-| Motion type | Popup menu | Select motion type |
-| Spatial freq | Edit field | Grating wavelength (degrees) |
-| Step size | Edit field | Animation step (degrees) |
-| Duty cycle | Edit field | Grating on/off ratio |
-| GS value | Popup menu | Grayscale depth |
-| Pattern FOV | Popup menu | Full-field vs local |
-| Pole coordinates | Edit fields | Azimuth, elevation |
-| Motion angle | Edit field | Direction of motion |
-| Arena pitch | Edit field | Tilt angle |
-| Mask params | Edit fields | Solid angle mask |
-| Levels | Edit fields | Brightness levels (low, high, bg) |
-| Frame preview | Axes | Pattern visualization |
-| Frame navigation | Buttons | Prev/Next/Go to frame |
-| Save directory | Text + button | Output path selection |
-| Pattern name | Edit field | Output filename |
+### Pattern Types
 
-### Support Dialogs
-| Dialog | File | Purpose |
-|--------|------|---------|
-| More Options | `more_options.m/.fig` | Advanced rendering settings |
-| Mask Options | `mask_options.m/.fig` | Full-field mask configuration |
-| Configure Arena | `configure_arena.m/.fig` | Arena setup |
+| Pattern | G4 GUI | PatternGeneratorApp | Notes |
+|---------|--------|---------------------|-------|
+| Square grating | ✅ | ✅ | Rectangular wave |
+| Sine grating | ✅ | ✅ | Sinusoidal intensity |
+| Edge | ✅ | ✅ | Single edge stimulus |
+| Starfield | ✅ | ✅ (basic) | Missing advanced options |
+| Off-On | ✅ | ✅ | Simple toggle |
+
+### Motion Types
+
+| Motion | G4 GUI | PatternGeneratorApp | Notes |
+|--------|--------|---------------------|-------|
+| Rotation | ✅ | ✅ | Azimuthal rotation |
+| Translation | ✅ | ✅ | Linear translation |
+| Expansion-contraction | ✅ | ✅ | Radial expansion |
+
+### Grayscale Modes
+
+| Mode | G4 GUI | PatternGeneratorApp | Notes |
+|------|--------|---------------------|-------|
+| 1-bit (binary) | ✅ | ✅ | On/off only |
+| 4-bit (grayscale) | ✅ | ✅ | 16 levels (0-15) |
+
+### Arena Configuration
+
+| Feature | G4 GUI | PatternGeneratorApp | Notes |
+|---------|--------|---------------------|-------|
+| Generation selector | ❌ | ✅ | Auto from config |
+| YAML config loading | ❌ | ✅ | `configs/arenas/` |
+| Multi-generation | ❌ | ✅ | G3, G4, G4.1, G6 |
+| Manual arena config | ✅ | ❌ | Replaced by YAML |
+| Pixel size auto-detect | ❌ | ✅ | Via `get_generation_specs()` |
+
+### Preview & Visualization
+
+| Feature | G4 GUI | PatternGeneratorApp | Notes |
+|---------|--------|---------------------|-------|
+| Grid projection | ✅ | ✅ | Direct pixel view |
+| Mercator projection | ✅ | ❌ | Cylindrical unwrap |
+| LED colormap | ❌ | ✅ | Phosphor green |
+| Frame navigation | ✅ | ✅ | Slider + buttons |
+| Playback animation | ❌ | ✅ | Timer-based |
+| FPS control | ❌ | ✅ | 1/5/10/20 fps |
+
+### Export Options
+
+| Feature | G4 GUI | PatternGeneratorApp | Notes |
+|---------|--------|---------------------|-------|
+| Save .mat | ✅ | ✅ | Pattern data |
+| Save .pat | ✅ | ❌ | Binary format |
+| Export script | ✅ | ✅ | Standalone MATLAB |
+| GIF export | ❌ | ❌ | Planned |
+| Stim icon export | ❌ | ❌ | Planned |
 
 ---
 
-## Update Strategy for Multi-Generation Support
+## Starfield Options (G4 GUI)
 
-### Phase 1: Add Generation Selector
-1. Add popup menu for generation selection (G3, G4, G4.1, G6)
-2. Store generation in handles struct
-3. Update arena configuration path/handling
+The G4 GUI has extensive starfield customization not yet in PatternGeneratorApp:
 
-### Phase 2: Integrate Arena Config System
-1. Replace hardcoded arena path with config file lookup
-2. Use `load_arena_config.m` from maDisplayTools
-3. Read Psize from config instead of hardcoding
-
-### Phase 3: Update Pattern Save Functions
-1. Add generation-aware save logic
-2. Call appropriate save function based on generation:
-   - G3/G4/G4.1: `save_pattern_G4.m` (with appropriate Psize)
-   - G6: `g6_save_pattern.m`
-
-### Phase 4: Update Arena Coordinate Generation
-1. Modify `arena_coordinates.m` to use config-based Psize
-2. Or create wrapper that reads from YAML config
-
-### Phase 5: Testing & Validation
-1. Generate test patterns for each generation
-2. Validate against known-good patterns
-3. Test load/save round-trip
+| Option | Description | Current Default |
+|--------|-------------|-----------------|
+| num_dots | Number of dots | 100 |
+| dot_radius | Dot size in degrees | 5° |
+| dot_size | 'static' or 'distance-relative' | 'static' |
+| dot_occ | Occlusion: 'closest', 'sum', 'mean' | 'closest' |
+| dot_level | 'fixed', 'random spread', 'random binary' | 'fixed' |
+| dot_re_random | Re-randomize each frame | 1 |
 
 ---
 
-## Files to Modify
+## Mask Options (G4 GUI)
 
-| File | Changes |
+The G4 GUI supports masking patterns to specific regions:
+
+| Mask Type | Description | Status |
+|-----------|-------------|--------|
+| Solid angle | Circular mask by solid angle | Not implemented |
+| Lat/long | Rectangular mask by lat/long bounds | Not implemented |
+| Full-field | No mask (entire arena) | Default |
+
+---
+
+## Rendering Options (G4 GUI - More Options Dialog)
+
+Advanced rendering settings in `more_options.m`:
+
+| Option | Description | Status |
+|--------|-------------|--------|
+| Anti-aliasing samples | Supersampling for smooth edges | Not implemented |
+| Pixel vs pattern mode | How to render at boundaries | Not implemented |
+
+---
+
+## Next Steps
+
+### Priority 1: Core Parameters
+1. Add duty cycle spinner (grating patterns)
+2. Add brightness level controls (low, high, background)
+3. Add pattern FOV selector (full-field vs local)
+
+### Priority 2: Advanced Controls
+4. Add pole coordinates (azimuth, elevation)
+5. Add motion angle control
+6. Add arena pitch control
+7. Add mask options (solid angle, lat/long)
+
+### Priority 3: Starfield Options
+8. Add starfield options panel (shown when starfield selected)
+   - Dot count, radius, size mode, occlusion, level mode
+
+### Priority 4: Export & Visualization
+9. Add .pat binary export (generation-aware)
+10. Add GIF export for pattern animation
+11. Add Mercator projection view option
+12. Add stim icon export (or defer to web tools)
+
+### Priority 5: Advanced Rendering
+13. Add anti-aliasing options
+14. Add pixel vs pattern rendering mode
+
+---
+
+## Architecture Notes
+
+### Single Source of Truth
+- `get_generation_specs.m` — Panel specifications (pixels, dimensions)
+- `configs/arenas/*.yaml` — Arena configurations
+- `load_arena_config.m` — YAML loader with derived calculations
+
+### Pattern Generation Pipeline
+```
+PatternGeneratorApp
+    → buildHandlesStruct() — Build params for Pattern_Generator
+    → arena_coordinates() — Generate pixel coordinates from YAML
+    → Pattern_Generator() — Core pattern generation
+    → updatePreview() — Display with LED colormap
+```
+
+### Key Files
+| File | Purpose |
 |------|---------|
-| `G4_Pattern_Generator_gui.m` | Add generation popup, update arena loading |
-| `G4_Pattern_Generator_gui.fig` | Add generation selector UI element |
-| `arena_coordinates.m` | Accept Psize from config or add generation param |
-| `save_pattern_G4.m` | May need updates for different Psize values |
-| `configure_arena.m/.fig` | Add generation selector |
+| `PatternGeneratorApp.m` | New App Designer GUI |
+| `Pattern_Generator.m` | Core pattern engine |
+| `arena_coordinates.m` | 3D pixel coordinate calculation |
+| `make_grating_edge.m` | Grating/edge pattern generation |
+| `make_starfield.m` | Starfield pattern generation |
+| `make_off_on.m` | Simple on/off pattern |
+| `save_pattern.m` | Pattern file writer |
+| `get_generation_specs.m` | Panel specs lookup |
 
 ---
 
-## Dependencies
+## Legacy Files (Reference Only)
 
-### From G4_Display_Tools
-- `G4_Pattern_Generator.m` (core pattern generation)
-- `arena_coordinates.m` (arena pixel coordinates)
-- `save_pattern_G4.m` (G4 pattern file writer)
-- Support functions: `make_grating_edge.m`, `make_starfield.m`, `make_off_on.m`
-- Mask functions: `sa_mask.m`, `long_lat_mask.m`
+These files from G4_Display_Tools are kept for reference but PatternGeneratorApp is the primary tool:
 
-### From maDisplayTools
-- `load_arena_config.m` (YAML config loader)
-- `g6_save_pattern.m` (G6 pattern writer)
-- Arena configs in `configs/arenas/`
-
----
-
-## Recommendations
-
-1. **Keep GUIDE GUI for now** - App Designer migration is lower priority
-2. **Use maDisplayTools configs** - Integrate with existing YAML system
-3. **Test incrementally** - Add G6 support first, then G3
-4. **Maintain backward compatibility** - Existing G4 patterns should still work
-5. **Document changes** - Update user guide with multi-generation workflow
-
----
-
-## Estimated Effort
-
-| Task | Effort |
+| File | Status |
 |------|--------|
-| Add generation selector | Low |
-| Integrate arena config | Medium |
-| Update save functions | Medium |
-| Update arena coordinates | Low |
-| Testing & validation | Medium |
-| **Total** | Medium (1-2 days) |
+| `G4_Pattern_Generator_gui.m` | Reference - original GUIDE GUI |
+| `G4_Pattern_Generator_gui.fig` | Reference - GUIDE figure file |
+| `configure_arena.m/.fig` | Reference - replaced by YAML configs |
+| `mask_options.m/.fig` | Reference - to be integrated |
+| `more_options.m/.fig` | Reference - to be integrated |
