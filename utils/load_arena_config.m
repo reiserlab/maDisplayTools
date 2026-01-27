@@ -160,4 +160,29 @@ function derived = compute_derived_properties(arena)
     else
         derived.inner_radius_mm = 0;
     end
+
+    % Compute azimuthal coverage
+    % Full grid = 360 degrees, partial = fraction of installed panels
+    if isempty(arena.panels_installed)
+        derived.azimuth_coverage_deg = 360;
+    else
+        derived.azimuth_coverage_deg = 360 * (length(arena.panels_installed) / arena.num_cols);
+    end
+
+    % Compute latitude range (based on number of rows and panel size)
+    % Assumes arena is centered at horizon (equator)
+    if arena.num_cols > 0 && derived.inner_radius_mm > 0
+        % Each row spans: panel_height / inner_radius radians
+        panel_height_mm = specs.panel_width_mm;  % Panels are square
+        row_span_rad = panel_height_mm / derived.inner_radius_mm;
+        total_lat_span_rad = arena.num_rows * row_span_rad;
+        derived.latitude_span_deg = rad2deg(total_lat_span_rad);
+        % Assume symmetric around horizon
+        derived.latitude_min_deg = -derived.latitude_span_deg / 2;
+        derived.latitude_max_deg = derived.latitude_span_deg / 2;
+    else
+        derived.latitude_span_deg = 180;
+        derived.latitude_min_deg = -90;
+        derived.latitude_max_deg = 90;
+    end
 end

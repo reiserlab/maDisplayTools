@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-26
-> **Next Review**: ~2026-01-29
+> **Last Updated**: 2026-01-27
+> **Next Review**: ~2026-01-30
 
 ---
 
@@ -194,7 +194,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [x] CI/CD workflow to sync configs from maDisplayTools to webDisplayTools ✅
   - ~[ ] **Audit maDisplayTools** for arena-specific details~ → Deferred (arena config propagation is in-flight work below)
   - ~[ ] **Audit G4 pattern editor** to map how it can use new arena config~ → Done via PatternGeneratorApp
-  - [ ] Remove G5 from valid arena designs (nonfunctional, not worth supporting)
+  - [x] Remove G5 from valid arena designs ✅ (errors in load_arena_config.m, get_generation_specs.m, ProtocolParser.m; no G5 tab in web tools)
 
 - [x] **[P2] Update webDisplayTools** ✅ COMPLETE
   - [x] Arena editor: Dropdown for 9 standard configs, view/create modes ✅
@@ -245,17 +245,22 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ### Tasks
 
-- [ ] **[P1] Complete PatternGeneratorApp Feature Parity**
+- [x] **[P1] Complete PatternGeneratorApp Feature Parity** ✅ COMPLETE
   - [x] Add generation selector (G3, G4, G4.1, G6) — skip G5 ✅
   - [x] Update pixel grid sizes (8×8, 16×16, 20×20) ✅
   - [x] Integrate arena config loading ✅
-  - [ ] Add missing features from G4 GUI (see `docs/g4_pattern_editor_assessment.md`):
-    - High priority: Duty cycle, brightness levels (low/high/background)
-    - Medium priority: Pole coordinates, motion angle, arena pitch, pattern FOV, mask options
-    - Low priority: Starfield options, anti-aliasing, Mercator view
-  - [ ] Review rendering options (pixel vs pattern visualization)
-  - [ ] Add export options (GIF, stim icons) or punt to web tools
-  - [ ] Run regression tests against G4 baseline patterns
+  - [x] Add missing features from G4 GUI ✅ (Jan 26 evening):
+    - [x] Duty cycle spinner (1-99%)
+    - [x] Brightness levels (high/low/background, auto-adjust for 1-bit/4-bit)
+    - [x] Pattern FOV (full-field / local)
+    - [x] Motion angle (0-360°)
+    - [x] Pole coordinates (azimuth 0-360°, elevation -90 to 90°)
+    - [x] Arena pitch (-90 to 90°)
+    - [x] Solid angle mask (checkbox + configure dialog)
+    - [x] Lat/long mask (checkbox + configure dialog)
+    - [x] Starfield options panel (conditional, with all 6 parameters)
+  - [x] Regression tests pass against G4 baseline patterns ✅
+  - [ ] Lower priority remaining: .pat export, Mercator view, GIF export
 
 - [ ] **[P2] TCP Migration Testing** (requires lab time)
   - [ ] Investigate controller lockup at >10 FPS streaming
@@ -274,7 +279,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [ ] CI/CD validation
 
 ### Done Criteria
-- [ ] MATLAB pattern editor generates valid patterns for G3, G4, G4.1, G6
+- [x] MATLAB pattern editor generates valid patterns for G3, G4, G4.1, G6 ✅
 - [ ] TCP migration testing complete with documented limits (if lab time available)
 - [ ] Web pattern editor functional for multi-panel arena patterns (stretch goal)
 
@@ -372,30 +377,31 @@ These are started projects that need to be picked up and completed. Each section
 
 ### 4. PatternGeneratorApp Missing Features
 
-**Status**: Core functionality complete. Missing advanced features from G4 GUI.
+**Status**: ✅ Feature parity achieved! All major G4 GUI features implemented.
 
 **Current State**: See `docs/g4_pattern_editor_assessment.md` for full comparison.
 
-**Missing Features** (will go through 1-by-1, probably need all):
+**Completed Features** (2026-01-26/27):
+- ✅ Duty cycle (1-99% spinner)
+- ✅ Brightness levels (High/Low spinners, background in mask dialogs)
+- ✅ Pole coordinates (Longitude/Latitude spinners in Full-field mode)
+- ✅ Motion angle (0-360° spinner in Local mode)
+- ✅ Arena pitch (-90 to 90°)
+- ✅ Pattern FOV (Full-field / Local dropdown)
+- ✅ Mask options (Solid Angle + Lat/Long with Configure dialogs, mutually exclusive)
+- ✅ Starfield options (Conditional panel: dot count, radius, size, occlusion, level, re-randomize)
+- ✅ Mercator view + Mollweide view with adjustable dot size and FOV zoom
+- ✅ Info dialog with coordinate system diagrams and parameter reference
+- ✅ 1:1 aspect ratio for all views
+
+**Remaining Lower Priority Features**:
 
 | Priority | Feature | Notes |
 |----------|---------|-------|
-| High | Duty cycle | Grating on/off ratio |
-| High | Brightness levels | Low/high/background level controls |
-| Medium | Pole coordinates | Azimuth/elevation for local patterns |
-| Medium | Motion angle | Direction of motion |
-| Medium | Arena pitch | Tilt angle |
-| Medium | Pattern FOV | Full-field vs local (mask-centered) |
-| Medium | Mask options | Solid angle, lat/long masks |
-| Low | Starfield options | Dot count, radius, size, occlusion, level |
-| Low | Anti-aliasing | Rendering smoothing options |
-| Low | Mercator view | Alternative visualization mode |
-
-**To Pick Up**:
-1. Open PatternGeneratorApp in App Designer
-2. Add controls for high-priority features first
-3. Test each feature against G4 Pattern Generator output
-4. Add regression tests for pattern validation
+| Medium | .pat binary export | Generation-aware format for display hardware |
+| Low | Phase shift | Starting phase offset (default 0) |
+| Low | Anti-aliasing control | Fixed at 15 samples (works well) |
+| Low | GIF export | Consider deferring to web tools |
 
 **Files**:
 - `patternGenerator/PatternGeneratorApp.m`
@@ -431,7 +437,44 @@ These are started projects that need to be picked up and completed. Each section
 
 ---
 
-### 6. Web Tools Landing Page
+### 6. Arena Config for Partial Arenas
+
+**Status**: 🔴 NEEDS DESIGN — Blocking partial arena pattern generation
+
+**Problem Discovered** (Jan 27):
+The current `panels_installed` field in arena YAML configs is inconsistent:
+- `G6_3x18_partial.yaml` uses **column indices**: `[0, 1, 2, ..., 11]` (12 items = 12 columns)
+- `G6_2x8_walking.yaml` uses **panel indices**: `[1, 2, ..., 8, 11, 12, ..., 18]` (16 items = 16 panels)
+
+For pattern generation, we need to know:
+1. **Which columns are installed** — determines azimuthal coverage and pixel grid width
+2. **Which individual panels are installed** — determines which physical panels receive data (could have gaps within a column for multi-row arenas)
+
+**Proposed Solution**:
+Extend arena config schema to have both:
+```yaml
+arena:
+  num_rows: 2
+  num_cols: 10           # Full circle = 10 columns
+  columns_installed: [1, 2, 3, 4, 5, 6, 7, 8]  # Which columns (0-indexed)
+  panels_installed: [...]  # Optional: specific panel indices if not all rows present
+```
+
+**To Pick Up**:
+1. Design schema extension for `columns_installed` vs `panels_installed`
+2. Update `load_arena_config.m` to compute derived values correctly
+3. Update all existing partial arena configs
+4. Update PatternGeneratorApp to use new schema
+5. Update web tools (arena editor) if needed
+
+**Files to Review**:
+- `configs/arenas/G6_2x8_walking.yaml`, `G6_3x18_partial.yaml`
+- `utils/load_arena_config.m`
+- `patternGenerator/PatternGeneratorApp.m` (generateArenaMatFile, updateArenaInfo)
+
+---
+
+### 7. Web Tools Landing Page
 
 **Status**: ✅ COMPLETE
 
@@ -447,17 +490,19 @@ These are started projects that need to be picked up and completed. Each section
 
 ### 7. Pattern Validation / Regression Testing
 
-**Status**: Planned but not implemented.
+**Status**: ✅ COMPLETE (MATLAB) — Web validation pending
 
-**Goal**: Ensure PatternGeneratorApp produces identical output to G4_Pattern_Generator_gui for same inputs.
+**Goal**: Ensure Pattern_Generator.m produces identical output to G4_Pattern_Generator for same inputs.
 
-**To Pick Up**:
-1. Generate baseline patterns using G4 tools (before any changes)
-2. Store in `validation/pattern_baseline/`
-3. Create comparison script `validation/compare_patterns.m`
-4. Run after each PatternGeneratorApp update
+**Completed** (Jan 26):
+- [x] Baseline patterns generated using G4_Pattern_Generator (5 pattern types)
+- [x] Stored in `validation/pattern_baseline/` (baseline_patterns.mat, baseline_parameters.yaml)
+- [x] Comparison script `validation/compare_patterns.m` — runs and passes
+- [x] All 5 pattern types pass: square grating, sine grating, edge, starfield, off-on
 
-**See**: Plan file at `~/.claude/plans/wild-bubbling-key.md` has detailed validation approach
+**Future Work**:
+- [ ] Revisit validation when Pattern Editor is migrated to web tools
+- [ ] Create JavaScript-based validation for web pattern editor (similar to G6 panel editor CI/CD)
 
 ---
 
@@ -704,6 +749,42 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-27: PatternGeneratorApp Refinements + Partial Arena Issue
+
+**Focus**: Bug fixes, UI improvements, and discovery of arena config schema limitation
+
+**Completed**:
+1. **Info Dialog** — Changed from modal to non-modal so users can reference while using main GUI
+2. **Mask Mutual Exclusion** — Removed; both SA and Lat/Long masks can now be used together (applied sequentially by Pattern_Generator.m)
+3. **Partial Arena Rendering** — Fixed `Pcols`/`Pcircle` parameters in `generateArenaMatFile()`:
+   - `Pcols` = number of installed columns (from `panels_installed` length)
+   - `Pcircle` = full circle column count (`num_cols`)
+   - Now matches G4 Pattern Generator behavior
+4. **View Labels**:
+   - Grid view: "Pixel Column" / "Pixel Row", Y-axis flipped so row 0 at bottom
+   - Mercator: "Longitude (deg)" / "Latitude (deg)"
+   - Mollweide: "Longitude (deg)" / "Latitude (deg)"
+5. **FOV Reset** — Now always resets to ±180° lon, ±90° lat (full view)
+6. **Mollweide Zoom** — Fixed zoom/reset buttons to work with Mollweide projection
+7. **Data Tips** — Re-enabled for pattern inspection
+8. **Arena Info Display** — Fixed for partial arenas:
+   - Shows installed panel count (not grid total)
+   - Shows actual pixel dimensions (installed columns × pixels_per_panel)
+   - Shows azimuth coverage AND deg/px for partial arenas
+
+**Issue Discovered — Arena Config Schema**:
+The `panels_installed` field is used inconsistently:
+- `G6_3x18_partial.yaml`: column indices `[0,1,2,...,11]` (12 columns)
+- `G6_2x8_walking.yaml`: panel indices `[1,2,...,8,11,...,18]` (16 panels)
+
+**Recommendation**: Extend schema with separate `columns_installed` and `panels_installed` fields. Added to In-Flight Work section.
+
+**Files Modified**:
+- `patternGenerator/PatternGeneratorApp.m` — Multiple fixes
+- `docs/G4G6_ROADMAP.md` — Added In-Flight Work item #6
+
+---
 
 ### 2026-01-26 (PM): Roadmap Comprehensive Update
 
@@ -1004,6 +1085,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-27 | **PatternGeneratorApp refinements** — Fixed partial arena rendering (Pcols/Pcircle parameters now match G4 Pattern Generator). Info dialog now non-modal. Masks no longer mutually exclusive. Fixed view labels (Pixel Row/Column for Grid, Longitude/Latitude for projections). Y-axis flipped in Grid view (row 0 at bottom). FOV reset goes to full ±180°/±90°. Fixed Mollweide zoom buttons. Re-enabled data tips. Fixed arena info display for partial arenas (correct panel count, pixel dimensions, deg/px). **Discovered arena config schema issue**: `panels_installed` used inconsistently (column indices vs panel indices). Added In-Flight Work item #6 for schema extension. |
 | 2026-01-26 (PM) | **Comprehensive roadmap update** — Added In-Flight Work section with 7 items and "To Pick Up" instructions. Added "Why PatternGeneratorApp" section documenting GUIDE limitations. Updated Sprint 2 (P1, P3 complete), Sprint 3 dates (Feb 2-5). Added merge strategy (PRs through Lisa/Frank for their code). Updated backlog: marked completed items, added cross-platform SD and GitHub for experiments. |
 | 2026-01-26 | **PatternGeneratorApp created** — New App Designer GUI for multi-generation pattern creation. Features: arena config dropdown (YAML integration), LED green phosphor colormap, playback controls (1/5/10/20 FPS), arena info display (deg/px horizontal to 3 decimal places), step size in pixel equivalents. Single source of truth: `get_generation_specs.m` for panel specs. Updated README.md with comprehensive documentation. |
 | 2026-01-25 | Column numbering convention fixed (GitHub Issue #4). CW/CCW column ordering implemented with south baseline. c0 starts at south for both conventions (CW: left of south, CCW: right of south). MATLAB design_arena.m updated with column labels (c#) and compass indicators (N/S). Web tools updated: arena_editor.html and arena_3d_viewer.html. Added G6_3x18_partial config (10 standard configs total). Fixed 3D viewer fly view camera position. Statistics panel moved to floating right panel. LED specs added to PANEL_SPECS (led_type, dimensions). Created arena_config_audit.md documenting single-source-of-truth issues. |
