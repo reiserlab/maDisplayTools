@@ -1,0 +1,132 @@
+# Test Protocol for BiasPlugin and LEDBacklightPlugin
+# Uses dummy BiasControl class for testing without actual hardware
+
+version: 1
+
+experiment_info:
+  name: "Test Bias Plugin"
+  date_created: "2024-01-27"
+  author: "Lisa"
+  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo"
+
+arena_info:
+  num_rows: 2
+  num_cols: 12
+  generation: "G4.1"
+
+# ============================================================================
+# PLUGIN DEFINITIONS
+# ============================================================================
+plugins:
+  # BIAS Camera Plugin
+  - name: "bias_camera"
+    type: "class"
+    matlab:
+      class: "BiasPlugin"
+    config:
+      bias_executable: "C:\Users\rathores\MATLAB\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe"  # UPDATE THIS BEFORE RUNNING IF NEEDED
+
+# ============================================================================
+# EXPERIMENT STRUCTURE
+# ============================================================================
+experiment_structure:
+  repetitions: 2
+  randomization:
+    enabled: false 
+    seed: null
+    method: "block"
+
+# ============================================================================
+# PRETRIAL - Test plugin initialization
+# ============================================================================
+pretrial:
+  include: true
+  commands:
+    - type: "wait"
+      duration: 1
+    
+    # Test BIAS camera connection
+    - type: "plugin"
+      plugin_name: "bias_camera"
+      command_name: "connect"
+      params:
+        ip: "127.0.0.1" # UPDATE THESE BEFORE RUNNING IF NEED BE
+        port: 5010
+    
+    # Test loading configuration
+    - type: "plugin"
+      plugin_name: "bias_camera"
+      command_name: "loadConfiguration"
+      params:
+        config_path: "C:\Users\rathores\MATLAB\FlyBowl1Rig\bias_config_default5.json"  # UPDATE THIS IF NEED BE BEFORE RUNNING
+    
+    - type: "wait"
+      duration: 1
+
+# ============================================================================
+# BLOCK - Test camera commands during trials
+# ============================================================================
+block:
+  conditions:
+    -id: "Only Shubham's commands"
+        # Test disable logging
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "disableLogging"
+
+        # Test preview (optional)
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "preview"
+
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "stop"
+    
+    # Test simpleBias commands (if they're availabe in BiasControl, otherwise,comment out)
+    - id: "test_capture_2"
+      commands:
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "setVideoFile"
+          params:
+            filename: "test_trial_001.avi"
+        
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "startCapture"
+        
+        - type: "wait"
+          duration: 1
+        
+        - type: "plugin"
+          plugin_name: "bias_camera"
+          command_name: "stopCapture"
+
+# ============================================================================
+# INTERTRIAL - Test timestamp logging
+# ============================================================================
+intertrial:
+  include: true
+  commands:
+    # Test getTimestamp command
+    - type: "plugin"
+      plugin_name: "bias_camera"
+      command_name: "getTimestamp" #UNSURE IF THIS COMMAND IS AVAILABLE IN BIASCONTROL - IF NOT, DISABLE INTERTRIAL
+    
+    - type: "wait"
+      duration: 1
+
+# ============================================================================
+# POSTTRIAL - Test cleanup
+# ============================================================================
+posttrial:
+  include: true
+  commands:
+    # Final timestamp
+    - type: "plugin"
+      plugin_name: "bias_camera"
+      command_name: "getTimestamp" #UNSURE IF THIS COMMAND IS AVAILABLE IN BIASCONTROL - IF NOT, DISABLE POSTTRIAL
+
+    - type: "wait"
+      duration: 1
