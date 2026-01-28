@@ -9,7 +9,8 @@ classdef PluginManager < handle
     
     properties (Access = private)
         pluginRegistry      % containers.Map: plugin ID -> Plugin object
-        logger              % ExperimentLogger instance
+        logger
+        outputDir% ExperimentLogger instance
     end
     
     methods (Access = public)
@@ -21,6 +22,7 @@ classdef PluginManager < handle
             
             self.pluginRegistry = containers.Map();
             self.logger = logger;
+            self.outputDir = fileparts(self.logger.logFile); % This is outputDir/logs, same location as experiment.log
         end
         
         function initializePlugin(self, pluginDef)
@@ -36,6 +38,18 @@ classdef PluginManager < handle
             
             self.logger.log('INFO', sprintf('Initializing %s plugin: %s', ...
                                           pluginType, pluginName));
+
+            % Inject outputDir into plugin config if available
+
+            if ~isfield(pluginDef, 'config')
+                pluginDef.config = struct();
+            end
+            if ~isfield(pluginDef.config, 'log_file') || isempty(pluginDef.config.log_file)
+             % Default: outputDir/logs/<pluginname>_timestamps.log
+                pluginDef.config.log_file = fullfile(self.outputDir, sprintf('%s.log', pluginName));
+            end
+
+
             
             % Create appropriate plugin object based on type.
             %% TODO: Still need to create these classes. Each class can load a plugin
@@ -55,7 +69,7 @@ classdef PluginManager < handle
             end
             
             % Initialize the plugin
-            %plugin.initialize();
+            plugin.initialize();
             
             % Store in registry
             self.pluginRegistry(pluginName) = plugin;
@@ -104,7 +118,7 @@ classdef PluginManager < handle
                 pluginName = pluginNames{i};
                 try
                     plugin = self.pluginRegistry(pluginName);
-                    plugin.close();
+                    plugin.cleanup();
                     self.logger.log('INFO', sprintf('  ✓ Closed plugin: %s', pluginName));
                 catch ME
                     self.logger.log('WARNING', sprintf('  ✗ Failed to close plugin %s: %s', ...

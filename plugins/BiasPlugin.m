@@ -244,7 +244,10 @@ classdef BiasPlugin < handle
             
             % Optional log file for timestamps
             if isfield(self.config, 'log_file')
-                self.biasLogFile = self.config.log_file;
+                if ~isempty(self.config.log_file)
+                    self.biasLogFile = self.config.log_file;
+                else
+                    self.biasLogFile = fullfile(self.config.outputDir
             else
                 self.biasLogFile = '';
             end

@@ -257,7 +257,7 @@ classdef ProtocolRunner < handle
             % Log experiment start
             self.logger.log('INFO', '=== EXPERIMENT START ===');
             self.logger.log('INFO', sprintf('Protocol: %s', self.protocolFilePath));
-            self.logger.log('INFO', sprintf('Output: %s', self.experimentDir));
+            self.logger.log('INFO', sprintf('Output: %s', self.outputDir));
             
             % Initialize plugins
             self.initializePlugins();
@@ -283,7 +283,7 @@ classdef ProtocolRunner < handle
         function initializeLogger(self)
             % Create experiment logger
             
-            logFile = fullfile(self.experimentDir, 'logs', 'experiment.log');
+            logFile = fullfile(self.outputDir, 'logs', 'experiment.log');
             self.logger = ExperimentLogger(logFile, self.verbose);
         end
         
@@ -613,10 +613,10 @@ classdef ProtocolRunner < handle
             
             % Save trial execution order
             trialOrder = self.trialExecutionOrder;
-            if ~exist(fullfile(self.experimentDir, 'data'),'dir')
-                mkdir(fullfile(self.experimentDir, 'data'));
+            if ~exist(fullfile(self.outputDir, 'data'),'dir')
+                mkdir(fullfile(self.outputDir, 'data'));
             end
-            save(fullfile(self.experimentDir, 'data', 'trial_order.mat'), 'trialOrder');
+            save(fullfile(self.outputDir, 'data', 'trial_order.mat'), 'trialOrder');
             
             % TODO: Save any additional data collected during experiment
             
@@ -632,7 +632,7 @@ classdef ProtocolRunner < handle
         function generateExperimentSummary(self)
             % Create experiment summary file
             
-            summaryFile = fullfile(self.experimentDir, 'summary.txt');
+            summaryFile = fullfile(self.outputDir, 'summary.txt');
             fid = fopen(summaryFile, 'w');
             
             fprintf(fid, 'EXPERIMENT SUMMARY\n');
