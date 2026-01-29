@@ -296,7 +296,7 @@ yaml_content = [yaml_content sprintf('arena:\n')];
 yaml_content = [yaml_content sprintf('  generation: "%s"\n', generation)];
 yaml_content = [yaml_content sprintf('  num_rows: %d\n', Prows)];
 yaml_content = [yaml_content sprintf('  num_cols: %d\n', Pcols)];
-yaml_content = [yaml_content sprintf('  panels_installed: null    # null = all installed\n')];
+yaml_content = [yaml_content sprintf('  columns_installed: null    # null = all columns installed\n')];
 
 % orientation maps to rot180
 if rot180

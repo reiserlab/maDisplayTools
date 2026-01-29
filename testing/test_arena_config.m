@@ -48,9 +48,9 @@ tests_passed = 0;
 tests_failed = 0;
 
 %% Test 1: Load a standard arena config
-fprintf('Test 1: Load standard arena config (G6_2x10_full.yaml)\n');
+fprintf('Test 1: Load standard arena config (G6_2x10.yaml)\n');
 try
-    config = load_arena_config(get_path('configs/arenas/G6_2x10_full.yaml'));
+    config = load_arena_config(get_path('configs/arenas/G6_2x10.yaml'));
 
     % Verify expected values
     assert(strcmp(config.arena.generation, 'G6'), 'Generation should be G6');
@@ -92,17 +92,21 @@ catch ME
 end
 fprintf('\n');
 
-%% Test 3: Load partial arena (G6 flight with missing panels)
-fprintf('Test 3: Load partial arena (G6_2x8_flight.yaml)\n');
+%% Test 3: Load partial arena (G6 walking arena with missing columns)
+fprintf('Test 3: Load partial arena (G6_2x8of10.yaml)\n');
 try
-    config = load_arena_config(get_path('configs/arenas/G6_2x8_flight.yaml'));
+    config = load_arena_config(get_path('configs/arenas/G6_2x8of10.yaml'));
 
     assert(config.arena.num_cols == 10, 'num_cols should be 10 (grid size)');
-    assert(~isempty(config.arena.panels_installed), 'panels_installed should not be empty');
+    assert(~isempty(config.arena.columns_installed), 'columns_installed should not be empty');
+    assert(config.derived.num_columns_installed == 8, 'Should have 8 columns installed');
     assert(config.derived.num_panels_installed == 16, 'Should have 16 panels installed');
     assert(config.derived.num_panels == 20, 'Total panel slots should be 20');
+    assert(config.derived.total_pixels_x == 160, 'total_pixels_x should be 160 (8 cols * 20 px)');
 
     fprintf('  ✓ Partial arena loaded\n');
+    fprintf('  ✓ Columns installed: %d of %d\n', ...
+        config.derived.num_columns_installed, config.arena.num_cols);
     fprintf('  ✓ Panels installed: %d of %d\n', ...
         config.derived.num_panels_installed, config.derived.num_panels);
     tests_passed = tests_passed + 1;
@@ -141,7 +145,7 @@ fprintf('\n');
 %% Test 5: show_resolved_config output
 fprintf('Test 5: show_resolved_config display\n');
 try
-    config = load_arena_config(get_path('configs/arenas/G6_2x10_full.yaml'));
+    config = load_arena_config(get_path('configs/arenas/G6_2x10.yaml'));
     fprintf('--- Output from show_resolved_config ---\n');
     show_resolved_config(config);
     fprintf('--- End output ---\n');
@@ -218,7 +222,7 @@ fprintf('Test 8: Verify derived properties calculations\n');
 try
     % Test G6 inner radius calculation
     % Formula: inner_radius = panel_width / (2 * tan(pi / num_cols))
-    config = load_arena_config(get_path('configs/arenas/G6_2x10_full.yaml'));
+    config = load_arena_config(get_path('configs/arenas/G6_2x10.yaml'));
 
     expected_radius = 45.4 / (2 * tan(pi / 10));
     actual_radius = config.derived.inner_radius_mm;

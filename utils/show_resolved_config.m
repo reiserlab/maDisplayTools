@@ -2,7 +2,7 @@ function show_resolved_config(config, indent_level)
 % SHOW_RESOLVED_CONFIG Pretty-print a resolved configuration struct
 %
 % Usage:
-%   config = load_arena_config('configs/arenas/G6_2x10_full.yaml');
+%   config = load_arena_config('configs/arenas/G6_2x10.yaml');
 %   show_resolved_config(config)
 %
 %   config = load_rig_config('configs/rigs/example_rig.yaml');
@@ -22,13 +22,13 @@ function show_resolved_config(config, indent_level)
 %   ========================================
 %   RESOLVED CONFIGURATION
 %   ========================================
-%   Source: configs/arenas/G6_2x10_full.yaml
+%   Source: configs/arenas/G6_2x10.yaml
 %
 %   arena:
 %     generation: G6
 %     num_rows: 2
 %     num_cols: 10
-%     panels_installed: [all]
+%     columns_installed: [all]
 %     orientation: normal
 %     column_order: cw
 %
@@ -89,7 +89,7 @@ for i = 1:length(fields)
         show_resolved_config(value, indent_level + 1);
     elseif isempty(value)
         % Empty value
-        if strcmp(field, 'panels_installed')
+        if strcmp(field, 'columns_installed')
             fprintf('%s%s: [all]\n', indent, field);
         else
             fprintf('%s%s: [empty]\n', indent, field);

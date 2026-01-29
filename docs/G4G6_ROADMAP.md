@@ -289,6 +289,39 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 These are started projects that need to be picked up and completed. Each section describes current state, what's left, and how to resume.
 
+### 0. Web Tools Update for Arena Config Changes
+
+**Status**: 🔴 NEEDS UPDATE — Arena config schema changed in MATLAB, web tools need sync
+
+**Changes Made (Jan 28)**:
+1. **File renames**: `G6_2x10_full.yaml` → `G6_2x10.yaml`, `G6_2x8_walking.yaml` → `G6_2x8of10.yaml`, etc.
+2. **Schema change**: `panels_installed` → `columns_installed`
+3. **New naming convention**: Partial arenas use `{rows}x{installed}of{total}` format
+
+**Web Tools to Update**:
+
+| File | Changes Needed |
+|------|----------------|
+| `arena_editor.html` | Update config dropdown names, change `panels_installed` → `columns_installed` in YAML export |
+| `arena_3d_viewer.html` | Update URL param examples (`?config=G6_2x10` not `G6_2x10_full`) |
+| `js/arena-configs.js` | Regenerate from YAML (CI/CD should handle this) |
+| `scripts/generate-arena-configs.js` | Update to use `columns_installed` field |
+| `.github/workflows/sync-arena-configs.yml` | Trigger manual sync to pick up renamed files |
+
+**To Pick Up**:
+1. Run CI/CD sync workflow manually (or wait for weekly trigger)
+2. Update `arena_editor.html` YAML export to use `columns_installed`
+3. Test config dropdown shows new names
+4. Test partial arena export produces correct `columns_installed` array
+5. Verify 3D viewer loads renamed configs
+
+**Files to Review**:
+- `webDisplayTools/arena_editor.html`
+- `webDisplayTools/arena_3d_viewer.html`
+- `webDisplayTools/scripts/generate-arena-configs.js`
+
+---
+
 ### 1. TCP Migration Testing
 
 **Branch**: `claude/switchable-tcp-controller-qQRKM`
@@ -439,38 +472,35 @@ These are started projects that need to be picked up and completed. Each section
 
 ### 6. Arena Config for Partial Arenas
 
-**Status**: 🔴 NEEDS DESIGN — Blocking partial arena pattern generation
+**Status**: ✅ COMPLETE (Jan 28)
 
-**Problem Discovered** (Jan 27):
-The current `panels_installed` field in arena YAML configs is inconsistent:
-- `G6_3x18_partial.yaml` uses **column indices**: `[0, 1, 2, ..., 11]` (12 items = 12 columns)
-- `G6_2x8_walking.yaml` uses **panel indices**: `[1, 2, ..., 8, 11, 12, ..., 18]` (16 items = 16 panels)
+**Problem** (Jan 27):
+The `panels_installed` field was used inconsistently (column indices vs panel indices).
 
-For pattern generation, we need to know:
-1. **Which columns are installed** — determines azimuthal coverage and pixel grid width
-2. **Which individual panels are installed** — determines which physical panels receive data (could have gaps within a column for multi-row arenas)
+**Solution Implemented**:
+1. Renamed field from `panels_installed` to `columns_installed` for clarity
+2. Standardized on column indices (0-indexed) for all partial arenas
+3. Renamed arena config files for clarity:
+   - `G6_2x10_full.yaml` → `G6_2x10.yaml`
+   - `G6_2x8_walking.yaml` → `G6_2x8of10.yaml`
+   - `G6_3x18_partial.yaml` → `G6_3x12of18.yaml`
+   - Similar for G4 and G3 configs
+4. `load_arena_config.m` updated with new `num_columns_installed` derived property
+5. `total_pixels_x` now based on installed columns (for correct pattern dimensions)
 
-**Proposed Solution**:
-Extend arena config schema to have both:
+**Schema**:
 ```yaml
 arena:
   num_rows: 2
-  num_cols: 10           # Full circle = 10 columns
-  columns_installed: [1, 2, 3, 4, 5, 6, 7, 8]  # Which columns (0-indexed)
-  panels_installed: [...]  # Optional: specific panel indices if not all rows present
+  num_cols: 10           # Full grid columns
+  columns_installed: [1, 2, 3, 4, 5, 6, 7, 8]  # 0-indexed, or null for all
 ```
 
-**To Pick Up**:
-1. Design schema extension for `columns_installed` vs `panels_installed`
-2. Update `load_arena_config.m` to compute derived values correctly
-3. Update all existing partial arena configs
-4. Update PatternGeneratorApp to use new schema
-5. Update web tools (arena editor) if needed
-
-**Files to Review**:
-- `configs/arenas/G6_2x8_walking.yaml`, `G6_3x18_partial.yaml`
-- `utils/load_arena_config.m`
-- `patternGenerator/PatternGeneratorApp.m` (generateArenaMatFile, updateArenaInfo)
+**Files Updated**:
+- `configs/arenas/*.yaml` — renamed and updated schema
+- `utils/load_arena_config.m` — field rename + derived calculations
+- `patternGenerator/PatternGeneratorApp.m` — field references
+- `patternGenerator/configure_arena.m` — YAML output
 
 ---
 
@@ -626,20 +656,72 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
 
 ---
 
+## Future Vision: PatternGeneratorApp Architecture
+
+> **Status**: Planning/Design — Not yet scheduled for implementation
+
+### Near-term: New Pattern Types
+
+**Looming Patterns**
+- Expanding disc or square from center point
+- Two velocity modes:
+  - Constant velocity: user specifies step size (degrees per frame)
+  - r/v loom: user specifies l/v ratio for biologically-relevant approach timing
+
+**Reverse-φ (Reverse-phi) Patterns**
+- Classic reverse-phi motion illusion
+- Brightness inversion between consecutive frames while pattern shifts position
+- Creates perceived motion opposite to physical displacement direction
+
+### Longer-term: Multi-Window Architecture
+
+Split PatternGeneratorApp into 4 specialized windows:
+
+| Window | Purpose | Key Feature |
+|--------|---------|-------------|
+| **Pattern Previewer** | Central hub for viewing/animating patterns | Per-frame stretch + intensity histogram |
+| **Pattern Generator** | Standard pattern creation (gratings, starfield, looming, etc.) | "Generate and Preview" → sends to Previewer |
+| **Pattern Combiner** | Spatial blending of two patterns | Alpha/mask-based overlay composition |
+| **Drawing App** | Manual pixel-level pattern creation | For custom non-parameterized stimuli |
+
+**Workflow**:
+1. Previewer is the central app — can open files or launch generator apps
+2. Generator apps create patterns and push to Previewer via "Generate and Preview"
+3. Previewer handles all visualization, playback, and file operations
+4. This separation allows each tool to focus on its specialty
+
+**Previewer Features**:
+- Per-frame stretch value display (number field next to plot)
+- Per-frame intensity histogram:
+  - Shows only the intensity levels actually present in the frame
+  - Displays pixel count for each intensity (e.g., "0: 2400 px, 1: 1200 px, 15: 400 px")
+  - Dynamically adapts — 3 rows for binary patterns, up to 16 for full grayscale
+  - Updates in real-time during playback
+  - Essential for validating Pattern Combiner output
+
+**Benefits**:
+- Cleaner separation of concerns (creation vs. viewing)
+- Previewer can load and inspect any .pat file independently
+- Multiple generation workflows feed into single preview tool
+- Future extensibility (new generator types just need to push to Previewer)
+- Intensity histogram provides instant pattern audit capability
+
+---
+
 ## Architecture Decisions
 
 ### Arena Config vs Rig Config
 
 **Arena Config** — Pattern-specific, standalone YAML document:
 ```yaml
-# configs/arenas/G6_2x10_full.yaml
+# configs/arenas/G6_2x10.yaml
 arena:
   generation: "G6"
   num_rows: 2
   num_cols: 10
-  column_order: "ccw"
+  columns_installed: null  # null = all columns, or array of 0-indexed column indices
+  column_order: "cw"
   orientation: "normal"
-  panels_installed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 ```
 
 **Rig Config** — Hardware-specific, references arena config by filename:
@@ -647,7 +729,7 @@ arena:
 # configs/rigs/test_rig_1.yaml
 rig:
   name: "Fly Arena 1"
-  arena_config: "G6_2x10_full.yaml"  # Reference, not embedded
+  arena_config: "G6_2x10.yaml"  # Reference, not embedded
   controller:
     ip_address: "10.102.40.47"
     port: 62222
@@ -691,8 +773,8 @@ Established pattern for ensuring MATLAB ↔ Web consistency:
 maDisplayTools/
 ├── configs/
 │   ├── arenas/              # Standard arena configs (YAML)
-│   │   ├── G6_2x10_full.yaml
-│   │   ├── G6_2x8_walking.yaml
+│   │   ├── G6_2x10.yaml
+│   │   ├── G6_2x8of10.yaml
 │   │   ├── G41_2x12_ccw.yaml
 │   │   └── ... (10 configs total)
 │   └── rigs/                # Rig configs (reference arena YAML)
@@ -1085,6 +1167,8 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-29 | **Future Vision section added** — Documented planned PatternGeneratorApp architecture evolution. Near-term: looming patterns (disc/square, constant or r/v velocity) and reverse-φ patterns (brightness inversion motion illusion). Longer-term: split into 4 windows (Pattern Previewer as central hub, Pattern Generator, Pattern Combiner, Drawing App). Previewer features: per-frame stretch display, per-frame intensity histogram (dynamic pixel counts per intensity level). Also completed: stretch UI control in PatternGeneratorApp, descriptive .pat filenames (removed `pat0001.pat` numeric format). |
+| 2026-01-28 | **Arena config schema update + pattern library convention** — Resolved blocking issue #6 (panels_installed inconsistency). Renamed field `panels_installed` → `columns_installed` for clarity. Renamed arena config files: removed `_full` suffix, partial arenas now use `XofY` format (e.g., `G6_2x8of10.yaml` = 8 of 10 columns installed). Updated `load_arena_config.m` with new `num_columns_installed` derived property; `total_pixels_x` now based on installed columns. Created pattern library convention: patterns organized in directories matching arena config names for automatic validation. New files: `utils/validate_pattern_arena.m`, `docs/pattern_library_convention.md`. **Web tools need update**: arena editor config dropdown, 3D viewer URL params, CI/CD sync workflow. |
 | 2026-01-27 | **PatternGeneratorApp refinements** — Fixed partial arena rendering (Pcols/Pcircle parameters now match G4 Pattern Generator). Info dialog now non-modal. Masks no longer mutually exclusive. Fixed view labels (Pixel Row/Column for Grid, Longitude/Latitude for projections). Y-axis flipped in Grid view (row 0 at bottom). FOV reset goes to full ±180°/±90°. Fixed Mollweide zoom buttons. Re-enabled data tips. Fixed arena info display for partial arenas (correct panel count, pixel dimensions, deg/px). **Discovered arena config schema issue**: `panels_installed` used inconsistently (column indices vs panel indices). Added In-Flight Work item #6 for schema extension. |
 | 2026-01-26 (PM) | **Comprehensive roadmap update** — Added In-Flight Work section with 7 items and "To Pick Up" instructions. Added "Why PatternGeneratorApp" section documenting GUIDE limitations. Updated Sprint 2 (P1, P3 complete), Sprint 3 dates (Feb 2-5). Added merge strategy (PRs through Lisa/Frank for their code). Updated backlog: marked completed items, added cross-platform SD and GitHub for experiments. |
 | 2026-01-26 | **PatternGeneratorApp created** — New App Designer GUI for multi-generation pattern creation. Features: arena config dropdown (YAML integration), LED green phosphor colormap, playback controls (1/5/10/20 FPS), arena info display (deg/px horizontal to 3 decimal places), step size in pixel equivalents. Single source of truth: `get_generation_specs.m` for panel specs. Updated README.md with comprehensive documentation. |

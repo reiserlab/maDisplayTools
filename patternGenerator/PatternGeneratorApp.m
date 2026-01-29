@@ -11,6 +11,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         InfoButton                 matlab.ui.control.Button
         ArenaConfigLabel           matlab.ui.control.Label
         ArenaConfigDropDown        matlab.ui.control.DropDown
+        ChangeArenaButton          matlab.ui.control.Button
         GenerationLabel            matlab.ui.control.Label
         GenerationText             matlab.ui.control.Label
         ArenaInfoLabel             matlab.ui.control.Label
@@ -26,6 +27,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         StepSizeLabel              matlab.ui.control.Label
         StepSizeSpinner            matlab.ui.control.Spinner
         StepSizeInfoText           matlab.ui.control.Label
+        StretchLabel               matlab.ui.control.Label
+        StretchSpinner             matlab.ui.control.Spinner
 
         GrayscaleLabel             matlab.ui.control.Label
         GrayscaleDropDown          matlab.ui.control.DropDown
@@ -132,6 +135,10 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         ArenaLonMax = 180          % Max longitude in degrees
         ArenaLatMin = -90          % Min latitude in degrees
         ArenaLatMax = 90           % Max latitude in degrees
+
+        % Arena lock state
+        ArenaLocked = true         % Whether arena config is locked
+        PatternGenerated = false   % Whether a pattern has been generated
     end
 
     methods (Access = private)
@@ -200,6 +207,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 % Update step size info display
                 app.updateStepSizeInfo();
 
+                % Update stretch limits based on generation
+                app.updateStretchLimits();
+
                 app.StatusLabel.Text = sprintf('Loaded: %s', app.ArenaConfigDropDown.Value);
             catch ME
                 app.StatusLabel.Text = sprintf('Error: %s', ME.message);
@@ -226,10 +236,10 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             Pcircle = cfg.arena.num_cols;  % Full circle is always num_cols
 
             % Pcols = number of installed panel columns
-            if ~isempty(cfg.arena.panels_installed)
-                Pcols = length(cfg.arena.panels_installed);
+            if ~isempty(cfg.arena.columns_installed)
+                Pcols = length(cfg.arena.columns_installed);
             else
-                Pcols = cfg.arena.num_cols;  % All panels installed
+                Pcols = cfg.arena.num_cols;  % All columns installed
             end
 
             % Orientation
@@ -410,8 +420,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             specs = get_generation_specs(cfg.arena.generation);
 
             % Check if partial arena (some panel columns not installed)
-            if isfield(cfg.arena, 'panels_installed') && ~isempty(cfg.arena.panels_installed)
-                numColsInstalled = length(cfg.arena.panels_installed);
+            if isfield(cfg.arena, 'columns_installed') && ~isempty(cfg.arena.columns_installed)
+                numColsInstalled = length(cfg.arena.columns_installed);
                 isPartial = numColsInstalled < cfg.arena.num_cols;
             else
                 numColsInstalled = cfg.arena.num_cols;
@@ -481,6 +491,44 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 if app.BrightnessHighSpinner.Value == 0
                     app.BrightnessHighSpinner.Value = 1;
                 end
+            end
+        end
+
+        function updateStretchLimits(app)
+            % Update stretch spinner limits based on generation and grayscale mode
+            % G3: no stretch (disabled)
+            % G4/G4.1/G6: binary = max 100, grayscale = max 20
+
+            if isempty(app.CurrentArenaConfig)
+                return;
+            end
+
+            gen = upper(app.CurrentArenaConfig.arena.generation);
+
+            % G3 has no stretch
+            if startsWith(gen, 'G3')
+                app.StretchSpinner.Enable = 'off';
+                app.StretchSpinner.Value = 0;
+                app.StretchLabel.Enable = 'off';
+                return;
+            end
+
+            % Enable for G4, G4.1, G6
+            app.StretchSpinner.Enable = 'on';
+            app.StretchLabel.Enable = 'on';
+
+            % Set max based on grayscale mode
+            if strcmp(app.GrayscaleDropDown.Value, 'Binary (1-bit)')
+                maxStretch = 100;
+            else
+                maxStretch = 20;
+            end
+
+            app.StretchSpinner.Limits = [0 maxStretch];
+
+            % Clamp current value if needed
+            if app.StretchSpinner.Value > maxStretch
+                app.StretchSpinner.Value = maxStretch;
             end
         end
 
@@ -960,6 +1008,72 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.FrameSlider.Value = nextFrame;
             app.updatePreview();
         end
+
+        function resetPreview(app)
+            % Reset preview when pattern parameters change
+            % Called when any parameter changes to invalidate the current pattern
+
+            % Stop playback if running
+            if app.IsPlaying
+                app.IsPlaying = false;
+                if ~isempty(app.PlayTimer) && isvalid(app.PlayTimer)
+                    stop(app.PlayTimer);
+                end
+                app.PlayButton.Text = 'Play';
+                app.PlayButton.BackgroundColor = [0.3 0.5 0.7];
+            end
+
+            % Clear pattern data
+            app.Pats = [];
+            app.NumFrames = 0;
+            app.CurrentFrame = 1;
+            app.PatternGenerated = false;
+
+            % Clear the preview axes
+            cla(app.PreviewAxes);
+            title(app.PreviewAxes, 'Generate pattern to preview');
+
+            % Disable preview controls
+            app.FrameSlider.Enable = 'off';
+            app.FrameSlider.Value = 1;
+            app.FrameSlider.Limits = [1 2];
+            app.PlayButton.Enable = 'off';
+            app.FPSDropDown.Enable = 'off';
+            app.ViewModeDropDown.Enable = 'off';
+            app.DotScaleSlider.Enable = 'off';
+
+            % Update frame label
+            app.FrameLabel.Text = 'Frame: -/-';
+
+            % Update status
+            app.StatusLabel.Text = 'Parameters changed - generate new pattern';
+        end
+
+        function enablePreviewControls(app)
+            % Enable preview controls after pattern generation
+            app.FrameSlider.Enable = 'on';
+            app.PlayButton.Enable = 'on';
+            app.FPSDropDown.Enable = 'on';
+            app.ViewModeDropDown.Enable = 'on';
+            app.DotScaleSlider.Enable = 'on';
+            app.PatternGenerated = true;
+        end
+
+        function lockArena(app)
+            % Lock the arena configuration dropdown
+            app.ArenaLocked = true;
+            app.ArenaConfigDropDown.Enable = 'off';
+            app.ChangeArenaButton.Text = 'Change';
+            app.ChangeArenaButton.Tooltip = 'Click to change arena configuration';
+        end
+
+        function unlockArena(app)
+            % Unlock the arena configuration dropdown
+            app.ArenaLocked = false;
+            app.ArenaConfigDropDown.Enable = 'on';
+            app.ChangeArenaButton.Text = 'Lock';
+            app.ChangeArenaButton.Tooltip = 'Click to lock arena configuration';
+        end
     end
 
     % Callbacks
@@ -967,6 +1081,29 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
 
         function ArenaConfigDropDownValueChanged(app, ~)
             app.loadArenaConfig();
+            % Reset preview when arena changes
+            app.resetPreview();
+        end
+
+        function ChangeArenaButtonPushed(app, ~)
+            % Toggle arena lock state
+            if app.ArenaLocked
+                % Warn user if pattern exists
+                if app.PatternGenerated
+                    answer = uiconfirm(app.UIFigure, ...
+                        'Changing arena will reset the current pattern. Continue?', ...
+                        'Change Arena', ...
+                        'Options', {'Change', 'Cancel'}, ...
+                        'DefaultOption', 2, ...
+                        'CancelOption', 2);
+                    if ~strcmp(answer, 'Change')
+                        return;
+                    end
+                end
+                app.unlockArena();
+            else
+                app.lockArena();
+            end
         end
 
         function GenerateButtonPushed(app, ~)
@@ -992,8 +1129,12 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 app.updateSliderTicks();
                 app.FrameSlider.Value = 1;
 
-                % Update preview
+                % Enable preview controls and update preview
+                app.enablePreviewControls();
                 app.updatePreview();
+
+                % Lock arena config after successful generation
+                app.lockArena();
 
                 app.StatusLabel.Text = sprintf('Generated %d frames (step: %.3f deg)', ...
                     app.NumFrames, rad2deg(true_step_size));
@@ -1009,8 +1150,55 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 return;
             end
 
-            % Get save location
-            [filename, pathname] = uiputfile('*.pat', 'Save Pattern', 'pattern.pat');
+            % Build default save path following pattern library convention:
+            % patterns/{arena_name}/pattern_name.mat
+            arenaName = '';
+            patternDir = app.maDisplayToolsRoot;
+            if ~isempty(app.CurrentArenaConfig)
+                arenaName = app.CurrentArenaConfig.name;
+                patternDir = fullfile(app.maDisplayToolsRoot, 'patterns', arenaName);
+
+                % Create directory if it doesn't exist
+                if ~isfolder(patternDir)
+                    try
+                        mkdir(patternDir);
+                        app.StatusLabel.Text = sprintf('Created directory: patterns/%s', arenaName);
+                    catch
+                        patternDir = app.maDisplayToolsRoot;  % Fall back to root
+                    end
+                end
+            end
+
+            % Determine generation for dialog title
+            gen = '';
+            if ~isempty(app.CurrentArenaConfig)
+                gen = upper(app.CurrentArenaConfig.arena.generation);
+            end
+            isG6 = startsWith(gen, 'G6');
+
+            % Build descriptive default filename based on pattern parameters
+            patType = lower(strrep(app.PatternTypeDropDown.Value, ' ', '_'));
+            spatFreq = app.SpatialFreqSpinner.Value;
+            stepSize = app.StepSizeSpinner.Value;
+
+            if strcmp(app.PatternTypeDropDown.Value, 'Starfield')
+                defaultFilename = sprintf('%s_%ddots', patType, app.DotCountSpinner.Value);
+            elseif strcmp(app.PatternTypeDropDown.Value, 'Off/On')
+                defaultFilename = 'off_on';
+            elseif strcmp(app.PatternTypeDropDown.Value, 'Edge')
+                defaultFilename = sprintf('%s_%.0fstep', patType, stepSize);
+            else
+                defaultFilename = sprintf('%s_%.0fdeg_%.0fstep', patType, spatFreq, stepSize);
+            end
+            defaultPath = fullfile(patternDir, defaultFilename);
+
+            if isG6
+                dialogTitle = 'Save Pattern - Enter base name (creates .pat)';
+            else
+                dialogTitle = 'Save Pattern - Enter base name (creates .mat + .pat)';
+            end
+            % Use wildcard filter to allow any filename (we just want the base name)
+            [filename, pathname] = uiputfile('*.*', dialogTitle, defaultPath);
             if isequal(filename, 0)
                 return;
             end
@@ -1021,17 +1209,24 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             try
                 handles = app.buildHandlesStruct();
                 param = handles.param;
-                param.stretch = zeros(app.NumFrames, 1);
-                param.ID = 1;  % Will be auto-assigned
 
-                % Extract base name
+                % Set stretch from UI (same value for all frames)
+                param.stretch = app.StretchSpinner.Value * ones(app.NumFrames, 1);
+
+                % Extract base name (strip any extension user might have added)
                 [~, patName, ~] = fileparts(filename);
-                patName = regexprep(patName, '^pat\d{4}_', '');  % Remove pat#### prefix if present
 
                 save_pattern(app.Pats, param, pathname, patName, [], ...
                     fullfile(handles.arena_folder, handles.arena_file));
 
-                app.StatusLabel.Text = sprintf('Saved: %s', filename);
+                % Show what was saved (G6 = only .pat, G4 = both files)
+                patFile = sprintf('%s_%s.pat', patName, gen);
+                if isG6
+                    app.StatusLabel.Text = sprintf('Saved: %s', patFile);
+                else
+                    matFile = sprintf('%s_%s.mat', patName, gen);
+                    app.StatusLabel.Text = sprintf('Saved: %s + %s', matFile, patFile);
+                end
 
             catch ME
                 app.StatusLabel.Text = sprintf('Save error: %s', ME.message);
@@ -1119,32 +1314,48 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         function StepSizeSpinnerValueChanged(app, ~)
             % Update step size info when value changes
             app.updateStepSizeInfo();
+            % Also reset preview since step size affects pattern
+            app.parameterChanged();
+        end
+
+        function parameterChanged(app)
+            % Called when any pattern parameter changes
+            % Resets preview to indicate pattern needs regeneration
+            if app.PatternGenerated
+                app.resetPreview();
+            end
         end
 
         function GrayscaleDropDownValueChanged(app, ~)
-            % Update brightness limits when grayscale mode changes
+            % Update brightness and stretch limits when grayscale mode changes
             app.updateBrightnessLimits();
+            app.updateStretchLimits();
+            app.parameterChanged();
         end
 
         function PatternTypeDropDownValueChanged(app, ~)
             % Update parameter enable states when pattern type changes
             app.updateParameterStates();
+            app.parameterChanged();
         end
 
         function PatternFOVDropDownValueChanged(app)
             % Update parameter visibility when FOV mode changes
             % In G4 GUI: Full-field shows pole coords, Local shows motion angle
             app.updateParameterStates();
+            app.parameterChanged();
         end
 
         function SAMaskCheckBoxChanged(app, ~)
             % Callback for SA mask checkbox change
             % Both masks can be used together (applied sequentially)
+            app.parameterChanged();
         end
 
         function LatLongMaskCheckBoxChanged(app, ~)
             % Callback for Lat/Long mask checkbox change
             % Both masks can be used together (applied sequentially)
+            app.parameterChanged();
         end
 
         function SAMaskButtonPushed(app, ~)
@@ -1182,6 +1393,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 app.StatusLabel.Text = sprintf('SA Mask: az=%.1f°, el=%.1f°, r=%.1f°, bg=%d', ...
                     rad2deg(app.SAMaskParams(1)), rad2deg(app.SAMaskParams(2)), ...
                     rad2deg(app.SAMaskParams(3)), app.MaskBackgroundLevel);
+                app.parameterChanged();
             end
         end
 
@@ -1224,6 +1436,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                     rad2deg(app.LatLongMaskParams(1)), rad2deg(app.LatLongMaskParams(2)), ...
                     rad2deg(app.LatLongMaskParams(3)), rad2deg(app.LatLongMaskParams(4)), ...
                     app.MaskBackgroundLevel);
+                app.parameterChanged();
             end
         end
 
@@ -1526,6 +1739,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.initColormap();
             app.IsPlaying = false;
             app.PlayTimer = [];
+            app.PatternGenerated = false;
 
             % Initialize mask parameters to defaults (no mask)
             app.SAMaskParams = [];
@@ -1539,6 +1753,14 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
 
             % Update parameter states based on initial pattern type
             app.updateParameterStates();
+
+            % Initialize preview controls in disabled state
+            app.FrameSlider.Enable = 'off';
+            app.PlayButton.Enable = 'off';
+            app.FPSDropDown.Enable = 'off';
+            app.ViewModeDropDown.Enable = 'off';
+            app.DotScaleSlider.Enable = 'off';
+            title(app.PreviewAxes, 'Generate pattern to preview');
 
             % Register the app
             registerApp(app, app.UIFigure);
@@ -1578,16 +1800,16 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.LeftPanel.Layout.Column = 1;
             app.LeftPanel.Scrollable = 'on';
 
-            leftGrid = uigridlayout(app.LeftPanel, [28 3]);
+            leftGrid = uigridlayout(app.LeftPanel, [28 4]);
             leftGrid.RowHeight = repmat({25}, 1, 28);
-            leftGrid.ColumnWidth = {'1x', '1.5x', 40};  % Label, Control, Info button
+            leftGrid.ColumnWidth = {'1x', '1.5x', 55, 30};  % Label, Control, Change button, Info button
             leftGrid.Padding = [10 10 10 10];
             leftGrid.RowSpacing = 5;
 
             row = 1;
 
             % === Arena Section ===
-            % Arena Config with Info button
+            % Arena Config with Change and Info buttons
             app.ArenaConfigLabel = uilabel(leftGrid);
             app.ArenaConfigLabel.Text = 'Arena Config:';
             app.ArenaConfigLabel.Layout.Row = row;
@@ -1598,12 +1820,20 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.ArenaConfigDropDown.ValueChangedFcn = @(~,~) app.ArenaConfigDropDownValueChanged();
             app.ArenaConfigDropDown.Layout.Row = row;
             app.ArenaConfigDropDown.Layout.Column = 2;
+            app.ArenaConfigDropDown.Enable = 'off';  % Locked by default
+
+            app.ChangeArenaButton = uibutton(leftGrid, 'push');
+            app.ChangeArenaButton.Text = 'Change';
+            app.ChangeArenaButton.Tooltip = 'Click to change arena configuration';
+            app.ChangeArenaButton.ButtonPushedFcn = @(~,~) app.ChangeArenaButtonPushed();
+            app.ChangeArenaButton.Layout.Row = row;
+            app.ChangeArenaButton.Layout.Column = 3;
 
             app.InfoButton = uibutton(leftGrid, 'push');
-            app.InfoButton.Text = char(9432);  % ℹ Unicode info symbol
+            app.InfoButton.Text = char(9432);  % i Unicode info symbol
             app.InfoButton.ButtonPushedFcn = @(~,~) app.showInfoDialog();
             app.InfoButton.Layout.Row = row;
-            app.InfoButton.Layout.Column = 3;
+            app.InfoButton.Layout.Column = 4;
             row = row + 1;
 
             % Generation (read-only)
@@ -1616,7 +1846,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.GenerationText.Text = 'N/A';
             app.GenerationText.FontWeight = 'bold';
             app.GenerationText.Layout.Row = row;
-            app.GenerationText.Layout.Column = [2 3];
+            app.GenerationText.Layout.Column = [2 4];
             row = row + 1;
 
             % Arena Info (read-only)
@@ -1630,7 +1860,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.ArenaInfoText.FontSize = 10;
             app.ArenaInfoText.FontColor = [0.4 0.4 0.4];
             app.ArenaInfoText.Layout.Row = row;
-            app.ArenaInfoText.Layout.Column = [2 3];
+            app.ArenaInfoText.Layout.Column = [2 4];
             row = row + 1;
 
             % === Pattern Section ===
@@ -1645,7 +1875,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PatternTypeDropDown.Value = 'Square Grating';
             app.PatternTypeDropDown.ValueChangedFcn = @(~,~) app.PatternTypeDropDownValueChanged();
             app.PatternTypeDropDown.Layout.Row = row;
-            app.PatternTypeDropDown.Layout.Column = [2 3];
+            app.PatternTypeDropDown.Layout.Column = [2 4];
             row = row + 1;
 
             % Motion Type
@@ -1657,8 +1887,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.MotionTypeDropDown = uidropdown(leftGrid);
             app.MotionTypeDropDown.Items = {'Rotation', 'Translation', 'Expansion-Contraction'};
             app.MotionTypeDropDown.Value = 'Rotation';
+            app.MotionTypeDropDown.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.MotionTypeDropDown.Layout.Row = row;
-            app.MotionTypeDropDown.Layout.Column = [2 3];
+            app.MotionTypeDropDown.Layout.Column = [2 4];
             row = row + 1;
 
             % Pattern FOV
@@ -1672,7 +1903,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PatternFOVDropDown.Value = 'Full-field';
             app.PatternFOVDropDown.ValueChangedFcn = @(~,~) app.PatternFOVDropDownValueChanged();
             app.PatternFOVDropDown.Layout.Row = row;
-            app.PatternFOVDropDown.Layout.Column = [2 3];
+            app.PatternFOVDropDown.Layout.Column = [2 4];
             row = row + 1;
 
             % Spatial Frequency
@@ -1684,8 +1915,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.SpatialFreqSpinner = uispinner(leftGrid);
             app.SpatialFreqSpinner.Limits = [1 360];
             app.SpatialFreqSpinner.Value = 30;
+            app.SpatialFreqSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.SpatialFreqSpinner.Layout.Row = row;
-            app.SpatialFreqSpinner.Layout.Column = [2 3];
+            app.SpatialFreqSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Step Size
@@ -1700,7 +1932,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.StepSizeSpinner.Step = 0.5;
             app.StepSizeSpinner.ValueChangedFcn = @(~,~) app.StepSizeSpinnerValueChanged();
             app.StepSizeSpinner.Layout.Row = row;
-            app.StepSizeSpinner.Layout.Column = [2 3];
+            app.StepSizeSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Step Size Info
@@ -1713,6 +1945,21 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.StepSizeInfoText.Layout.Column = [1 3];
             row = row + 1;
 
+            % Stretch (frame timing)
+            app.StretchLabel = uilabel(leftGrid);
+            app.StretchLabel.Text = 'Stretch:';
+            app.StretchLabel.Layout.Row = row;
+            app.StretchLabel.Layout.Column = 1;
+
+            app.StretchSpinner = uispinner(leftGrid);
+            app.StretchSpinner.Limits = [0 100];
+            app.StretchSpinner.Value = 0;
+            app.StretchSpinner.Step = 1;
+            app.StretchSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
+            app.StretchSpinner.Layout.Row = row;
+            app.StretchSpinner.Layout.Column = [2 4];
+            row = row + 1;
+
             % Duty Cycle
             app.DutyCycleLabel = uilabel(leftGrid);
             app.DutyCycleLabel.Text = 'Duty Cycle (%):';
@@ -1722,8 +1969,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DutyCycleSpinner = uispinner(leftGrid);
             app.DutyCycleSpinner.Limits = [1 99];
             app.DutyCycleSpinner.Value = 50;
+            app.DutyCycleSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DutyCycleSpinner.Layout.Row = row;
-            app.DutyCycleSpinner.Layout.Column = [2 3];
+            app.DutyCycleSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % === Brightness Section ===
@@ -1738,7 +1986,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.GrayscaleDropDown.Value = 'Grayscale (4-bit)';
             app.GrayscaleDropDown.ValueChangedFcn = @(~,~) app.GrayscaleDropDownValueChanged();
             app.GrayscaleDropDown.Layout.Row = row;
-            app.GrayscaleDropDown.Layout.Column = [2 3];
+            app.GrayscaleDropDown.Layout.Column = [2 4];
             row = row + 1;
 
             % Brightness High
@@ -1750,8 +1998,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.BrightnessHighSpinner = uispinner(leftGrid);
             app.BrightnessHighSpinner.Limits = [0 15];
             app.BrightnessHighSpinner.Value = 15;
+            app.BrightnessHighSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.BrightnessHighSpinner.Layout.Row = row;
-            app.BrightnessHighSpinner.Layout.Column = [2 3];
+            app.BrightnessHighSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Brightness Low
@@ -1763,8 +2012,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.BrightnessLowSpinner = uispinner(leftGrid);
             app.BrightnessLowSpinner.Limits = [0 15];
             app.BrightnessLowSpinner.Value = 0;
+            app.BrightnessLowSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.BrightnessLowSpinner.Layout.Row = row;
-            app.BrightnessLowSpinner.Layout.Column = [2 3];
+            app.BrightnessLowSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % === Advanced Controls Section ===
@@ -1777,8 +2027,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.MotionAngleSpinner = uispinner(leftGrid);
             app.MotionAngleSpinner.Limits = [0 360];
             app.MotionAngleSpinner.Value = 0;
+            app.MotionAngleSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.MotionAngleSpinner.Layout.Row = row;
-            app.MotionAngleSpinner.Layout.Column = [2 3];
+            app.MotionAngleSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Pole Longitude (matches G4 GUI "pole longitude")
@@ -1790,8 +2041,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PoleAzimuthSpinner = uispinner(leftGrid);
             app.PoleAzimuthSpinner.Limits = [-180 180];
             app.PoleAzimuthSpinner.Value = 0;
+            app.PoleAzimuthSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.PoleAzimuthSpinner.Layout.Row = row;
-            app.PoleAzimuthSpinner.Layout.Column = [2 3];
+            app.PoleAzimuthSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Pole Latitude (matches G4 GUI "pole latitude")
@@ -1803,8 +2055,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PoleElevationSpinner = uispinner(leftGrid);
             app.PoleElevationSpinner.Limits = [-90 90];
             app.PoleElevationSpinner.Value = -90;  % Default matches G4 GUI
+            app.PoleElevationSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.PoleElevationSpinner.Layout.Row = row;
-            app.PoleElevationSpinner.Layout.Column = [2 3];
+            app.PoleElevationSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % Arena Pitch
@@ -1816,8 +2069,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.ArenaPitchSpinner = uispinner(leftGrid);
             app.ArenaPitchSpinner.Limits = [-90 90];
             app.ArenaPitchSpinner.Value = 0;
+            app.ArenaPitchSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.ArenaPitchSpinner.Layout.Row = row;
-            app.ArenaPitchSpinner.Layout.Column = [2 3];
+            app.ArenaPitchSpinner.Layout.Column = [2 4];
             row = row + 1;
 
             % === Masks Section ===
@@ -1842,7 +2096,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.SAMaskButton.Text = 'Configure...';
             app.SAMaskButton.ButtonPushedFcn = @(~,~) app.SAMaskButtonPushed();
             app.SAMaskButton.Layout.Row = row;
-            app.SAMaskButton.Layout.Column = [2 3];
+            app.SAMaskButton.Layout.Column = [2 4];
             row = row + 1;
 
             % Lat/Long Mask
@@ -1857,7 +2111,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.LatLongMaskButton.Text = 'Configure...';
             app.LatLongMaskButton.ButtonPushedFcn = @(~,~) app.LatLongMaskButtonPushed();
             app.LatLongMaskButton.Layout.Row = row;
-            app.LatLongMaskButton.Layout.Column = [2 3];
+            app.LatLongMaskButton.Layout.Column = [2 4];
             row = row + 1;
 
             % === Buttons Section ===
@@ -2061,6 +2315,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotCountSpinner = uispinner(starGrid);
             app.DotCountSpinner.Limits = [1 1000];
             app.DotCountSpinner.Value = 100;
+            app.DotCountSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotCountSpinner.Layout.Row = 1;
             app.DotCountSpinner.Layout.Column = 2;
 
@@ -2073,6 +2328,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotRadiusSpinner = uispinner(starGrid);
             app.DotRadiusSpinner.Limits = [0.1 45];
             app.DotRadiusSpinner.Value = 5;
+            app.DotRadiusSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotRadiusSpinner.Layout.Row = 1;
             app.DotRadiusSpinner.Layout.Column = 4;
 
@@ -2085,6 +2341,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotSizeDropDown = uidropdown(starGrid);
             app.DotSizeDropDown.Items = {'Static', 'Distance-relative'};
             app.DotSizeDropDown.Value = 'Static';
+            app.DotSizeDropDown.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotSizeDropDown.Layout.Row = 2;
             app.DotSizeDropDown.Layout.Column = 2;
 
@@ -2097,6 +2354,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotOcclusionDropDown = uidropdown(starGrid);
             app.DotOcclusionDropDown.Items = {'Closest', 'Sum', 'Mean'};
             app.DotOcclusionDropDown.Value = 'Closest';
+            app.DotOcclusionDropDown.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotOcclusionDropDown.Layout.Row = 2;
             app.DotOcclusionDropDown.Layout.Column = 4;
 
@@ -2109,6 +2367,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotLevelDropDown = uidropdown(starGrid);
             app.DotLevelDropDown.Items = {'Fixed', 'Random spread', 'Random binary'};
             app.DotLevelDropDown.Value = 'Fixed';
+            app.DotLevelDropDown.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotLevelDropDown.Layout.Row = 3;
             app.DotLevelDropDown.Layout.Column = 2;
 
@@ -2116,6 +2375,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotReRandomCheckBox = uicheckbox(starGrid);
             app.DotReRandomCheckBox.Text = 'Re-randomize each frame';
             app.DotReRandomCheckBox.Value = true;
+            app.DotReRandomCheckBox.ValueChangedFcn = @(~,~) app.parameterChanged();
             app.DotReRandomCheckBox.Layout.Row = 3;
             app.DotReRandomCheckBox.Layout.Column = [3 4];
 

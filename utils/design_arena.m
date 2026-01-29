@@ -46,11 +46,11 @@ function [arena_info, fig_handle] = design_arena(config, varargin)
 %
 % Examples:
 %   % From YAML config struct
-%   config = load_arena_config('configs/arenas/G6_2x10_full.yaml');
+%   config = load_arena_config('configs/arenas/G6_2x10.yaml');
 %   design_arena(config);
 %
 %   % Directly from YAML file path
-%   design_arena('configs/arenas/G6_2x10_full.yaml');
+%   design_arena('configs/arenas/G6_2x10.yaml');
 %
 %   % With display options
 %   design_arena(config, 'units', 'inches', 'save_pdf', true);
@@ -87,14 +87,12 @@ else
     angle_offset = 0;
 end
 
-% panels_installed (convert from 0-indexed to 1-indexed column indices)
-if isfield(arena, 'panels_installed') && ~isempty(arena.panels_installed)
-    panel_indices = arena.panels_installed;
-    columns_0idx = mod(panel_indices, num_panels);
-    unique_cols = unique(columns_0idx);
-    panels_installed = unique_cols + 1;  % Convert to 1-indexed
+% columns_installed (convert from 0-indexed to 1-indexed for rendering)
+if isfield(arena, 'columns_installed') && ~isempty(arena.columns_installed)
+    columns_0idx = arena.columns_installed;
+    columns_installed = columns_0idx + 1;  % Convert to 1-indexed for rendering
 else
-    panels_installed = 1:num_panels;
+    columns_installed = 1:num_panels;
 end
 
 %% Parse display options
@@ -109,7 +107,7 @@ parse(p, varargin{:});
 opts = p.Results;
 
 % Copy arena parameters to opts for compatibility with existing code
-opts.panels_installed = panels_installed;
+opts.columns_installed = columns_installed;
 opts.angle_offset = angle_offset;
 opts.column_order = column_order;
 opts.num_rows = num_rows;
@@ -156,7 +154,7 @@ P_angle = alphas + pi/2;
 
 % Resolution and coverage calculations
 degs_per_pixel = 360 / (num_panels * panel_specs.pixels_per_panel);
-azimuth_coverage = 360 * (length(opts.panels_installed) / num_panels);
+azimuth_coverage = 360 * (length(opts.columns_installed) / num_panels);
 azimuth_gap = 360 - azimuth_coverage;
 
 %% Create figure
@@ -172,7 +170,7 @@ plot([-fig_size fig_size], [0 0], 'k', 'LineWidth', 0.5);
 plot([0 0], [-fig_size fig_size], 'k', 'LineWidth', 0.5);
 
 %% Draw panels
-for j = opts.panels_installed
+for j = opts.columns_installed
     % Panel front (LED surface) - green
     P_center = [c_radius*cos(alphas(j)), c_radius*sin(alphas(j))];
     V(1,:) = [P_center(1) - panel_width/2*cos(P_angle(j)), P_center(2) - panel_width/2*sin(P_angle(j))];
@@ -201,7 +199,7 @@ label_color = [0 0.53 0.48];  % Teal color matching G6 protocol doc
 
 for j = 1:num_panels
     % Only label installed columns
-    if ismember(j, opts.panels_installed)
+    if ismember(j, opts.columns_installed)
         label_x = label_radius * cos(alphas(j));
         label_y = label_radius * sin(alphas(j));
         col_num = j - 1;  % Convert to 0-indexed column number
@@ -233,7 +231,7 @@ grid on;
 
 % Title with arena info
 title_str = sprintf('%d of %d Panel (%s) ring, in %s; resolution of %.1f%s per pixel', ...
-    length(opts.panels_installed), num_panels, upper(panel_type), ...
+    length(opts.columns_installed), num_panels, upper(panel_type), ...
     unit_label, degs_per_pixel, char(176));
 title(title_str, 'FontSize', 12, 'FontWeight', 'bold');
 
@@ -283,7 +281,7 @@ annotation('textbox', [0.02, 0.02, 0.25, 0.12], ...
 if opts.save_pdf
     if isempty(opts.pdf_filename)
         pdf_filename = sprintf('%s_%d_of_%d_panel_arena.pdf', ...
-            upper(panel_type), length(opts.panels_installed), num_panels);
+            upper(panel_type), length(opts.columns_installed), num_panels);
     else
         pdf_filename = opts.pdf_filename;
     end
@@ -304,7 +302,7 @@ arena_info.units = unit_label;
 arena_info.panel_specs = panel_specs;
 arena_info.num_panels = num_panels;
 arena_info.num_rows = opts.num_rows;
-arena_info.panels_installed = opts.panels_installed;
+arena_info.columns_installed = opts.columns_installed;
 arena_info.angle_offset = opts.angle_offset;
 arena_info.column_order = opts.column_order;
 arena_info.config = config;  % Include original config

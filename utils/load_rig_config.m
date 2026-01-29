@@ -162,11 +162,12 @@ function derived = compute_arena_derived(arena)
     derived.total_pixels_y = arena.num_rows * specs.pixels_per_panel;
     derived.num_panels = arena.num_rows * arena.num_cols;
 
-    if isfield(arena, 'panels_installed') && ~isempty(arena.panels_installed)
-        derived.num_panels_installed = length(arena.panels_installed);
+    if isfield(arena, 'columns_installed') && ~isempty(arena.columns_installed)
+        derived.num_columns_installed = length(arena.columns_installed);
     else
-        derived.num_panels_installed = derived.num_panels;
+        derived.num_columns_installed = arena.num_cols;
     end
+    derived.num_panels_installed = arena.num_rows * derived.num_columns_installed;
 
     if arena.num_cols > 0
         alpha = 2 * pi / arena.num_cols;

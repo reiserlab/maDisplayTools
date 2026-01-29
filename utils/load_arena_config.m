@@ -2,7 +2,7 @@ function config = load_arena_config(filepath)
 % LOAD_ARENA_CONFIG Load arena configuration from YAML file
 %
 % Usage:
-%   config = load_arena_config('configs/arenas/G6_2x10_full.yaml')
+%   config = load_arena_config('configs/arenas/G6_2x10.yaml')
 %   config = load_arena_config()  % Opens file dialog
 %
 % Input:
@@ -14,25 +14,27 @@ function config = load_arena_config(filepath)
 %       .name            - Configuration name
 %       .description     - Configuration description
 %       .arena           - Arena specification struct:
-%           .generation       - 'G3', 'G4', 'G4.1', or 'G6'
-%           .num_rows         - Number of panel rows
-%           .num_cols         - Number of panel columns
-%           .panels_installed - Array of installed panel indices (0-indexed), or [] for all
-%           .orientation      - 'normal' or 'flipped'
-%           .column_order     - 'cw' or 'ccw'
-%           .angle_offset_deg - Rotation offset in degrees
+%           .generation        - 'G3', 'G4', 'G4.1', or 'G6'
+%           .num_rows          - Number of panel rows
+%           .num_cols          - Number of panel columns (full grid)
+%           .columns_installed - Array of installed column indices (0-indexed), or [] for all
+%           .orientation       - 'normal' or 'flipped'
+%           .column_order      - 'cw' or 'ccw'
+%           .angle_offset_deg  - Rotation offset in degrees
 %       .derived         - Computed properties struct:
-%           .pixels_per_panel - Pixels per panel side (8, 16, or 20)
-%           .total_pixels_x   - Total horizontal pixels
-%           .total_pixels_y   - Total vertical pixels
-%           .panel_width_mm   - Panel width in mm
-%           .inner_radius_mm  - Inner arena radius in mm
-%           .num_panels       - Total panel count (num_rows * num_cols)
-%           .num_panels_installed - Count of installed panels
+%           .pixels_per_panel      - Pixels per panel side (8, 16, or 20)
+%           .num_columns_installed - Number of installed columns
+%           .total_pixels_x        - Total horizontal pixels (installed columns only)
+%           .total_pixels_y        - Total vertical pixels
+%           .panel_width_mm        - Panel width in mm
+%           .inner_radius_mm       - Inner arena radius in mm
+%           .num_panels            - Total panel count in full grid
+%           .num_panels_installed  - Count of installed panels
+%           .azimuth_coverage_deg  - Angular coverage in degrees
 %       .source_file     - Path to the loaded file
 %
 % Example:
-%   config = load_arena_config('configs/arenas/G6_2x10_full.yaml');
+%   config = load_arena_config('configs/arenas/G6_2x10.yaml');
 %   fprintf('Grid size: %d x %d pixels\n', config.derived.total_pixels_x, config.derived.total_pixels_y);
 %
 % See also: get_generation_specs, load_rig_config, load_experiment_config
@@ -100,15 +102,25 @@ config.arena.generation = arena.generation;
 config.arena.num_rows = arena.num_rows;
 config.arena.num_cols = arena.num_cols;
 
-% Handle panels_installed (null = all installed)
-if isfield(arena, 'panels_installed') && ~isempty(arena.panels_installed)
-    if iscell(arena.panels_installed)
-        config.arena.panels_installed = cell2mat(arena.panels_installed);
+% Handle columns_installed (null = all installed)
+% Also support legacy panels_installed for backward compatibility
+if isfield(arena, 'columns_installed') && ~isempty(arena.columns_installed)
+    if iscell(arena.columns_installed)
+        config.arena.columns_installed = cell2mat(arena.columns_installed);
     else
-        config.arena.panels_installed = arena.panels_installed;
+        config.arena.columns_installed = arena.columns_installed;
+    end
+elseif isfield(arena, 'panels_installed') && ~isempty(arena.panels_installed)
+    % Legacy support: interpret as column indices if count matches column range
+    warning('load_arena_config:legacyField', ...
+        'Using legacy field "panels_installed". Please update to "columns_installed".');
+    if iscell(arena.panels_installed)
+        config.arena.columns_installed = cell2mat(arena.panels_installed);
+    else
+        config.arena.columns_installed = arena.panels_installed;
     end
 else
-    config.arena.panels_installed = [];  % Empty means all installed
+    config.arena.columns_installed = [];  % Empty means all columns installed
 end
 
 config.arena.orientation = getFieldOrDefault(arena, 'orientation', 'normal');
@@ -141,32 +153,36 @@ function derived = compute_derived_properties(arena)
     derived = struct();
     derived.pixels_per_panel = specs.pixels_per_panel;
     derived.panel_width_mm = specs.panel_width_mm;
-    derived.total_pixels_x = arena.num_cols * specs.pixels_per_panel;
-    derived.total_pixels_y = arena.num_rows * specs.pixels_per_panel;
-    derived.num_panels = arena.num_rows * arena.num_cols;
 
-    % Count installed panels
-    if isempty(arena.panels_installed)
-        derived.num_panels_installed = derived.num_panels;
+    % Number of installed columns
+    if isempty(arena.columns_installed)
+        derived.num_columns_installed = arena.num_cols;
     else
-        derived.num_panels_installed = length(arena.panels_installed);
+        derived.num_columns_installed = length(arena.columns_installed);
     end
 
-    % Compute inner radius
+    % Total pixels based on INSTALLED columns (for pattern dimensions)
+    derived.total_pixels_x = derived.num_columns_installed * specs.pixels_per_panel;
+    derived.total_pixels_y = arena.num_rows * specs.pixels_per_panel;
+
+    % Panel counts
+    derived.num_panels = arena.num_rows * arena.num_cols;  % Full grid
+    derived.num_panels_installed = arena.num_rows * derived.num_columns_installed;
+
+    % Compute inner radius (based on full grid num_cols for correct geometry)
     % Formula: inner_radius = panel_width / (2 * tan(pi / num_cols))
     if arena.num_cols > 0
-        alpha = 2 * pi / arena.num_cols;  % Angle per panel
+        alpha = 2 * pi / arena.num_cols;  % Angle per panel in full grid
         derived.inner_radius_mm = specs.panel_width_mm / (2 * tan(alpha / 2));
     else
         derived.inner_radius_mm = 0;
     end
 
-    % Compute azimuthal coverage
-    % Full grid = 360 degrees, partial = fraction of installed panels
-    if isempty(arena.panels_installed)
+    % Compute azimuthal coverage based on installed columns
+    if isempty(arena.columns_installed)
         derived.azimuth_coverage_deg = 360;
     else
-        derived.azimuth_coverage_deg = 360 * (length(arena.panels_installed) / arena.num_cols);
+        derived.azimuth_coverage_deg = 360 * (derived.num_columns_installed / arena.num_cols);
     end
 
     % Compute latitude range (based on number of rows and panel size)
