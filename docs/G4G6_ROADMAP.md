@@ -193,7 +193,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
   - [x] Web 3D viewer redesigned with config dropdown ✅
   - [x] CI/CD workflow to sync configs from maDisplayTools to webDisplayTools ✅
   - ~[ ] **Audit maDisplayTools** for arena-specific details~ → Deferred (arena config propagation is in-flight work below)
-  - ~[ ] **Audit G4 pattern editor** to map how it can use new arena config~ → Done via PatternGeneratorApp
+  - [x] **Audit G4 pattern editor** to map how it can use new arena config ✅ → Done via PatternGeneratorApp
   - [x] Remove G5 from valid arena designs ✅ (errors in load_arena_config.m, get_generation_specs.m, ProtocolParser.m; no G5 tab in web tools)
 
 - [x] **[P2] Update webDisplayTools** ✅ COMPLETE
@@ -260,7 +260,9 @@ Current implementation intentionally avoids deduplication. If an experiment uses
     - [x] Lat/long mask (checkbox + configure dialog)
     - [x] Starfield options panel (conditional, with all 6 parameters)
   - [x] Regression tests pass against G4 baseline patterns ✅
-  - [ ] Lower priority remaining: .pat export, Mercator view, GIF export
+  - [x] .pat binary export ✅
+  - [x] Mercator view ✅
+  - GIF export → moved to Future Vision (Pattern Previewer)
 
 - [ ] **[P2] TCP Migration Testing** (requires lab time)
   - [ ] Investigate controller lockup at >10 FPS streaming
@@ -431,10 +433,10 @@ These are started projects that need to be picked up and completed. Each section
 
 | Priority | Feature | Notes |
 |----------|---------|-------|
-| Medium | .pat binary export | Generation-aware format for display hardware |
+| ~~Medium~~ | ~~.pat binary export~~ | ✅ Implemented (Jan 29) |
 | Low | Phase shift | Starting phase offset (default 0) |
 | Low | Anti-aliasing control | Fixed at 15 samples (works well) |
-| Low | GIF export | Consider deferring to web tools |
+| Low | GIF export | Moved to Future Vision → Pattern Previewer |
 
 **Files**:
 - `patternGenerator/PatternGeneratorApp.m`
@@ -698,6 +700,7 @@ Split PatternGeneratorApp into 4 specialized windows:
   - Dynamically adapts — 3 rows for binary patterns, up to 16 for full grayscale
   - Updates in real-time during playback
   - Essential for validating Pattern Combiner output
+- GIF/video export for documentation and sharing
 
 **Benefits**:
 - Cleaner separation of concerns (creation vs. viewing)
