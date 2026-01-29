@@ -57,7 +57,41 @@ end
 % Route to appropriate save method based on generation
 switch generation
     case 'G6'
-        save_pattern_g6(Pats, param, save_dir, filename);
+        % Ensure g6 folder is at TOP of path to take precedence
+        [thisDir, ~, ~] = fileparts(mfilename('fullpath'));
+        g6Folder = fullfile(fileparts(thisDir), 'g6');
+        if contains(path, g6Folder)
+            rmpath(g6Folder);  % Remove first so addpath puts it at top
+        end
+        addpath(g6Folder);
+
+        % Force MATLAB to recognize the current g6_save_pattern function
+        % (clears any cached old versions with different signatures)
+        rehash path;
+        clear g6_save_pattern g6_encode_panel;
+
+        % Use the canonical g6_save_pattern from g6/ folder
+        % Determine mode from gs_val
+        if param.gs_val == 1 || param.gs_val == 2
+            mode = 'GS2';
+        else
+            mode = 'GS16';
+        end
+
+        % Pass arena config if available (for proper panel_mask in partial arenas)
+        % Otherwise fall back to [row_count, col_count] shorthand
+        if isfield(param, 'arena_config') && ~isempty(param.arena_config)
+            arena_config = param.arena_config;
+        else
+            % Derive from Pats dimensions (assumes all panels present)
+            [total_rows, total_cols, ~] = size(Pats);
+            row_count = total_rows / 20;
+            col_count = total_cols / 20;
+            arena_config = [row_count, col_count];
+        end
+
+        g6_save_pattern(Pats, param.stretch(:), arena_config, ...
+            save_dir, filename, 'Mode', mode, 'Overwrite', false);
     otherwise
         % G3, G4, G4.1 all use the same G4 binary format
         save_pattern_g4(Pats, param, save_dir, filename, generation);
@@ -108,122 +142,17 @@ end
 
 % Save pattern .mat file
 save(matFileName, 'pattern');
-fprintf('Saved: %s\n', matFileName);
+% Debug output removed - info now displayed in GUI
+% fprintf('Saved: %s\n', matFileName);
 
 % Save the corresponding binary pat file
 fileID = fopen(patFileName, 'w');
 fwrite(fileID, pattern.data);
 fclose(fileID);
-fprintf('Saved: %s\n', patFileName);
+% Debug output removed - info now displayed in GUI
+% fprintf('Saved: %s\n', patFileName);
 
 end
 
-%% G6 Save Function
-function save_pattern_g6(Pats, param, save_dir, filename)
-% Save pattern in G6 binary format (.pat file only)
-%
-% Note: G6 saves only .pat binary files (no .mat). The .pat format includes
-% all necessary metadata in its header. This differs from G4 which saves
-% both .mat and .pat for backwards compatibility with existing tooling.
-
-% Determine grayscale mode
-if param.gs_val == 1
-    gs_val_internal = 1;  % GS2
-elseif param.gs_val == 4
-    gs_val_internal = 2;  % GS16
-else
-    % Direct mode specification
-    if param.gs_val == 2
-        gs_val_internal = 1;  % GS2
-    else
-        gs_val_internal = 2;  % GS16
-    end
-end
-
-% Build pattern structure (for binary encoding)
-[total_rows, total_cols, num_frames] = size(Pats);
-
-% Calculate row/col counts from pixel dimensions
-pixels_per_panel = 20;  % G6 is always 20x20
-row_count = total_rows / pixels_per_panel;
-col_count = total_cols / pixels_per_panel;
-
-stretch = uint8(param.stretch(:));
-
-% Check for existing .pat file
-patFileName = fullfile(save_dir, sprintf('%s_G6.pat', filename));
-if exist(patFileName,'file')
-    error('Pattern .pat file already exists: %s', patFileName)
-end
-
-% Build and save binary data
-data = build_g6_binary(Pats, stretch, row_count, col_count, gs_val_internal);
-
-% Save binary file
-fileID = fopen(patFileName, 'w');
-fwrite(fileID, data, 'uint8');
-fclose(fileID);
-fprintf('Saved: %s\n', patFileName);
-
-end
-
-%% G6 Binary Builder
-function data = build_g6_binary(Pats, stretch, row_count, col_count, gs_val)
-% Build G6 binary pattern data
-%
-% gs_val: 1 = GS2 (binary), 2 = GS16 (grayscale)
-
-num_frames = size(Pats, 3);
-num_panels = row_count * col_count;
-
-% Determine mode string for g6_encode_panel
-if gs_val == 1
-    mode = 'GS2';
-    panel_bytes = 53;   % g6_encode_panel returns 53 bytes for GS2
-else
-    mode = 'GS16';
-    panel_bytes = 203;  % g6_encode_panel returns 203 bytes for GS16
-end
-
-% Header: 4 bytes
-% [gs_val (1 byte), num_frames_low (1 byte), num_frames_high (1 byte), reserved (1 byte)]
-header = uint8([gs_val, mod(num_frames, 256), floor(num_frames / 256), 0]);
-
-% Pre-allocate data (header + frames)
-% Each frame has (panel_bytes * num_panels) bytes
-% Note: stretch is embedded in g6_encode_panel output, not separate
-frame_bytes = num_panels * panel_bytes;
-total_bytes = 4 + num_frames * frame_bytes;
-data = zeros(total_bytes, 1, 'uint8');
-
-% Write header
-data(1:4) = header;
-offset = 5;
-
-% Write each frame
-for f = 1:num_frames
-    frame_data = Pats(:, :, f);
-    frame_stretch = stretch(f);
-
-    % Encode each panel
-    for pr = 0:(row_count-1)
-        for pc = 0:(col_count-1)
-            % Extract panel pixels (20x20)
-            row_start = pr * 20 + 1;
-            row_end = row_start + 19;
-            col_start = pc * 20 + 1;
-            col_end = col_start + 19;
-
-            panel_pixels = frame_data(row_start:row_end, col_start:col_end);
-
-            % Encode panel with stretch and mode
-            panel_data = g6_encode_panel(panel_pixels, frame_stretch, mode);
-
-            % Write to data array
-            data(offset:offset+panel_bytes-1) = panel_data;
-            offset = offset + panel_bytes;
-        end
-    end
-end
-
-end
+% Note: G6 patterns are saved using g6_save_pattern() from the g6/ folder.
+% This ensures a single, canonical G6 binary format with proper 17-byte header.

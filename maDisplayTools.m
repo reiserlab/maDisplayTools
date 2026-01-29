@@ -807,21 +807,24 @@ classdef maDisplayTools < handle
            
         %% Pattern Loading and Decoding
 
-        function img = decode_framevector_gs16(framevec, rows, cols)
+        function [img, stretch] = decode_framevector_gs16(framevec, rows, cols)
             % DECODE_FRAMEVECTOR_GS16 Decode a grayscale (4-bit) frame vector
-            %   Takes in framevec (1D uint8 array for a single frame), pixel height 
+            %   Takes in framevec (1D uint8 array for a single frame), pixel height
             %   and width of arena. Returns 2D uint8 image of shape (rows, cols)
+            %   and the stretch value for this frame.
             %
             %   This is the inverse of make_framevector_gs16.
-            
+
             numSubpanel = 4;
             subpanelMsgLength = 33;
-            
+
             panelCol = cols / 16;
             panelRow = rows / 16;
-            
+
             img = zeros(rows, cols, 'uint8');
-            
+            stretch = 0;  % Will be extracted from first command byte
+            stretchExtracted = false;
+
             n = 1;  % MATLAB uses 1-based indexing
             for i = 0:(panelRow-1)
                 for j = 1:numSubpanel
@@ -829,6 +832,12 @@ classdef maDisplayTools < handle
                     for k = 1:subpanelMsgLength
                         for m = 0:(panelCol-1)
                             if k == 1
+                                % Extract stretch from first command byte
+                                if ~stretchExtracted
+                                    cmd_byte = framevec(n);
+                                    stretch = bitshift(cmd_byte, -1);  % stretch is in bits 1-7
+                                    stretchExtracted = true;
+                                end
                                 n = n + 1;  % Skip command byte
                             else
                                 byte = framevec(n);
@@ -854,20 +863,23 @@ classdef maDisplayTools < handle
             %fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
         end
 
-        function img = decode_framevector_binary(framevec, rows, cols)
+        function [img, stretch] = decode_framevector_binary(framevec, rows, cols)
             % DECODE_FRAMEVECTOR_BINARY Decode a binary (1-bit) frame vector
             %   Similar to gs16 but processes 1 bit per pixel instead of 4 bits.
-            %   Takes in framevec (1D uint8 array for a single frame), pixel height 
+            %   Takes in framevec (1D uint8 array for a single frame), pixel height
             %   and width of arena. Returns 2D uint8 image of shape (rows, cols)
-            
+            %   and the stretch value for this frame.
+
             numSubpanel = 4;
             subpanelMsgLength = 9;  % 1 command + 8 row-bytes
-            
+
             panelCol = cols / 16;
             panelRow = rows / 16;
-            
+
             img = zeros(rows, cols, 'uint8');
-            
+            stretch = 0;  % Will be extracted from first command byte
+            stretchExtracted = false;
+
             n = 1;  % MATLAB uses 1-based indexing
             for i = 0:(panelRow-1)
                 for j = 1:numSubpanel
@@ -875,6 +887,12 @@ classdef maDisplayTools < handle
                     for k = 1:subpanelMsgLength
                         for m = 0:(panelCol-1)
                             if k == 1
+                                % Extract stretch from first command byte
+                                if ~stretchExtracted
+                                    cmd_byte = framevec(n);
+                                    stretch = bitshift(cmd_byte, -1);  % stretch is in bits 1-7
+                                    stretchExtracted = true;
+                                end
                                 n = n + 1;  % Skip command byte
                             else
                                 byte = framevec(n);
@@ -910,58 +928,224 @@ classdef maDisplayTools < handle
         function [frames, meta] = load_pat(filepath)
             % LOAD_PAT Load and decode all frames from a .pat file
             %   Takes in the path to a pattern file and loads it and decodes all frames.
+            %   Automatically detects G4 vs G6 format based on header.
+            %
             %   Returns:
             %   - frames: 4D array (NumPatsY, NumPatsX, rows, cols)
-            %   - meta: Structure with pattern metadata (NumPatsX, NumPatsY, rows, cols, vmax)
-            
+            %   - meta: Structure with pattern metadata:
+            %       NumPatsX, NumPatsY, rows, cols, vmax, stretch (per-frame array)
+
+            % Read first few bytes to detect format
+            fid = fopen(filepath, 'rb');
+            if fid == -1
+                error('Could not open file: %s', filepath);
+            end
+            header_peek = fread(fid, 4, 'uint8');
+            fclose(fid);
+
+            % Detect G6 format: starts with "G6PT" magic bytes
+            % G4 format: first 2 bytes form NumPatsX (uint16)
+            magic = char(header_peek');
+            if strcmp(magic, 'G6PT')
+                % G6 format detected
+                [frames, meta] = maDisplayTools.load_pat_g6(filepath);
+            else
+                % G4 format (original)
+                [frames, meta] = maDisplayTools.load_pat_g4(filepath);
+            end
+        end
+
+        function [frames, meta] = load_pat_g4(filepath)
+            % LOAD_PAT_G4 Load G4 format .pat file
+            %   Internal function for loading G4/G4.1/G3 pattern files.
+
             [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw] = maDisplayTools.read_header_and_raw(filepath);
-            fprintf('%d %d %d %d %d %d\n', NumPatsX, NumPatsY, gs_val, RowN, ColN, length(raw));
-            
+            % Debug output removed - info now displayed in GUI
+            % fprintf('G4 format: %d %d %d %d %d %d\n', NumPatsX, NumPatsY, gs_val, RowN, ColN, length(raw));
+
             rows = RowN * 16;
             cols = ColN * 16;
-            fprintf('RowN, ColN: %d %d\n', RowN, ColN);
-            fprintf('rows, cols: %d %d\n', rows, cols);
-            
+
             num_frames = NumPatsX * NumPatsY;
             fsize = maDisplayTools.frame_size_bytes(RowN, ColN, gs_val);
-            fprintf('Frame size: %d\n', fsize);
-            
+
             expected = fsize * num_frames;
             if length(raw) < expected
                 error('File too short: got %d, expected %d', length(raw), expected);
             end
-            
+
             % Initialize 4D array: (NumPatsY, NumPatsX, rows, cols)
-            % This allows us to index as frames(y_idx, x_idx, :, :)
             frames = zeros(NumPatsY, NumPatsX, rows, cols, 'uint8');
-            
+            stretch_values = zeros(NumPatsY, NumPatsX, 'uint8');
+
             frame_idx = 0;
             for y = 1:NumPatsY
                 for x = 1:NumPatsX
                     vec = raw((frame_idx * fsize + 1):((frame_idx + 1) * fsize));
-                    
-                    % Use appropriate decoder based on gs_val
+
                     if gs_val == 1 || gs_val == 2
-                        img = maDisplayTools.decode_framevector_binary(vec, rows, cols);
+                        [img, stretch] = maDisplayTools.decode_framevector_binary(vec, rows, cols);
                     elseif gs_val == 4 || gs_val == 16
-                        img = maDisplayTools.decode_framevector_gs16(vec, rows, cols);
+                        [img, stretch] = maDisplayTools.decode_framevector_gs16(vec, rows, cols);
                     else
                         error('Unsupported gs_val: %d', gs_val);
                     end
-                    
+
                     frames(y, x, :, :) = img;
+                    stretch_values(y, x) = stretch;
                     frame_idx = frame_idx + 1;
                 end
             end
-            
+
             if gs_val == 4 || gs_val == 16
                 vmax = 15;
             else
                 vmax = 1;
             end
-            
+
             meta = struct('NumPatsX', NumPatsX, 'NumPatsY', NumPatsY, ...
-                          'rows', rows, 'cols', cols, 'vmax', vmax);
+                          'rows', rows, 'cols', cols, 'vmax', vmax, ...
+                          'stretch', stretch_values, ...
+                          'format', 'G4', ...
+                          'panel_rows', RowN, 'panel_cols', ColN, ...
+                          'gs_val_raw', gs_val);
+        end
+
+        function [frames, meta] = load_pat_g6(filepath)
+            % LOAD_PAT_G6 Load G6 format .pat file
+            %   Internal function for loading G6 pattern files.
+            %
+            %   G6 Header (17 bytes):
+            %     Bytes 1-4:   Magic "G6PT"
+            %     Byte 5:      Version (1)
+            %     Byte 6:      gs_val (1=GS2, 2=GS16)
+            %     Bytes 7-8:   num_frames (little-endian uint16)
+            %     Byte 9:      row_count
+            %     Byte 10:     col_count
+            %     Byte 11:     checksum
+            %     Bytes 12-17: panel_mask (6 bytes)
+            %
+            %   Frame structure:
+            %     Frame header: 4 bytes ["FR", frame_idx (little-endian uint16)]
+            %     Panel blocks: row_count * col_count panels
+            %       GS2: 53 bytes/panel, GS16: 203 bytes/panel
+
+            % Read entire file
+            fid = fopen(filepath, 'rb');
+            if fid == -1
+                error('Could not open file: %s', filepath);
+            end
+            data = fread(fid, inf, 'uint8');
+            fclose(fid);
+
+            % Verify G6 magic bytes
+            if length(data) < 17
+                error('File too small to be a valid G6 pattern');
+            end
+
+            magic = char(data(1:4)');
+            if ~strcmp(magic, 'G6PT')
+                error('Invalid G6 file: missing G6PT magic (found: %s)', magic);
+            end
+
+            % Parse G6 header (17 bytes)
+            version = data(5);
+            if version ~= 1
+                warning('Unknown G6 version: %d (expected 1)', version);
+            end
+
+            gs_val_g6 = data(6);  % 1 = GS2, 2 = GS16
+            num_frames = data(7) + data(8) * 256;
+            row_count = data(9);
+            col_count = data(10);
+            checksum = data(11);
+            panel_mask = data(12:17);
+
+            % Determine mode and panel size
+            if gs_val_g6 == 1
+                mode = 'GS2';
+                panel_bytes = 53;
+                vmax = 1;
+            else
+                mode = 'GS16';
+                panel_bytes = 203;
+                vmax = 15;
+            end
+
+            % G6 is always 20x20 pixel panels
+            pixels_per_panel = 20;
+
+            % Count actual panels from panel_mask (may be fewer than row_count * col_count)
+            % panel_mask is a 48-bit bitmask where each bit indicates if a panel is present
+            num_panels_in_file = 0;
+            for byte_idx = 1:6
+                num_panels_in_file = num_panels_in_file + sum(bitget(panel_mask(byte_idx), 1:8));
+            end
+
+            % Compute installed columns (for rectangular partial arenas)
+            % Pattern data only contains installed panels, not full grid
+            installed_cols = num_panels_in_file / row_count;
+
+            % Frame dimensions based on INSTALLED columns (not full grid col_count)
+            rows = row_count * pixels_per_panel;
+            cols = installed_cols * pixels_per_panel;
+
+            % Initialize output arrays
+            % For compatibility with G4 format, use (NumPatsY, NumPatsX, rows, cols)
+            % G6 typically has NumPatsY=1 (single row of frames)
+            frames = zeros(1, num_frames, rows, cols, 'uint8');
+            stretch_values = zeros(1, num_frames, 'uint8');
+
+            % Frame data starts after 17-byte header
+            frame_data = data(18:end);
+            offset = 1;
+
+            % Each frame has: 4-byte frame header + panel data
+            frame_header_size = 4;
+            panel_data_size = num_panels_in_file * panel_bytes;
+
+            for f = 1:num_frames
+                % Skip frame header (4 bytes: "FR" + frame_idx)
+                % Verify frame header
+                if char(frame_data(offset:offset+1)') ~= "FR"
+                    warning('Frame %d: expected FR header, found %s', f, char(frame_data(offset:offset+1)'));
+                end
+                offset = offset + frame_header_size;
+
+                % Decode panels and assemble into full frame
+                frame_img = zeros(rows, cols, 'uint8');
+
+                % Iterate over INSTALLED columns only (not full grid col_count)
+                for pr = 0:(row_count-1)
+                    for pc = 0:(installed_cols-1)
+                        panel_block = frame_data(offset:offset+panel_bytes-1);
+                        [panel_pixels, stretch] = g6_decode_panel(panel_block, mode);
+
+                        % Place panel in frame image
+                        row_start = pr * pixels_per_panel + 1;
+                        row_end = row_start + pixels_per_panel - 1;
+                        col_start = pc * pixels_per_panel + 1;
+                        col_end = col_start + pixels_per_panel - 1;
+
+                        frame_img(row_start:row_end, col_start:col_end) = panel_pixels;
+                        offset = offset + panel_bytes;
+                    end
+                end
+
+                frames(1, f, :, :) = frame_img;
+                stretch_values(1, f) = stretch;  % Last panel's stretch (all should be same)
+            end
+
+            meta = struct('NumPatsX', num_frames, 'NumPatsY', 1, ...
+                          'rows', rows, 'cols', cols, 'vmax', vmax, ...
+                          'stretch', stretch_values, ...
+                          'format', sprintf('G6 v%d', version), ...
+                          'panel_rows', row_count, ...
+                          'panel_cols', installed_cols, ...  % Installed columns (matches frame data)
+                          'full_grid_cols', col_count, ...   % Full grid columns from header
+                          'gs_val_raw', gs_val_g6, ...
+                          'checksum', checksum, ...
+                          'panel_mask', panel_mask');
         end
 
         function [frames, meta] = preview_pat(filepath, show_plot)
@@ -981,10 +1165,11 @@ classdef maDisplayTools < handle
             
             % Load pattern data
             [frames, meta] = maDisplayTools.load_pat(filepath);
-            
+
             if show_plot
-                % Create preview window using PatternPreview class
-                prev = PatternPreview(filepath);
+                % Create preview window using PatternPreviewerApp
+                app = PatternPreviewerApp;
+                app.loadFile(filepath);
             end
         end
 

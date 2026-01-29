@@ -1213,6 +1213,11 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 % Set stretch from UI (same value for all frames)
                 param.stretch = app.StretchSpinner.Value * ones(app.NumFrames, 1);
 
+                % Pass arena config for G6 patterns (enables proper panel_mask for partial arenas)
+                if ~isempty(app.CurrentArenaConfig)
+                    param.arena_config = app.CurrentArenaConfig;
+                end
+
                 % Extract base name (strip any extension user might have added)
                 [~, patName, ~] = fileparts(filename);
 
@@ -1229,7 +1234,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 end
 
             catch ME
-                app.StatusLabel.Text = sprintf('Save error: %s', ME.message);
+                app.StatusLabel.Text = 'Save error - see dialog';
+                % Show full error in dialog (supports multi-line)
+                uialert(app.UIFigure, ME.message, 'Save Error', 'Icon', 'error');
             end
         end
 
@@ -1786,7 +1793,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         function createComponents(app)
             % Create UIFigure
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 100 1350 750];  % Taller for more controls
+            app.UIFigure.Position = [100 50 1350 900];  % Taller window, moved down
             app.UIFigure.Name = 'Pattern Generator';
 
             % Create GridLayout

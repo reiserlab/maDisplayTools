@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-27
-> **Next Review**: ~2026-01-30
+> **Last Updated**: 2026-01-29
+> **Next Review**: ~2026-02-01
 
 ---
 
@@ -410,7 +410,45 @@ These are started projects that need to be picked up and completed. Each section
 
 ---
 
-### 4. PatternGeneratorApp Missing Features
+### 4. Arena Pitch in Pattern Previewer Projections
+
+**Status**: 🔴 DEFERRED — Needs design discussion
+
+**Problem**: Pattern Previewer (PatternPreviewerApp.m) projections ignore arena pitch. When loading patterns for pitched arenas, the Mercator/Mollweide views don't account for the arena tilt.
+
+**Root Cause**: `PatternPreviewerApp.loadArenaConfig()` reads the wrong field name:
+```matlab
+% Current (wrong):
+if isfield(cfg.arena, 'rotations')     % Field doesn't exist
+    rotations = cfg.arena.rotations;
+end
+
+% Correct (from PatternGeneratorApp):
+if isfield(cfg.arena, 'rotations_deg')
+    rotations = deg2rad(cfg.arena.rotations_deg);
+end
+```
+
+**Design Options** (need discussion):
+1. **Read pitch from YAML config** — Straightforward but arena config currently lacks rotations_deg
+2. **Add pitch spinner UI control** — Like PatternGeneratorApp has, allows runtime adjustment
+3. **Modify arena config structure** — Add rotations_deg to all arena YAML files
+4. **Ignore pitch in Previewer** — Simplest, but projections won't match reality
+
+**To Pick Up**:
+1. Decide on design approach (discuss with Michael)
+2. If adding UI control: Add pitch spinner to PatternPreviewerApp (like PatternGeneratorApp)
+3. If reading from config: Update arena YAMLs with rotations_deg field
+4. Test with pitched arena patterns
+
+**Files to Review**:
+- `patternPreviewer/PatternPreviewerApp.m` (loadArenaConfig method)
+- `patternGenerator/PatternGeneratorApp.m` (pitch handling reference)
+- `configs/arenas/*.yaml` (current schema)
+
+---
+
+### 5. PatternGeneratorApp Missing Features
 
 **Status**: ✅ Feature parity achieved! All major G4 GUI features implemented.
 
@@ -535,6 +573,51 @@ arena:
 **Future Work**:
 - [ ] Revisit validation when Pattern Editor is migrated to web tools
 - [ ] Create JavaScript-based validation for web pattern editor (similar to G6 panel editor CI/CD)
+
+---
+
+### 8. Pattern Save/Load Validation Script
+
+**Status**: ✅ COMPLETE (Jan 29)
+
+**Goal**: Automated testing of pattern save/load for all arena generations and configurations.
+
+**Script**: `tests/validate_pattern_save_load.m`
+
+**Test Coverage**:
+| Arena Config | Rows | Cols | Description |
+|--------------|------|------|-------------|
+| G4_4x12.yaml | 4 | 12 | G4 full arena |
+| G4_3x12of18.yaml | 3 | 12 | G4 partial arena |
+| G41_2x12_cw.yaml | 2 | 12 | G4.1 full arena |
+| G6_2x10.yaml | 2 | 10 | G6 full arena |
+| G6_2x8of10.yaml | 2 | 8 | G6 partial (8 of 10 cols) |
+| G6_3x12of18.yaml | 3 | 12 | G6 partial (12 of 18 cols) |
+
+**Test Process**:
+1. Load arena config from YAML
+2. Generate test grating pattern (2 frames)
+3. Save pattern using save_pattern() / g6_save_pattern()
+4. Load pattern using maDisplayTools.load_pat()
+5. Verify dimensions match expected (rows × cols in pixels)
+6. Verify frame count matches
+
+**Usage**:
+```matlab
+results = validate_pattern_save_load();
+if all([results.passed])
+    disp('All tests passed!');
+end
+```
+
+**Run After**:
+- Any changes to g6_encode_panel.m or g6_decode_panel.m
+- Any changes to save_pattern.m or g6_save_pattern.m
+- Any changes to maDisplayTools.load_pat()
+- Any changes to arena config schema
+
+**Files**:
+- `tests/validate_pattern_save_load.m` — Main validation script
 
 ---
 
@@ -679,12 +762,21 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
 
 Split PatternGeneratorApp into 4 specialized windows:
 
-| Window | Purpose | Key Feature |
-|--------|---------|-------------|
-| **Pattern Previewer** | Central hub for viewing/animating patterns | Per-frame stretch + intensity histogram |
-| **Pattern Generator** | Standard pattern creation (gratings, starfield, looming, etc.) | "Generate and Preview" → sends to Previewer |
-| **Pattern Combiner** | Spatial blending of two patterns | Alpha/mask-based overlay composition |
-| **Drawing App** | Manual pixel-level pattern creation | For custom non-parameterized stimuli |
+| Window | Purpose | Key Feature | Status |
+|--------|---------|-------------|--------|
+| **Pattern Previewer** | Central hub for viewing/animating patterns | Per-frame stretch + intensity histogram | ✅ Complete |
+| **Pattern Generator** | Standard pattern creation (gratings, starfield, looming, etc.) | "Generate and Preview" → sends to Previewer | 🔄 Needs separation |
+| **Pattern Combiner** | Combine two patterns (sequential, mask, left/right) | Multi-mode combination with swap | ✅ Complete |
+| **Drawing App** | Manual pixel-level pattern creation | For custom non-parameterized stimuli | Planned |
+
+**Next Priority: Generator/Previewer Separation**
+
+The current `PatternGeneratorApp.m` combines both generation and preview functionality. Now that `PatternPreviewerApp.m` is a robust standalone app with full projection support, the next step is to create a focused Pattern Generator that:
+- Handles only pattern parameter configuration and generation
+- Sends generated patterns to PatternPreviewerApp via `loadPatternFromApp()`
+- Has a simpler UI without embedded preview
+
+**Recommended approach**: Clean rebuild of Generator rather than removing functionality piece by piece. This creates cleaner code and allows rethinking the UI layout for a generation-focused workflow.
 
 **Workflow**:
 1. Previewer is the central app — can open files or launch generator apps
@@ -834,6 +926,95 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-29 (PM): PatternCombinerApp Refinements + PatternPreviewerApp Fixes
+
+**Focus**: Bug fixes and UI improvements based on user testing
+
+**Completed**:
+
+1. **PatternCombinerApp UI Redesign**:
+   - Window size increased from 620×520 to 660×640 to show all buttons
+   - Three aligned info panels at bottom: "Pattern 1 Info", "Combined Pattern Info", "Pattern 2 Info"
+   - Pattern names displayed in bold as first line in each info panel
+   - All action buttons now visible: Swap, Reset, Combine, Preview, Save
+   - Added editable "Save as:" field at bottom for custom output names
+
+2. **Dynamic File Naming**:
+   - Names now update when changing options (threshold, split position, binary op, mask mode)
+   - Added callbacks to ThresholdSpinner, BinaryOpDropDown, SplitSlider, MaskModeGroup
+   - Naming conventions:
+     - Sequential: `{Pat1}_then_{Pat2}`
+     - Mask (Replace): `{Pat1}_mask{threshold}_{Pat2}`
+     - Mask (Blend): `{Pat1}_blend_{Pat2}`
+     - Binary: `{Pat1}_{OR|AND|XOR}_{Pat2}`
+     - Left/Right: `{Pat1}_LR{splitCol}_{Pat2}`
+   - Tracks `LastSuggestedName` to preserve user edits while allowing auto-updates
+
+3. **PatternPreviewerApp Fixes**:
+   - **Frame slider initialization**: Added `drawnow` before/after `setupFrameSlider()` to fix compressed tick marks on first in-memory pattern load
+   - **Projection views for in-memory patterns**: Added `generateArenaCoordinatesFromConfig()` method that generates arena coordinates directly from config struct (not just file path)
+   - **Generation display**: Format field now shows "G6 (in memory)" instead of just "(in memory)" when arena config is available
+   - **Window reuse**: PatternCombinerApp now finds and reuses existing PatternPreviewerApp window instead of opening multiples
+
+4. **All validation tests still passing**: 6/6 pattern save/load, 12/12 pattern combiner
+
+**Files Modified**:
+- `patternTools/PatternCombinerApp.m` — UI resize, naming callbacks, LastSuggestedName tracking
+- `patternTools/PatternPreviewerApp.m` — Slider fix, projection views fix, generation display, window reuse support
+
+**Next Session Suggestion** (discussed with user):
+- **Separate Pattern Generator from Previewer** — The Previewer is now a robust standalone app. Consider doing a clean rebuild of the Generator as a focused tool that sends patterns to Previewer, rather than removing functionality piece by piece from the current combined app. This would complete the Future Vision architecture (4 specialized windows).
+
+---
+
+### 2026-01-29: PatternCombinerApp Implementation
+
+**Focus**: Implement the Pattern Combiner app from the Future Vision roadmap
+
+**Completed**:
+1. **PatternCombinerApp.m** — New App Designer GUI (620×520 px, 3-column layout)
+   - Three combination modes (radio buttons): Sequential, Mask, Left/Right
+   - Pattern 1 selection via file dialog, sets arena config
+   - Pattern 2 dropdown populated with compatible patterns (same directory, same GS level)
+   - Swap button to exchange Pattern 1 ↔ Pattern 2
+   - Combine, Preview, Save buttons
+   - Combined pattern info display (size, frames, name)
+
+2. **Combination Modes**:
+   - **Sequential**: Concatenate frames (Pattern 1 then Pattern 2)
+   - **Mask (GS16)**: Replace at threshold value OR 50% blend with rounding
+   - **Mask (Binary)**: OR, AND, XOR operations
+   - **Left/Right**: Configurable split point slider (0 to total_cols-1)
+
+3. **Frame Handling**:
+   - Sequential: Different frame counts allowed (concatenates)
+   - Spatial modes: Frame count mismatch triggers truncation dialog
+   - Stretch value mismatch triggers dialog (concatenate as-is OR uniform value)
+
+4. **PatternPreviewerApp Updates**:
+   - Added `isUnsaved` parameter to `loadPatternFromApp()` API
+   - Red "UNSAVED" warning label appears in top-right when pattern is unsaved
+   - Enabled Pattern Combiner menu item (Tools > Pattern Combiner)
+
+5. **Validation Script**: `tests/validate_pattern_combiner.m`
+   - 12 tests covering all combination modes
+   - Tests: sequential (equal/different frames), mask (replace/blend/rounding/clamping), left/right (symmetric/asymmetric), binary ops (OR/AND/XOR), frame truncation
+
+**Output Naming Convention**:
+- Sequential: `{Pat1}_then_{Pat2}`
+- Spatial: `{Pat1}_plus_{Pat2}`
+- Swap-aware (updates names when swapped)
+
+**Files Created**:
+- `patternTools/PatternCombinerApp.m` — Main app (~1100 lines)
+- `tests/validate_pattern_combiner.m` — Validation script (12 tests, all pass)
+
+**Files Modified**:
+- `patternTools/PatternPreviewerApp.m` — Added unsaved warning, enabled menu, updated API
+- `docs/G4G6_ROADMAP.md` — Updated Future Vision status, added session notes
+
+---
 
 ### 2026-01-27: PatternGeneratorApp Refinements + Partial Arena Issue
 
@@ -1170,6 +1351,10 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-29 (PM) | **PatternCombinerApp refinements + PatternPreviewerApp fixes** — UI redesign: window 660×640, three aligned info panels with pattern names in bold, all action buttons visible, editable "Save as:" field. Dynamic file naming: names update when changing options (threshold, split, binary op, mask mode); conventions: `_then_` (sequential), `_mask{N}_` (replace), `_blend_` (blend), `_{OP}_` (binary), `_LR{N}_` (split). PatternPreviewerApp fixes: slider initialization (drawnow fixes compressed ticks), projection views for in-memory patterns (new `generateArenaCoordinatesFromConfig()` method), format shows "G6 (in memory)" with generation, window reuse (finds existing Previewer). All 18 validation tests pass. **Next suggested**: Clean rebuild of Pattern Generator as focused tool that sends to Previewer. |
+| 2026-01-29 | **PatternCombinerApp implemented** — New App Designer GUI (620×520 px) for combining two patterns. Three modes: Sequential (concatenate frames), Mask (replace at threshold / 50% blend for GS16; OR/AND/XOR for binary), Left/Right (configurable split point). Features: Pattern 1 sets arena config, Pattern 2 dropdown shows compatible patterns (same dir, same GS), Swap button, frame truncation dialog for spatial modes, stretch mismatch dialog. Updated PatternPreviewerApp with `isUnsaved` flag and red "UNSAVED" warning label. Created `tests/validate_pattern_combiner.m` (12 tests, all pass). Enabled Tools > Pattern Combiner menu. Updated Future Vision table to show 3 of 4 apps complete. |
+| 2026-01-29 | **Directory reorganization + PatternPreviewerApp enhancements** — Consolidated `patternGenerator/` and `patternPreviewer/` into `patternTools/`. Moved legacy GUIDE files to `patternTools/legacy/`. Added Panel ID overlay feature to PatternPreviewerApp (checkbox next to Panel Outlines, displays Pan # and Col # in red text). Fixed panel ID numbering to use column-major order (matches G6 documentation). Added GUI screenshot verification workflow to CLAUDE.md using `exportapp()`. Documented inter-app communication API (`loadPatternFromApp`) with recommendation to pass arena config explicitly rather than auto-detect from dimensions. |
+| 2026-01-29 | **G6 pattern fixes + validation infrastructure** — Fixed G6 row inversion bug (g6_decode_panel.m now flips rows to compensate for encoder flip). Removed G4 fprintf output in save_pattern.m. PatternPreviewerApp now shows installed columns for partial arenas (e.g., "2 x 8of10"). Created `tests/validate_pattern_save_load.m` for automated testing of G4, G4.1, G6 save/load with full and partial arenas. Added In-Flight Work item #4: Arena pitch in Pattern Previewer (DEFERRED for design discussion). Added In-Flight Work item #8: Pattern Save/Load Validation Script. |
 | 2026-01-29 | **Future Vision section added** — Documented planned PatternGeneratorApp architecture evolution. Near-term: looming patterns (disc/square, constant or r/v velocity) and reverse-φ patterns (brightness inversion motion illusion). Longer-term: split into 4 windows (Pattern Previewer as central hub, Pattern Generator, Pattern Combiner, Drawing App). Previewer features: per-frame stretch display, per-frame intensity histogram (dynamic pixel counts per intensity level). Also completed: stretch UI control in PatternGeneratorApp, descriptive .pat filenames (removed `pat0001.pat` numeric format). |
 | 2026-01-28 | **Arena config schema update + pattern library convention** — Resolved blocking issue #6 (panels_installed inconsistency). Renamed field `panels_installed` → `columns_installed` for clarity. Renamed arena config files: removed `_full` suffix, partial arenas now use `XofY` format (e.g., `G6_2x8of10.yaml` = 8 of 10 columns installed). Updated `load_arena_config.m` with new `num_columns_installed` derived property; `total_pixels_x` now based on installed columns. Created pattern library convention: patterns organized in directories matching arena config names for automatic validation. New files: `utils/validate_pattern_arena.m`, `docs/pattern_library_convention.md`. **Web tools need update**: arena editor config dropdown, 3D viewer URL params, CI/CD sync workflow. |
 | 2026-01-27 | **PatternGeneratorApp refinements** — Fixed partial arena rendering (Pcols/Pcircle parameters now match G4 Pattern Generator). Info dialog now non-modal. Masks no longer mutually exclusive. Fixed view labels (Pixel Row/Column for Grid, Longitude/Latitude for projections). Y-axis flipped in Grid view (row 0 at bottom). FOV reset goes to full ±180°/±90°. Fixed Mollweide zoom buttons. Re-enabled data tips. Fixed arena info display for partial arenas (correct panel count, pixel dimensions, deg/px). **Discovered arena config schema issue**: `panels_installed` used inconsistently (column indices vs panel indices). Added In-Flight Work item #6 for schema extension. |
