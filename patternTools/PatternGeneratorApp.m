@@ -388,6 +388,9 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 case 'Sine Grating'
                     dutyEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'off';
+                case 'Reverse-Phi'
+                    % Reverse-phi uses square grating as base, enable duty cycle
+                    app.StarfieldOptionsPanel.Visible = 'off';
                 otherwise
                     app.StarfieldOptionsPanel.Visible = 'off';
             end
@@ -466,8 +469,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
 
             % Map dropdown values to Pattern_Generator expected values
             patternTypeMap = containers.Map(...
-                {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On'}, ...
-                {'square grating', 'sine grating', 'edge', 'starfield', 'off_on'});
+                {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi'}, ...
+                {'square grating', 'sine grating', 'edge', 'starfield', 'off_on', 'reverse_phi'});
             motionTypeMap = containers.Map(...
                 {'Rotation', 'Translation', 'Expansion-Contraction'}, ...
                 {'rotation', 'translation', 'expansion-contraction'});
@@ -568,6 +571,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 name = 'off_on';
             elseif strcmp(app.PatternTypeDropDown.Value, 'Edge')
                 name = sprintf('%s_%.0fstep', patType, stepSize);
+            elseif strcmp(app.PatternTypeDropDown.Value, 'Reverse-Phi')
+                name = sprintf('reverse_phi_%.0fdeg_%.0fstep', spatFreq, stepSize);
             else
                 name = sprintf('%s_%.0fdeg_%.0fstep', patType, spatFreq, stepSize);
             end
@@ -1213,7 +1218,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PatternTypeLabel.Layout.Column = 1;
 
             app.PatternTypeDropDown = uidropdown(leftGrid);
-            app.PatternTypeDropDown.Items = {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On'};
+            app.PatternTypeDropDown.Items = {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi'};
             app.PatternTypeDropDown.Value = 'Square Grating';
             app.PatternTypeDropDown.ValueChangedFcn = @(~,~) app.PatternTypeDropDownValueChanged();
             app.PatternTypeDropDown.Layout.Row = row;

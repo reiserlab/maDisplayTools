@@ -28,9 +28,9 @@ PatternCombinerApp     % Combine patterns
 
 ---
 
-## Pattern Organization (Important!)
+## Pattern Organization
 
-Patterns **must** be saved in folders named after their arena config:
+Patterns are saved in folders named after their arena config:
 
 ```
 patterns/
@@ -43,7 +43,9 @@ patterns/
     ...
 ```
 
-**Why?** The Previewer auto-detects arena settings from the folder name. Misnamed folders cause projection views to fail.
+**Don't worry!** If you start with a blank directory and use PatternGeneratorApp, patterns will automatically be named and saved to the correct folder.
+
+**Why this matters:** The Previewer auto-detects arena settings from the folder name, which enables the projection views (Mercator, Mollweide).
 
 ---
 
@@ -66,6 +68,8 @@ Standard configurations in `configs/arenas/`:
 
 **Partial arenas** (e.g., `2x8of10`) have fewer columns installed than the full grid, leaving gaps for equipment access.
 
+**Note:** G3 configs are included for backward compatibility but are not fully supported or tested.
+
 ---
 
 ## Typical Workflow
@@ -73,22 +77,26 @@ Standard configurations in `configs/arenas/`:
 ```
 ┌─────────────────────┐     Generate &      ┌─────────────────────┐
 │ PatternGeneratorApp │ ───────────────────→ │ PatternPreviewerApp │
-└─────────────────────┘       Preview        └─────────────────────┘
-                                                      │
+│                     │       Preview        │                     │
+│      [Save]         │                      │   View / Export     │
+└─────────────────────┘                      └─────────────────────┘
+                                                      ↑
 ┌─────────────────────┐     Combine &                 │
 │ PatternCombinerApp  │ ─────────────────────────────→│
-└─────────────────────┘       Preview                 │
-                                                      ↓
-                                              View / Export / Save
+│                     │       Preview
+│      [Save]         │
+└─────────────────────┘
 ```
 
-**Steps:**
+**Creating a Pattern (Generator Workflow):**
 1. Launch **PatternGeneratorApp**
 2. Select your arena config (dropdown at top)
 3. Configure pattern type, motion, and parameters
 4. Click **Generate & Preview** → pattern appears in Previewer
 5. Review in Previewer (play animation, check histogram)
 6. Click **Save** in Generator to save the pattern
+
+*(For combining patterns, see the PatternCombinerApp section below.)*
 
 ---
 
@@ -199,6 +207,14 @@ Pattern folder:   patterns/{arena_config_name}/
 Arena configs:    configs/arenas/*.yaml
 Reset MATLAB:     clear classes; addpath(genpath('.'));
 ```
+
+---
+
+## Reporting Issues
+
+If you find bugs or have suggestions:
+- **Open an issue on GitHub:** [maDisplayTools Issues](https://github.com/reiserlab/maDisplayTools/issues)
+- Include: what you were trying to do, what happened, and any error messages
 
 ---
 

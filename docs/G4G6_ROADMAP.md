@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-30 (evening)
+> **Last Updated**: 2026-01-30 (late evening)
 > **Next Review**: ~2026-02-03
 
 ---
@@ -795,10 +795,16 @@ The MATLAB pattern generation architecture is now mostly implemented (Generator,
   - Constant velocity: user specifies step size (degrees per frame)
   - r/v loom: user specifies l/v ratio for biologically-relevant approach timing
 
-**Reverse-φ (Reverse-phi) Patterns**
+**Reverse-φ (Reverse-phi) Patterns** ⚠️ NEEDS REVISIT
 - Classic reverse-phi motion illusion
 - Brightness inversion between consecutive frames while pattern shifts position
 - Creates perceived motion opposite to physical displacement direction
+- **Status (2026-01-30)**: Initial implementation attempted but behavior is incorrect. The current `make_reverse_phi.m` simply inverts alternate frames, but the proper reverse-phi requires more careful consideration of:
+  - Exact timing relationship between spatial shift and contrast inversion
+  - Whether inversion should be global or local to the shifted region
+  - Reference literature (Anstis 1970, Chubb & Sperling 1988) for correct implementation
+- **Files created** (need revision): `patternTools/make_reverse_phi.m`, updates to `Pattern_Generator.m` and `PatternGeneratorApp.m`
+- **Action**: Remove from UI or mark as experimental until properly specified and implemented
 
 ### Longer-term: Multi-Window Architecture
 
@@ -969,6 +975,37 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-30 (Late): Claude Code Demo Projects Session
+
+**Focus**: Identify and implement demo projects for colleagues new to Claude Code
+
+**Completed**:
+
+1. **G6 Panel Editor Pattern Templates** (webDisplayTools):
+   - Added 25+ new templates to `g6_panel_editor.html`
+   - **GS2 templates**: Directional arrows (up/down/left/right), geometric shapes (circle, filled circle, triangles, diamond, star), half patterns, quadrants
+   - **GS16 templates**: Gradient arrows, expanding discs (small/medium/large for looming), sine waves (2 frequencies), Gaussian blobs
+   - Updated version from 7 to 8
+
+2. **Reverse-Phi Pattern** (attempted, incomplete):
+   - Created `make_reverse_phi.m` with basic frame inversion
+   - Updated `Pattern_Generator.m` dispatcher
+   - Added "Reverse-Phi" to PatternGeneratorApp dropdown
+   - **Issue**: Implementation is incorrect - simple frame inversion doesn't produce proper reverse-phi illusion
+   - **Action needed**: Research proper specification (Anstis 1970, Chubb & Sperling 1988) before reimplementing
+
+**Files Created/Modified**:
+- `webDisplayTools/g6_panel_editor.html` — New templates (v8)
+- `patternTools/make_reverse_phi.m` — NEW (needs revision)
+- `patternTools/Pattern_Generator.m` — Added 're' case
+- `patternTools/PatternGeneratorApp.m` — Added Reverse-Phi option
+
+**Deferred**:
+- Reverse-Phi needs proper specification before reimplementation
+- Consider removing from UI or marking experimental
+
+---
 
 ### 2026-01-30: Web Pattern Viewer Implementation
 

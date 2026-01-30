@@ -23,7 +23,7 @@ function [Pats, true_step_size, rot180] = Pattern_Generator(handles)
     if any(strcmpi(param.motion_type(1), {'r' 't' 'e'}))==0
         error('invalid choice of motion type')
     end
-    if any(strcmpi(param.pattern_type(1:2), {'sq' 'si' 'ed' 'st' 'of'}))==0
+    if any(strcmpi(param.pattern_type(1:2), {'sq' 'si' 'ed' 'st' 'of' 're'}))==0
         error('invalid choice of pattern type')
     end
     if any(strcmpi(param.pattern_fov(1), {'l' 'f'}))==0
@@ -74,6 +74,8 @@ function [Pats, true_step_size, rot180] = Pattern_Generator(handles)
         case 'of' %off_on
             true_step_size = param.step_size;
             [Pats, num_frames] = make_off_on(param);
+        case 're' %reverse-phi (motion illusion with brightness inversion)
+            [Pats, num_frames, true_step_size] = make_reverse_phi(param, arena_x, arena_y, arena_z, arena_fullfile);
         otherwise %grating or edge
             [Pats, num_frames, true_step_size] = make_grating_edge(param, arena_x, arena_y, arena_z, arena_fullfile);
     end

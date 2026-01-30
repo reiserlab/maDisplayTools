@@ -420,5 +420,7 @@ previewer.loadPatternFromApp(Pats, stretch, gs_val, name, arenaConfig);
 
 ## Related Repositories
 
-- `webDisplayTools` - Web-based editors (public)
-- `G4_Display_Tools` - Legacy G4 code (reference only)
+| Repository | Path | Description |
+|------------|------|-------------|
+| `webDisplayTools` | `/Users/reiserm/Documents/GitHub/webDisplayTools` | Web-based editors (public) |
+| `G4_Display_Tools` | (GitHub only) | Legacy G4 code (reference only) |
