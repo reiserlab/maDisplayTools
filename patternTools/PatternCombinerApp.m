@@ -1018,21 +1018,21 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
             app.ModeButtonGroup = uibuttongroup(modePanel);
             app.ModeButtonGroup.BorderType = 'none';
-            app.ModeButtonGroup.Position = [5 5 240 50];
+            app.ModeButtonGroup.Position = [5 2 240 26];  % Reduced height, positioned at bottom
             app.ModeButtonGroup.SelectionChangedFcn = @(~,~) app.ModeChanged();
 
             app.SequentialRadio = uiradiobutton(app.ModeButtonGroup);
             app.SequentialRadio.Text = 'Sequential';
             app.SequentialRadio.Value = true;
-            app.SequentialRadio.Position = [5 5 80 22];  % Moved down to align with Options
+            app.SequentialRadio.Position = [5 2 80 22];
 
             app.MaskRadio = uiradiobutton(app.ModeButtonGroup);
             app.MaskRadio.Text = 'Mask';
-            app.MaskRadio.Position = [90 5 60 22];  % Moved down to align with Options
+            app.MaskRadio.Position = [90 2 60 22];
 
             app.LeftRightRadio = uiradiobutton(app.ModeButtonGroup);
             app.LeftRightRadio.Text = 'Left/Right';
-            app.LeftRightRadio.Position = [155 5 80 22];  % Moved down to align with Options
+            app.LeftRightRadio.Position = [155 2 80 22];
 
             % Right side: Mode-specific options
             optionsPanel = uipanel(topGrid);
@@ -1167,7 +1167,7 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             actionGrid.ColumnWidth = {'1x'};
             actionGrid.RowHeight = {28, 28, 28, 28};  % 4 buttons, tighter fit
             actionGrid.Padding = [5 5 5 5];
-            actionGrid.RowSpacing = 3;
+            actionGrid.RowSpacing = 2;  % Minimal gap between buttons
 
             app.SwapButton = uibutton(actionGrid, 'push');
             app.SwapButton.Text = '<-- Swap -->';
