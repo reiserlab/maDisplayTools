@@ -20,11 +20,27 @@ The Previewer is the central hub—Generator and Combiner automatically send the
 % Add tools to path (run once per session)
 addpath(genpath('/path/to/maDisplayTools'));
 
-% Launch apps
+% Launch apps individually
 PatternGeneratorApp    % Create new patterns
 PatternPreviewerApp    % View/export patterns
 PatternCombinerApp     % Combine patterns
 ```
+
+## Launching & Arranging Apps
+
+For convenience, you can launch all three apps at once:
+
+```matlab
+open_pattern_tools     % Opens Generator, Previewer, and Combiner together
+```
+
+**Window positions:** The apps remember their positions. To save your preferred layout:
+1. Arrange the windows where you want them
+2. Use **Save Position** (in each app's menu or toolbar) to remember the layout
+
+**Closing apps:**
+- Click the **Close Pattern Apps** button in PatternPreviewerApp, or
+- Run `close_pattern_apps` from the command line
 
 ---
 
