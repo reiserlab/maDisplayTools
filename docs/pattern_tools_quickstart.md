@@ -112,6 +112,8 @@ Standard configurations in `configs/arenas/`:
 5. Review in Previewer (play animation, check histogram)
 6. Click **Save** in Generator to save the pattern
 
+**Tip:** Both Generator and Combiner suggest reasonable filenames when saving, but they won't capture every parameter. Review the proposed name and edit it to something descriptive enough to help you identify the pattern later.
+
 *(For combining patterns, see the PatternCombinerApp section below.)*
 
 ---
