@@ -31,12 +31,12 @@ PatternCombinerApp     % Combine patterns
 For convenience, you can launch all three apps at once:
 
 ```matlab
-open_pattern_tools     % Opens Generator, Previewer, and Combiner together
+open_pattern_apps          % Opens Generator, Previewer, and Combiner together
 ```
 
-**Window positions:** The apps remember their positions. To save your preferred layout:
+**Window positions:** To save your preferred window layout:
 1. Arrange the windows where you want them
-2. Use **Save Position** (in each app's menu or toolbar) to remember the layout
+2. Run `save_pattern_app_layout` to remember the positions
 
 **Closing apps:**
 - Click the **Close Pattern Apps** button in PatternPreviewerApp, or
