@@ -125,6 +125,13 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - FPS options: 1, 5, 10, 20, 30 (removed 60)
 - Bug fix: histogram bars not rendering (was using `XData` instead of `YData` for `barh`)
 
+### ✅ Pattern Tools Quick Start Guide (Jan 30)
+- Created `docs/pattern_tools_quickstart.md` for new lab members
+- Annotated screenshots for PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp
+- Documents arena configs, pattern organization convention, typical workflows
+- Includes app launcher utilities, troubleshooting tips, link to G4 documentation
+- GitHub issues link for reporting problems
+
 ### ✅ G6 Pattern Tools & CI/CD (Jan 23-24)
 - Created `g6/` directory with pattern encoding tools
   - `g6_save_pattern.m` — user-facing pattern creation
