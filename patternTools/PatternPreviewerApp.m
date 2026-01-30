@@ -41,7 +41,9 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
 
         % Middle column - Histogram
         MiddlePanel                matlab.ui.container.Panel
-        HistogramTextArea          matlab.ui.control.TextArea
+        HistogramAxes              matlab.ui.control.UIAxes
+        HistogramEnableCheckbox    matlab.ui.control.CheckBox
+        HistogramScaleButton       matlab.ui.control.Button
 
         % Right column - Controls
         RightPanel                 matlab.ui.container.Panel
@@ -67,6 +69,7 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
 
         % Status bar
         StatusLabel                matlab.ui.control.Label
+        CloseAppsButton            matlab.ui.control.Button
     end
 
     properties (Access = private)
@@ -98,6 +101,12 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
         CurrentFilePath            % Path to currently loaded file
         PixelsPerPanel = 20        % Pixels per panel (G3=8, G4=16, G6=20)
         IsUnsaved = false          % Whether current pattern is unsaved (from combiner/generator)
+        HistogramLogScale = false  % Whether histogram uses log scale
+
+        % Persistent histogram graphics handles (for performance)
+        HistogramBars              % Array of bar handles (reused each frame)
+        HistogramLabels            % Array of text handles (reused each frame)
+        HistogramNumLevels = 0     % Number of levels currently initialized
     end
 
     methods (Access = private)
@@ -755,24 +764,127 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             app.updateHistogram(frameData);
         end
 
-        function updateHistogram(app, frameData)
-            % Update the intensity histogram display
-            % Shows all possible intensity levels (16 for GS4, 2 for binary)
-            maxVal = (app.gs_val == 16) * 15 + (app.gs_val ~= 16) * 1;
-            numLevels = maxVal + 1;  % 16 for GS4, 2 for binary
+        function initHistogramObjects(app, numLevels, maxVal)
+            % Initialize persistent histogram bar and label objects (called once)
+            % This avoids creating/destroying objects every frame for performance
 
-            counts = histcounts(double(frameData(:)), -0.5:1:(maxVal+0.5));
-            maxCount = max(max(counts), 1);  % Avoid division by zero
+            cla(app.HistogramAxes);
+            hold(app.HistogramAxes, 'on');
 
-            lines = cell(numLevels, 1);
+            app.HistogramBars = gobjects(numLevels, 1);
+            app.HistogramLabels = gobjects(numLevels, 1);
+
             for val = 0:maxVal
-                count = counts(val + 1);  % 0-indexed value, 1-indexed array
-                barLen = round(count / maxCount * 12);
-                bar = repmat(char(9608), 1, barLen);  % Unicode full block
-                lines{val + 1} = sprintf('%2d: %-12s %d px', val, bar, count);
+                intensity = val / max(maxVal, 1);
+                barColor = [0, intensity, 0];  % Green channel: black to bright green
+                yPos = val + 1;
+
+                % Create bar (initially zero width)
+                app.HistogramBars(val + 1) = barh(app.HistogramAxes, yPos, 0, 0.7);
+                app.HistogramBars(val + 1).FaceColor = barColor;
+                app.HistogramBars(val + 1).EdgeColor = 'none';
+
+                % Create label (initially hidden)
+                app.HistogramLabels(val + 1) = text(app.HistogramAxes, 1.02, yPos, '', ...
+                    'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
+                    'FontSize', 9, 'Color', [0.3 0.3 0.3], 'Visible', 'off');
+            end
+            hold(app.HistogramAxes, 'off');
+
+            % Configure axes (once)
+            app.HistogramAxes.XLim = [0 1.3];
+            app.HistogramAxes.YLim = [0.5 numLevels + 0.5];
+            app.HistogramAxes.YDir = 'reverse';  % 0 at top
+            app.HistogramAxes.XTick = [];
+            app.HistogramAxes.YTick = 1:numLevels;
+            app.HistogramAxes.Box = 'off';
+            app.HistogramAxes.YTickLabel = arrayfun(@(x) sprintf('%d', x), 0:maxVal, 'UniformOutput', false);
+            app.HistogramAxes.YColor = [0.2 0.2 0.2];
+            title(app.HistogramAxes, '');
+
+            app.HistogramNumLevels = numLevels;
+        end
+
+        function updateHistogram(app, frameData)
+            % Update the intensity histogram display (optimized for performance)
+            % Reuses existing bar/label objects instead of recreating each frame
+
+            % Skip update if histogram is disabled (user unchecked "Enable")
+            if ~app.HistogramEnableCheckbox.Value
+                return;
             end
 
-            app.HistogramTextArea.Value = lines;
+            maxVal = (app.gs_val == 16) * 15 + (app.gs_val ~= 16) * 1;
+            numLevels = maxVal + 1;
+
+            counts = histcounts(double(frameData(:)), -0.5:1:(maxVal+0.5));
+
+            % Calculate bar lengths (normalized to 0-1)
+            if app.HistogramLogScale
+                logCounts = log(counts + 1);
+                barLengths = logCounts / max(max(logCounts), eps);
+            else
+                barLengths = counts / max(max(counts), 1);
+            end
+
+            % Initialize objects if needed (first call or level count changed)
+            if app.HistogramNumLevels ~= numLevels || isempty(app.HistogramBars) || ...
+               ~all(isvalid(app.HistogramBars))
+                app.initHistogramObjects(numLevels, maxVal);
+            end
+
+            % Update existing objects (fast - no object creation)
+            for i = 1:numLevels
+                % Update bar length (YData controls horizontal extent for barh)
+                app.HistogramBars(i).YData = barLengths(i);
+
+                % Update label
+                if counts(i) > 0
+                    app.HistogramLabels(i).String = sprintf('%d', counts(i));
+                    app.HistogramLabels(i).Visible = 'on';
+                else
+                    app.HistogramLabels(i).Visible = 'off';
+                end
+            end
+        end
+
+        function HistogramEnableCheckboxChanged(app)
+            % Handle histogram enable/disable toggle
+            if app.HistogramEnableCheckbox.Value
+                % Re-enabled: update histogram with current frame
+                if ~isempty(app.Pats)
+                    frameData = app.Pats(:, :, app.CurrentFrame);
+                    app.updateHistogram(frameData);
+                end
+            else
+                % Disabled: clear bars and labels to avoid misleading display
+                app.clearHistogramDisplay();
+            end
+        end
+
+        function clearHistogramDisplay(app)
+            % Clear histogram bars and labels (show empty/zeroed state)
+            if ~isempty(app.HistogramBars) && all(isvalid(app.HistogramBars))
+                for i = 1:numel(app.HistogramBars)
+                    app.HistogramBars(i).YData = 0;
+                    app.HistogramLabels(i).Visible = 'off';
+                end
+            end
+        end
+
+        function HistogramScaleButtonPushed(app)
+            % Toggle between linear and log scale for histogram
+            app.HistogramLogScale = ~app.HistogramLogScale;
+            if app.HistogramLogScale
+                app.HistogramScaleButton.Text = 'Scale: Log';
+            else
+                app.HistogramScaleButton.Text = 'Scale: Linear';
+            end
+            % Refresh histogram if pattern is loaded
+            if ~isempty(app.Pats)
+                frameData = app.Pats(:, :, app.CurrentFrame);
+                app.updateHistogram(frameData);
+            end
         end
 
         function colors = getPixelColors(app, frameData)
@@ -957,6 +1069,49 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             app.IsPlaying = false;
             app.PlayButton.Text = 'Play';
             app.PlayButton.BackgroundColor = [0.3 0.5 0.7];
+
+            % Unlock UI and update histogram
+            app.unlockUIAfterPlayback();
+        end
+
+        function lockUIForPlayback(app)
+            % Disable UI controls during playback to prevent race conditions
+            app.FrameSlider.Enable = 'off';
+            app.FPSDropDown.Enable = 'off';
+            app.ViewModeDropDown.Enable = 'off';
+            app.DotScaleSlider.Enable = 'off';
+            app.LonZoomButton.Enable = 'off';
+            app.LatZoomButton.Enable = 'off';
+            app.FOVResetButton.Enable = 'off';
+            app.ShowPanelOutlinesCheckbox.Enable = 'off';
+            app.ShowPanelIDsCheckbox.Enable = 'off';
+            app.HistogramScaleButton.Enable = 'off';
+            % Keep Play button enabled (to stop), but disable other controls
+        end
+
+        function unlockUIAfterPlayback(app)
+            % Re-enable UI controls after playback stops
+            app.FrameSlider.Enable = 'on';
+            app.FPSDropDown.Enable = 'on';
+            app.ViewModeDropDown.Enable = 'on';
+            app.ShowPanelOutlinesCheckbox.Enable = 'on';
+            app.ShowPanelIDsCheckbox.Enable = 'on';
+            app.HistogramScaleButton.Enable = 'on';
+
+            % Re-enable projection controls based on current view mode
+            viewMode = app.ViewModeDropDown.Value;
+            if ~strcmp(viewMode, 'Grid (Pixels)')
+                app.DotScaleSlider.Enable = 'on';
+                app.LonZoomButton.Enable = 'on';
+                app.LatZoomButton.Enable = 'on';
+                app.FOVResetButton.Enable = 'on';
+            end
+
+            % Update histogram for current frame
+            if ~isempty(app.Pats)
+                frameData = app.Pats(:, :, app.CurrentFrame);
+                app.updateHistogram(frameData);
+            end
         end
 
         function baseName = getPatternBaseName(app)
@@ -1095,6 +1250,8 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
                 app.stopPlayback();
             else
                 % Start playback
+                app.lockUIForPlayback();
+
                 fps = str2double(app.FPSDropDown.Value);
                 period = 1 / fps;
 
@@ -1559,17 +1716,37 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             app.MiddlePanel.Layout.Column = 2;
 
             middleGrid = uigridlayout(app.MiddlePanel);
-            middleGrid.ColumnWidth = {'1x'};
-            middleGrid.RowHeight = {'1x'};
+            middleGrid.ColumnWidth = {60, '1x'};  % Checkbox, then button fills rest
+            middleGrid.RowHeight = {'1x', 25};   % Axes row, control row
             middleGrid.Padding = [8 8 8 8];
+            middleGrid.RowSpacing = 4;
 
-            app.HistogramTextArea = uitextarea(middleGrid);
-            app.HistogramTextArea.Value = {'No pattern loaded'};
-            app.HistogramTextArea.Editable = 'off';
-            app.HistogramTextArea.FontName = 'Courier New';
-            app.HistogramTextArea.FontSize = 11;
-            app.HistogramTextArea.Layout.Row = 1;
-            app.HistogramTextArea.Layout.Column = 1;
+            app.HistogramAxes = uiaxes(middleGrid);
+            app.HistogramAxes.Layout.Row = 1;
+            app.HistogramAxes.Layout.Column = [1 2];  % Span both columns
+            app.HistogramAxes.XTick = [];
+            app.HistogramAxes.YDir = 'reverse';  % 0 at top, 15 at bottom
+            app.HistogramAxes.Box = 'off';
+            app.HistogramAxes.XLim = [0 1];
+            app.HistogramAxes.YLim = [0.5 16.5];
+            app.HistogramAxes.YTick = 1:16;
+            app.HistogramAxes.YTickLabel = arrayfun(@(x) sprintf('%d', x-1), 1:16, 'UniformOutput', false);
+            app.HistogramAxes.YAxisLocation = 'left';
+            app.HistogramAxes.FontSize = 10;
+            title(app.HistogramAxes, 'No pattern loaded', 'FontSize', 10, 'FontWeight', 'normal');
+
+            app.HistogramEnableCheckbox = uicheckbox(middleGrid);
+            app.HistogramEnableCheckbox.Text = 'Enable';
+            app.HistogramEnableCheckbox.Value = true;  % Enabled by default
+            app.HistogramEnableCheckbox.ValueChangedFcn = @(~,~) app.HistogramEnableCheckboxChanged();
+            app.HistogramEnableCheckbox.Layout.Row = 2;
+            app.HistogramEnableCheckbox.Layout.Column = 1;
+
+            app.HistogramScaleButton = uibutton(middleGrid, 'push');
+            app.HistogramScaleButton.Text = 'Scale: Linear';
+            app.HistogramScaleButton.ButtonPushedFcn = @(~,~) app.HistogramScaleButtonPushed();
+            app.HistogramScaleButton.Layout.Row = 2;
+            app.HistogramScaleButton.Layout.Column = 2;
 
             % Right Panel - Controls
             app.RightPanel = uipanel(infoControlGrid);
@@ -1600,7 +1777,7 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             app.FPSLabel.Layout.Column = 2;
 
             app.FPSDropDown = uidropdown(rightGrid);
-            app.FPSDropDown.Items = {'1', '5', '10', '20', '30', '60'};
+            app.FPSDropDown.Items = {'1', '5', '10', '20', '30'};
             app.FPSDropDown.Value = '10';
             app.FPSDropDown.ValueChangedFcn = @(~,~) app.FPSDropDownValueChanged();
             app.FPSDropDown.Layout.Row = 1;
@@ -1694,11 +1871,26 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             app.ShowPanelIDsCheckbox.Layout.Row = 7;
             app.ShowPanelIDsCheckbox.Layout.Column = 3;
 
-            % === Row 4: Status bar ===
-            app.StatusLabel = uilabel(app.GridLayout);
+            % === Row 4: Status bar with Close Apps button ===
+            statusGrid = uigridlayout(app.GridLayout);
+            statusGrid.Layout.Row = 4;
+            statusGrid.Layout.Column = 1;
+            statusGrid.ColumnWidth = {'1x', 120};
+            statusGrid.RowHeight = {'1x'};
+            statusGrid.Padding = [5 0 5 0];
+            statusGrid.ColumnSpacing = 10;
+
+            app.StatusLabel = uilabel(statusGrid);
             app.StatusLabel.Text = 'Ready. Use File > Load Pattern to open a .pat file.';
-            app.StatusLabel.Layout.Row = 4;
+            app.StatusLabel.Layout.Row = 1;
             app.StatusLabel.Layout.Column = 1;
+
+            app.CloseAppsButton = uibutton(statusGrid, 'push');
+            app.CloseAppsButton.Text = 'Close Pattern Apps';
+            app.CloseAppsButton.ButtonPushedFcn = @(~,~) close_pattern_apps();
+            app.CloseAppsButton.Layout.Row = 1;
+            app.CloseAppsButton.Layout.Column = 2;
+            app.CloseAppsButton.FontSize = 10;
 
             % Initialize
             app.initColormap();

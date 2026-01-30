@@ -84,6 +84,99 @@ disp('All apps launched successfully');
 
 **If any app fails to launch**: Fix the error before marking task complete.
 
+### MATLAB Testing Best Practices
+
+**MATLAB application path**:
+```
+/Applications/MATLAB_R2025b.app/bin/matlab
+```
+
+**Standard test preamble** - Always start MATLAB test code with:
+```matlab
+cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
+clear classes;    % Clear cached class definitions (REQUIRED for App Designer changes)
+addpath(genpath('.'));  % Add all subdirectories to path
+```
+
+**Why `clear classes` is essential**:
+- MATLAB caches class definitions aggressively
+- Without it, changes to App Designer apps won't take effect
+- Symptoms: "old" behavior persists, properties not found, callbacks don't match
+
+**Closing App Designer apps**:
+- `close all` does NOT close App Designer apps (only traditional `figure()` windows)
+- Use `delete(app)` to close an app when you have the handle
+- To close all UIFigure-based apps without handles:
+  ```matlab
+  delete(findall(0, 'Type', 'figure'));
+  ```
+
+**Full cleanup command** - To close all windows and reset state:
+```matlab
+delete(findall(0, 'Type', 'figure'));  % Close all figures AND App Designer apps
+clear classes;
+```
+
+**Close only pattern apps** - Use the utility function:
+```matlab
+close_pattern_apps();  % Closes only PatternPreviewerApp, PatternGeneratorApp, PatternCombinerApp
+```
+This function is also available via the "Close Pattern Apps" button in PatternPreviewerApp's status bar.
+
+**Capturing GUI screenshots for visual verification**:
+```matlab
+% Create screenshots directory if needed
+if ~exist('screenshots', 'dir'), mkdir('screenshots'); end
+
+% Launch app and capture
+app = PatternPreviewerApp();
+pause(1);  % Allow UI to fully render
+drawnow;   % Force graphics update
+exportapp(app.UIFigure, 'screenshots/test_screenshot.png');
+delete(app);
+```
+
+After capturing, use the Read tool to view the screenshot and verify:
+- All UI elements are visible and not truncated
+- Layout is correct (no overlapping elements)
+- New features appear as expected
+
+**Testing with sample data** - Use `loadPatternFromApp` to test with synthetic patterns:
+```matlab
+app = PatternPreviewerApp();
+testPats = uint8(zeros(40, 200, 2));  % 2 frames
+testPats(:,:,1) = randi([0 15], 40, 200);  % Random grayscale
+arenaConfig = load_arena_config('G6_2x10.yaml');
+app.loadPatternFromApp(testPats, [1 1], 16, 'Test Pattern', arenaConfig);
+```
+
+### Close Session Protocol
+
+When the user says **"close session"**, enter plan mode and prepare documentation updates:
+
+1. **Summarize session work**
+   - List files modified/created
+   - Describe features added, bugs fixed, or refactors completed
+
+2. **Review CLAUDE.md for updates**
+   - New testing patterns or best practices discovered
+   - Gotchas or pitfalls encountered
+   - New utility functions that should be documented
+   - Any corrections to existing documentation
+
+3. **Review docs/G4G6_ROADMAP.md for updates**
+   - Mark completed tasks as done
+   - Add any new issues discovered during the session
+   - Note deferred items or future improvements identified
+
+4. **Present plan for approval**
+   - Show all proposed documentation changes
+   - Wait for user approval before making edits
+
+5. **After approval**
+   - Make the documentation updates
+   - Optionally offer to create a git commit summarizing the session
+
 ## Repository Structure
 
 ```

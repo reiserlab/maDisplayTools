@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-29
-> **Next Review**: ~2026-02-01
+> **Last Updated**: 2026-01-30
+> **Next Review**: ~2026-02-03
 
 ---
 
@@ -114,6 +114,16 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 - `tcp_migration_plan.md` — pnet → tcpclient migration
 - `todo_lab_tuesday.md` — hardware debugging checklist (completed!)
 - `CLAUDE.md` in webDisplayTools — AI assistant guidelines
+
+### ✅ PatternPreviewerApp Histogram & Utilities (Jan 30)
+- Graphical histogram with color-coded horizontal bars (black→green gradient)
+- Log/Linear scale toggle for sparse pattern visualization
+- Enable checkbox to disable histogram during playback (clears display when disabled)
+- Performance optimization: persistent graphics objects (no create/destroy per frame)
+- UI controls locked during playback to prevent race conditions
+- New utilities: `open_pattern_apps()`, `save_pattern_app_layout()`, `close_pattern_apps()`
+- FPS options: 1, 5, 10, 20, 30 (removed 60)
+- Bug fix: histogram bars not rendering (was using `XData` instead of `YData` for `barh`)
 
 ### ✅ G6 Pattern Tools & CI/CD (Jan 23-24)
 - Created `g6/` directory with pattern encoding tools
@@ -783,15 +793,17 @@ The `PatternGeneratorApp.m` was rebuilt as a focused generation-only tool:
 3. Previewer handles all visualization, playback, and file operations
 4. This separation allows each tool to focus on its specialty
 
-**Previewer Features**:
-- Per-frame stretch value display (number field next to plot)
-- Per-frame intensity histogram:
-  - Shows only the intensity levels actually present in the frame
-  - Displays pixel count for each intensity (e.g., "0: 2400 px, 1: 1200 px, 15: 400 px")
-  - Dynamically adapts — 3 rows for binary patterns, up to 16 for full grayscale
-  - Updates in real-time during playback
-  - Essential for validating Pattern Combiner output
-- GIF/video export for documentation and sharing
+**Previewer Features** (✅ Implemented Jan 30):
+- Per-frame stretch value display ✅
+- Per-frame intensity histogram ✅:
+  - Graphical horizontal bars with black→green gradient (0→15)
+  - Pixel counts displayed on right side of each bar
+  - Log/Linear scale toggle for sparse patterns
+  - Enable checkbox to disable during playback (clears display when disabled)
+  - Optimized with persistent graphics objects for smooth playback
+- GIF/video export ✅
+- UI controls disabled during playback to prevent race conditions ✅
+- App layout utilities: `open_pattern_apps()`, `save_pattern_app_layout()`, `close_pattern_apps()` ✅
 
 **Benefits**:
 - Cleaner separation of concerns (creation vs. viewing)
