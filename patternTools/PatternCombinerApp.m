@@ -45,8 +45,7 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
         % Middle column controls
         SwapButton                 matlab.ui.control.Button
-        CombineButton              matlab.ui.control.Button
-        PreviewButton              matlab.ui.control.Button
+        CombineButton              matlab.ui.control.Button  % Now does Combine & Preview
         SaveButton                 matlab.ui.control.Button
 
         % Mode-specific options (in middle panel)
@@ -121,6 +120,21 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
     methods (Access = private)
 
+        function bringAllPatternAppsToFront(app)
+            % Find all pattern app figures and bring to front
+            % This ensures all pattern apps stay visible after file dialogs
+            allFigs = findall(0, 'Type', 'figure');
+            patternAppNames = {'Pattern Previewer', 'Pattern Generator', 'Pattern Combiner'};
+
+            for i = 1:length(allFigs)
+                if ismember(allFigs(i).Name, patternAppNames)
+                    figure(allFigs(i));
+                end
+            end
+            % Bring current app to front last (gives it focus)
+            figure(app.UIFigure);
+        end
+
         function loadPattern1(app, filepath)
             % Load Pattern 1 and set up arena config
             try
@@ -185,6 +199,9 @@ classdef PatternCombinerApp < matlab.apps.AppBase
                 end
 
                 app.StatusLabel.Text = sprintf('Loaded: %s', app.Pat1Name);
+
+                % Bring all pattern apps to front (prevent MATLAB workspace from stealing focus)
+                app.bringAllPatternAppsToFront();
 
             catch ME
                 app.StatusLabel.Text = sprintf('Error: %s', ME.message);
@@ -308,6 +325,9 @@ classdef PatternCombinerApp < matlab.apps.AppBase
                 app.updateCombinedInfo();
                 app.StatusLabel.Text = sprintf('Loaded: %s (ready to combine)', app.Pat2Name);
 
+                % Bring all pattern apps to front (prevent MATLAB workspace from stealing focus)
+                app.bringAllPatternAppsToFront();
+
             catch ME
                 app.StatusLabel.Text = sprintf('Error: %s', ME.message);
                 uialert(app.UIFigure, ME.message, 'Load Error');
@@ -372,8 +392,10 @@ classdef PatternCombinerApp < matlab.apps.AppBase
                     app.combineLeftRight();
             end
 
-            app.PreviewButton.Enable = 'on';
             app.SaveButton.Enable = 'on';
+
+            % Auto-preview after combine
+            app.previewCombined();
             app.updateCombinedInfo();
         end
 
@@ -819,7 +841,6 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             app.Pat1SelectButton.Enable = 'on';
             app.SwapButton.Enable = 'off';
             app.CombineButton.Enable = 'off';
-            app.PreviewButton.Enable = 'off';
             app.SaveButton.Enable = 'off';
 
             app.SequentialRadio.Value = true;
@@ -880,7 +901,6 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             app.updateModeOptions();
             % Clear combined result when mode changes
             app.CombinedPats = [];
-            app.PreviewButton.Enable = 'off';
             app.SaveButton.Enable = 'off';
         end
 
@@ -889,11 +909,7 @@ classdef PatternCombinerApp < matlab.apps.AppBase
         end
 
         function CombineButtonPushed(app, ~)
-            app.combinePatterns();
-        end
-
-        function PreviewButtonPushed(app, ~)
-            app.previewCombined();
+            app.combinePatterns();  % This now also calls previewCombined()
         end
 
         function SaveButtonPushed(app, ~)
@@ -936,6 +952,10 @@ classdef PatternCombinerApp < matlab.apps.AppBase
         end
 
         function UIFigureCloseRequest(app, ~)
+            % Save window position before closing
+            if isvalid(app.UIFigure)
+                setpref('maDisplayTools', 'PatternCombinerPosition', app.UIFigure.Position);
+            end
             delete(app);
         end
     end
@@ -954,15 +974,31 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
             % Create UIFigure (wider to prevent cutoff, taller for all buttons)
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 100 660 640];
             app.UIFigure.Name = 'Pattern Combiner';
             app.UIFigure.CloseRequestFcn = @(~,~) app.UIFigureCloseRequest();
+
+            % Load saved position or use default (compact height)
+            defaultPos = [100 100 660 464];  % Height for stacking
+            if ispref('maDisplayTools', 'PatternCombinerPosition')
+                savedPos = getpref('maDisplayTools', 'PatternCombinerPosition');
+                % Validate saved position (ensure it's on screen)
+                screenSize = get(0, 'ScreenSize');
+                if savedPos(1) >= 0 && savedPos(1) < screenSize(3) - 100 && ...
+                   savedPos(2) >= 0 && savedPos(2) < screenSize(4) - 100 && ...
+                   savedPos(3) >= 200 && savedPos(4) >= 200
+                    app.UIFigure.Position = savedPos;
+                else
+                    app.UIFigure.Position = defaultPos;
+                end
+            else
+                app.UIFigure.Position = defaultPos;
+            end
 
             % Create main grid layout
             % Row 1: Mode + Options, Row 2: Selection controls, Row 3: Info panels, Row 4: Save name, Row 5: Status
             app.MainGrid = uigridlayout(app.UIFigure);
             app.MainGrid.ColumnWidth = {'1x'};
-            app.MainGrid.RowHeight = {80, 210, 140, 30, 25};  % Increased row 2 for all action buttons
+            app.MainGrid.RowHeight = {55, 170, 140, 30, 25};  % Compact heights
             app.MainGrid.Padding = [10 10 10 10];
             app.MainGrid.RowSpacing = 5;
 
@@ -988,15 +1024,15 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             app.SequentialRadio = uiradiobutton(app.ModeButtonGroup);
             app.SequentialRadio.Text = 'Sequential';
             app.SequentialRadio.Value = true;
-            app.SequentialRadio.Position = [5 25 80 22];
+            app.SequentialRadio.Position = [5 5 80 22];  % Moved down to align with Options
 
             app.MaskRadio = uiradiobutton(app.ModeButtonGroup);
             app.MaskRadio.Text = 'Mask';
-            app.MaskRadio.Position = [90 25 60 22];
+            app.MaskRadio.Position = [90 5 60 22];  % Moved down to align with Options
 
             app.LeftRightRadio = uiradiobutton(app.ModeButtonGroup);
             app.LeftRightRadio.Text = 'Left/Right';
-            app.LeftRightRadio.Position = [155 25 80 22];
+            app.LeftRightRadio.Position = [155 5 80 22];  % Moved down to align with Options
 
             % Right side: Mode-specific options
             optionsPanel = uipanel(topGrid);
@@ -1006,7 +1042,7 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
             optionsGrid = uigridlayout(optionsPanel);
             optionsGrid.ColumnWidth = {'1x'};
-            optionsGrid.RowHeight = {'1x', '1x'};
+            optionsGrid.RowHeight = {'1x'};  % Single row - panels overlap, only one visible at a time
             optionsGrid.Padding = [5 5 5 5];
             optionsGrid.RowSpacing = 2;
 
@@ -1064,10 +1100,10 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             app.BinaryOpDropDown.Visible = 'off';
             app.BinaryOpDropDown.ValueChangedFcn = @(~,~) app.BinaryOpChanged();
 
-            % Left/Right options (hidden by default)
+            % Left/Right options (hidden by default, same row as Mask - they overlap)
             app.LeftRightOptionsPanel = uipanel(optionsGrid);
             app.LeftRightOptionsPanel.BorderType = 'none';
-            app.LeftRightOptionsPanel.Layout.Row = 2;
+            app.LeftRightOptionsPanel.Layout.Row = 1;  % Same row as MaskOptionsPanel
             app.LeftRightOptionsPanel.Layout.Column = 1;
             app.LeftRightOptionsPanel.Visible = 'off';
 
@@ -1129,7 +1165,7 @@ classdef PatternCombinerApp < matlab.apps.AppBase
 
             actionGrid = uigridlayout(actionPanel);
             actionGrid.ColumnWidth = {'1x'};
-            actionGrid.RowHeight = {30, 15, 30, 30, 30, 30};
+            actionGrid.RowHeight = {28, 28, 28, 28};  % 4 buttons, tighter fit
             actionGrid.Padding = [5 5 5 5];
             actionGrid.RowSpacing = 3;
 
@@ -1140,37 +1176,24 @@ classdef PatternCombinerApp < matlab.apps.AppBase
             app.SwapButton.ButtonPushedFcn = @(~,~) app.SwapButtonPushed();
             app.SwapButton.Enable = 'off';
 
-            % Spacer (empty label)
-            spacerLabel = uilabel(actionGrid);
-            spacerLabel.Text = '';
-            spacerLabel.Layout.Row = 2;
-            spacerLabel.Layout.Column = 1;
-
             app.ResetButton = uibutton(actionGrid, 'push');
             app.ResetButton.Text = 'Reset';
-            app.ResetButton.Layout.Row = 3;
+            app.ResetButton.Layout.Row = 2;
             app.ResetButton.Layout.Column = 1;
             app.ResetButton.ButtonPushedFcn = @(~,~) app.ResetButtonPushed();
 
             app.CombineButton = uibutton(actionGrid, 'push');
-            app.CombineButton.Text = 'Combine';
-            app.CombineButton.Layout.Row = 4;
+            app.CombineButton.Text = 'Combine & Preview';
+            app.CombineButton.Layout.Row = 3;
             app.CombineButton.Layout.Column = 1;
             app.CombineButton.ButtonPushedFcn = @(~,~) app.CombineButtonPushed();
             app.CombineButton.BackgroundColor = [0.3 0.6 0.3];
             app.CombineButton.FontColor = [1 1 1];
             app.CombineButton.Enable = 'off';
 
-            app.PreviewButton = uibutton(actionGrid, 'push');
-            app.PreviewButton.Text = 'Preview';
-            app.PreviewButton.Layout.Row = 5;
-            app.PreviewButton.Layout.Column = 1;
-            app.PreviewButton.ButtonPushedFcn = @(~,~) app.PreviewButtonPushed();
-            app.PreviewButton.Enable = 'off';
-
             app.SaveButton = uibutton(actionGrid, 'push');
             app.SaveButton.Text = 'Save';
-            app.SaveButton.Layout.Row = 6;
+            app.SaveButton.Layout.Row = 4;
             app.SaveButton.Layout.Column = 1;
             app.SaveButton.ButtonPushedFcn = @(~,~) app.SaveButtonPushed();
             app.SaveButton.BackgroundColor = [0.3 0.5 0.7];

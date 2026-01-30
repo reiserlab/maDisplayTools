@@ -298,6 +298,21 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             end
         end
 
+        function bringAllPatternAppsToFront(app)
+            % Find all pattern app figures and bring to front
+            % This ensures all pattern apps stay visible after file dialogs
+            allFigs = findall(0, 'Type', 'figure');
+            patternAppNames = {'Pattern Previewer', 'Pattern Generator', 'Pattern Combiner'};
+
+            for i = 1:length(allFigs)
+                if ismember(allFigs(i).Name, patternAppNames)
+                    figure(allFigs(i));
+                end
+            end
+            % Bring current app to front last (gives it focus)
+            figure(app.UIFigure);
+        end
+
         function loadPatternFile(app, filepath)
             % Load a .pat file
             try
@@ -399,6 +414,9 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
 
                 app.StatusLabel.Text = sprintf('Loaded: %s (%d frames, %s)', ...
                     [filename, ext], app.NumFrames, app.GrayscaleValueLabel.Text);
+
+                % Bring all pattern apps to front (prevent MATLAB workspace from stealing focus)
+                app.bringAllPatternAppsToFront();
 
             catch ME
                 app.StatusLabel.Text = sprintf('Error loading pattern: %s', ME.message);
@@ -560,6 +578,9 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
                 app.StatusLabel.Text = sprintf('Loaded: %s (%d frames, %s)', ...
                     name, app.NumFrames, app.GrayscaleValueLabel.Text);
 
+                % Bring all pattern apps to front (prevent MATLAB workspace from stealing focus)
+                app.bringAllPatternAppsToFront();
+
             catch ME
                 app.StatusLabel.Text = sprintf('Error loading pattern data: %s', ME.message);
                 uialert(app.UIFigure, ME.message, 'Load Error');
@@ -600,16 +621,12 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
                 % Use integer ticks only, spaced appropriately for readability
                 if app.NumFrames <= 10
                     % Few frames: show all ticks
-                    app.FrameSlider.MajorTicks = 1:app.NumFrames;
+                    ticks = 1:app.NumFrames;
                 elseif app.NumFrames <= 20
                     % Medium count: show every 2nd tick
-                    app.FrameSlider.MajorTicks = 1:2:app.NumFrames;
-                    if mod(app.NumFrames, 2) == 0
-                        % Ensure last tick is shown
-                        ticks = 1:2:app.NumFrames;
-                        if ticks(end) ~= app.NumFrames
-                            app.FrameSlider.MajorTicks = [ticks, app.NumFrames];
-                        end
+                    ticks = 1:2:app.NumFrames;
+                    if mod(app.NumFrames, 2) == 0 && ticks(end) ~= app.NumFrames
+                        ticks = [ticks, app.NumFrames];
                     end
                 else
                     % Many frames: show ~10 evenly spaced ticks
@@ -619,9 +636,13 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
                     if ticks(end) ~= app.NumFrames
                         ticks = [ticks, app.NumFrames];
                     end
-                    app.FrameSlider.MajorTicks = ticks;
                 end
+
+                % Set ticks and generate matching labels
+                app.FrameSlider.MajorTicks = ticks;
                 app.FrameSlider.MinorTicks = [];
+                % Generate string labels for each tick value
+                app.FrameSlider.MajorTickLabels = arrayfun(@num2str, ticks, 'UniformOutput', false);
             else
                 % Single frame - disable slider
                 app.FrameSlider.MajorTicks = [];
@@ -1289,7 +1310,10 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
         end
 
         function UIFigureCloseRequest(app, ~)
-            % Handle window close
+            % Handle window close - save position before closing
+            if isvalid(app.UIFigure)
+                setpref('maDisplayTools', 'PatternPreviewerPosition', app.UIFigure.Position);
+            end
             app.stopPlayback();
             delete(app);
         end
@@ -1309,11 +1333,27 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
             addpath(fullfile(app.maDisplayToolsRoot, 'patternTools'));
             addpath(fullfile(app.maDisplayToolsRoot, 'utils'));
 
-            % Create UIFigure
+            % Create UIFigure with persistent position
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 50 1200 900];  % Larger window
             app.UIFigure.Name = 'Pattern Previewer';
             app.UIFigure.CloseRequestFcn = @(~,~) app.UIFigureCloseRequest();
+
+            % Load saved position or use default
+            defaultPos = [480 150 900 700];
+            if ispref('maDisplayTools', 'PatternPreviewerPosition')
+                savedPos = getpref('maDisplayTools', 'PatternPreviewerPosition');
+                % Validate saved position (ensure it's on screen)
+                screenSize = get(0, 'ScreenSize');
+                if savedPos(1) >= 0 && savedPos(1) < screenSize(3) - 100 && ...
+                   savedPos(2) >= 0 && savedPos(2) < screenSize(4) - 100 && ...
+                   savedPos(3) >= 200 && savedPos(4) >= 200
+                    app.UIFigure.Position = savedPos;
+                else
+                    app.UIFigure.Position = defaultPos;
+                end
+            else
+                app.UIFigure.Position = defaultPos;
+            end
 
             % Create main grid layout (no toolbar row - using menus instead)
             app.GridLayout = uigridlayout(app.UIFigure);

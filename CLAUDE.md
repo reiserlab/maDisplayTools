@@ -60,6 +60,30 @@ All tests PASSED!
 
 **If any test fails**: Do not mark the task as complete. Debug and fix the issue first.
 
+### MANDATORY: App Launch Test After GUI Changes
+
+**CRITICAL**: After modifying ANY App Designer file (PatternGeneratorApp.m, PatternPreviewerApp.m, PatternCombinerApp.m), you MUST test that each modified app launches without errors:
+
+```matlab
+cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
+clear classes;
+addpath(genpath('.'));
+
+% Test each modified app launches without error
+app = PatternGeneratorApp(); pause(1); delete(app);
+app = PatternPreviewerApp(); pause(1); delete(app);
+app = PatternCombinerApp(); pause(1); delete(app);
+disp('All apps launched successfully');
+```
+
+**Why this is required**:
+- Property declarations must match all property references
+- UI component creation order matters
+- Callback function signatures must be correct
+- These errors only appear at runtime, not during file editing
+
+**If any app fails to launch**: Fix the error before marking task complete.
+
 ## Repository Structure
 
 ```
@@ -200,8 +224,9 @@ The pattern tools use MATLAB App Designer (not GUIDE):
 | App | Purpose | Status |
 |-----|---------|--------|
 | `PatternPreviewerApp.m` | Central hub for viewing/animating patterns | ✅ Complete |
-| `PatternGeneratorApp.m` | Pattern creation (gratings, starfield, etc.) | ✅ Complete (needs separation from preview) |
+| `PatternGeneratorApp.m` | Focused pattern creation, sends to Previewer | ✅ Complete |
 | `PatternCombinerApp.m` | Combine two patterns (sequential, mask, L/R split) | ✅ Complete |
+| `PatternGeneratorApp_v0.m` | Legacy generator with embedded preview (archived) | 📦 Archived |
 
 ### Pattern Combiner Validation
 

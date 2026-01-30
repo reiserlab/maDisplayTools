@@ -765,18 +765,17 @@ Split PatternGeneratorApp into 4 specialized windows:
 | Window | Purpose | Key Feature | Status |
 |--------|---------|-------------|--------|
 | **Pattern Previewer** | Central hub for viewing/animating patterns | Per-frame stretch + intensity histogram | ✅ Complete |
-| **Pattern Generator** | Standard pattern creation (gratings, starfield, looming, etc.) | "Generate and Preview" → sends to Previewer | 🔄 Needs separation |
+| **Pattern Generator** | Standard pattern creation (gratings, starfield, looming, etc.) | "Generate and Preview" → sends to Previewer | ✅ Complete |
 | **Pattern Combiner** | Combine two patterns (sequential, mask, left/right) | Multi-mode combination with swap | ✅ Complete |
 | **Drawing App** | Manual pixel-level pattern creation | For custom non-parameterized stimuli | Planned |
 
-**Next Priority: Generator/Previewer Separation**
+**Generator/Previewer Separation: COMPLETE** (2026-01-29)
 
-The current `PatternGeneratorApp.m` combines both generation and preview functionality. Now that `PatternPreviewerApp.m` is a robust standalone app with full projection support, the next step is to create a focused Pattern Generator that:
-- Handles only pattern parameter configuration and generation
-- Sends generated patterns to PatternPreviewerApp via `loadPatternFromApp()`
-- Has a simpler UI without embedded preview
-
-**Recommended approach**: Clean rebuild of Generator rather than removing functionality piece by piece. This creates cleaner code and allows rethinking the UI layout for a generation-focused workflow.
+The `PatternGeneratorApp.m` was rebuilt as a focused generation-only tool:
+- Compact single-column UI (380×700 px) — fits alongside Previewer
+- "Generate & Preview" button creates pattern and sends to PatternPreviewerApp
+- Original version archived as `PatternGeneratorApp_v0.m`
+- Uses same API as PatternCombinerApp for consistency
 
 **Workflow**:
 1. Previewer is the central app — can open files or launch generator apps
@@ -926,6 +925,80 @@ webDisplayTools/
 ---
 
 ## Session Notes
+
+### 2026-01-29 (Night): UI Layout Refinements for Stackable Apps
+
+**Focus**: Make PatternGeneratorApp and PatternCombinerApp shorter so they can be stacked vertically
+
+**Completed**:
+
+1. **PatternGeneratorApp Layout Overhaul**:
+   - Moved 3 buttons to span full window width (below both Parameters and Options panels)
+   - Buttons now equal-width: "Generate & Preview", "Save...", "Export Script..."
+   - Added status line at the very bottom (moved from window title)
+   - Changed MainGrid from `[1 2]` to `[3 2]` (panels row, buttons row, status row)
+   - Default height: 604px
+
+2. **PatternCombinerApp Compaction**:
+   - Aligned "Sequential / Mask / Left/Right" radio buttons with "Replace / 50% Blend" row
+   - Removed spacer row from action buttons, reduced row heights to {28, 28, 28, 28}
+   - All 4 action buttons now visible without cutoff (Swap, Reset, Combine & Preview, Save)
+   - Reduced MainGrid row heights: {55, 170, 140, 30, 25} (was {80, 210, 140, 30, 25})
+   - Default height: 464px
+
+3. **Focus Management**:
+   - `bringAllPatternAppsToFront()` reverted to exact name matching (status no longer in window title)
+   - All three apps (Generator, Combiner, Previewer) updated consistently
+
+4. **Validation**: All 6 pattern save/load tests pass
+
+**Files Modified**:
+- `patternTools/PatternGeneratorApp.m` — Full-width buttons, status line, height 604
+- `patternTools/PatternCombinerApp.m` — Compact layout, height 464
+- `patternTools/PatternPreviewerApp.m` — Focus management consistency
+
+---
+
+### 2026-01-29 (Late PM): PatternGeneratorApp Separation Complete
+
+**Focus**: Separate Pattern Generator from embedded preview, create focused generation-only app
+
+**Completed**:
+
+1. **New PatternGeneratorApp.m** (~1,000 lines vs ~2,400 original):
+   - Clean rebuild focused on pattern creation only
+   - Compact single-column layout (380×700 px)
+   - "Generate & Preview" button sends pattern to PatternPreviewerApp
+   - Positions side-by-side with Previewer (Generator left, Previewer right)
+   - All generation parameters preserved: pattern types, motion, brightness, masks, starfield options
+   - Arena config locking after generation (prevents mismatch)
+
+2. **Inter-App Communication**:
+   - Uses same API as PatternCombinerApp: `loadPatternFromApp(Pats, stretch, gs_val, name, arenaConfig, true)`
+   - Finds/reuses existing Previewer window
+   - Positions Previewer adjacent to Generator automatically
+
+3. **Archived Original**:
+   - `PatternGeneratorApp_v0.m` — Original version with embedded preview preserved for reference
+
+4. **Fixed Pattern_Generator call**:
+   - Corrected function signature: `[Pats, ~, ~] = Pattern_Generator(handles)` (was incorrectly using extra args)
+
+5. **All validation tests passing**: 6/6 pattern save/load
+
+**Files Created/Modified**:
+- `patternTools/PatternGeneratorApp.m` — NEW: Focused generator (~1,000 lines)
+- `patternTools/PatternGeneratorApp_v0.m` — RENAMED: Original with embedded preview
+- `CLAUDE.md` — Updated Current Apps table
+
+**Architecture Achievement**:
+Future Vision goal complete — Now have 3 of 4 specialized windows:
+- ✅ PatternPreviewerApp (central hub)
+- ✅ PatternGeneratorApp (focused generation)
+- ✅ PatternCombinerApp (pattern combination)
+- 🔄 Drawing App (planned)
+
+---
 
 ### 2026-01-29 (PM): PatternCombinerApp Refinements + PatternPreviewerApp Fixes
 
@@ -1351,6 +1424,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-29 (Night) | **UI layout refinements for stackable apps** — PatternGeneratorApp: moved 3 buttons to full window width below both panels, equal-width ("Generate & Preview", "Save...", "Export Script..."), status line at bottom, height 604px. PatternCombinerApp: aligned radio buttons with Options content, removed spacer from action buttons, reduced row heights, all buttons visible without cutoff, height 464px. Both apps now stack nicely on screen. All validation tests pass. |
 | 2026-01-29 (PM) | **PatternCombinerApp refinements + PatternPreviewerApp fixes** — UI redesign: window 660×640, three aligned info panels with pattern names in bold, all action buttons visible, editable "Save as:" field. Dynamic file naming: names update when changing options (threshold, split, binary op, mask mode); conventions: `_then_` (sequential), `_mask{N}_` (replace), `_blend_` (blend), `_{OP}_` (binary), `_LR{N}_` (split). PatternPreviewerApp fixes: slider initialization (drawnow fixes compressed ticks), projection views for in-memory patterns (new `generateArenaCoordinatesFromConfig()` method), format shows "G6 (in memory)" with generation, window reuse (finds existing Previewer). All 18 validation tests pass. **Next suggested**: Clean rebuild of Pattern Generator as focused tool that sends to Previewer. |
 | 2026-01-29 | **PatternCombinerApp implemented** — New App Designer GUI (620×520 px) for combining two patterns. Three modes: Sequential (concatenate frames), Mask (replace at threshold / 50% blend for GS16; OR/AND/XOR for binary), Left/Right (configurable split point). Features: Pattern 1 sets arena config, Pattern 2 dropdown shows compatible patterns (same dir, same GS), Swap button, frame truncation dialog for spatial modes, stretch mismatch dialog. Updated PatternPreviewerApp with `isUnsaved` flag and red "UNSAVED" warning label. Created `tests/validate_pattern_combiner.m` (12 tests, all pass). Enabled Tools > Pattern Combiner menu. Updated Future Vision table to show 3 of 4 apps complete. |
 | 2026-01-29 | **Directory reorganization + PatternPreviewerApp enhancements** — Consolidated `patternGenerator/` and `patternPreviewer/` into `patternTools/`. Moved legacy GUIDE files to `patternTools/legacy/`. Added Panel ID overlay feature to PatternPreviewerApp (checkbox next to Panel Outlines, displays Pan # and Col # in red text). Fixed panel ID numbering to use column-major order (matches G6 documentation). Added GUI screenshot verification workflow to CLAUDE.md using `exportapp()`. Documented inter-app communication API (`loadPatternFromApp`) with recommendation to pass arena config explicitly rather than auto-detect from dimensions. |
