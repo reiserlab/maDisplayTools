@@ -91,15 +91,15 @@ Standard configurations in `configs/arenas/`:
 ## Typical Workflow
 
 ```
-┌─────────────────────┐     Generate &      ┌─────────────────────┐
-│ PatternGeneratorApp │ ───────────────────→ │ PatternPreviewerApp │
-│                     │       Preview        │                     │
-│      [Save]         │                      │   View / Export     │
-└─────────────────────┘                      └─────────────────────┘
-                                                      ↑
-┌─────────────────────┐     Combine &                 │
-│ PatternCombinerApp  │ ─────────────────────────────→│
-│                     │       Preview
+┌─────────────────────┐    Generate &       ┌─────────────────────┐
+│ PatternGeneratorApp │ ──────────────────→ │ PatternPreviewerApp │
+│                     │      Preview        │                     │
+│      [Save]         │                     │   View / Export     │
+└─────────────────────┘                     └─────────────────────┘
+                                                     ↑
+┌─────────────────────┐    Combine &                 │
+│ PatternCombinerApp  │ ────────────────────────────→│
+│                     │      Preview
 │      [Save]         │
 └─────────────────────┘
 ```
@@ -113,6 +113,8 @@ Standard configurations in `configs/arenas/`:
 6. Click **Save** in Generator to save the pattern
 
 **Tip:** Both Generator and Combiner suggest reasonable filenames when saving, but they won't capture every parameter. Review the proposed name and edit it to something descriptive enough to help you identify the pattern later.
+
+**Help:** Click the **?** button in PatternGeneratorApp to open a window with more details about each parameter.
 
 *(For combining patterns, see the PatternCombinerApp section below.)*
 
@@ -225,6 +227,13 @@ Pattern folder:   patterns/{arena_config_name}/
 Arena configs:    configs/arenas/*.yaml
 Reset MATLAB:     clear classes; addpath(genpath('.'));
 ```
+
+---
+
+## Further Reading
+
+These tools are based on the G4 Display Tools. For additional details on pattern generation concepts:
+- [G4 Pattern Generator Documentation](https://reiserlab.github.io/Modular-LED-Display/Generation%204/Display_Tools/docs/pattern-generator.html)
 
 ---
 
