@@ -697,17 +697,17 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
    - ~~Add links to documentation / roadmap~~ → Done
    - ~~Clarify which tools are complete vs placeholder~~ → Done
 
-3. **G6 Pattern Format Support**
-   - Implement G6 .pat file writer (per protocol spec)
-   - Panel block formatting with parity
-   - Validate against protocol v1 spec
+3. ~~**G6 Pattern Format Support**~~ ✅ COMPLETE
+   - ~~Implement G6 .pat file writer (per protocol spec)~~ → `g6_save_pattern.m`
+   - ~~Panel block formatting with parity~~ → `g6_encode_panel.m`
+   - ~~Validate against protocol v1 spec~~ → `validate_pattern_save_load.m`
    - Note: No G6 hardware available yet for testing
 
-4. **Pattern Index Direction Verification**
+4. ~~**Pattern Index Direction Verification**~~ ✅ COMPLETE
    - **Convention agreed**: (0,0) at lower left, increasing up and to the right
-   - Keep as verification item to confirm as we move to whole patterns
-   - Add validation tests to catch any mismatches
-   - Document convention clearly in pattern tools
+   - ~~Keep as verification item to confirm as we move to whole patterns~~ → Verified in MATLAB and Web
+   - ~~Add validation tests to catch any mismatches~~ → `validate_pattern_save_load.m`
+   - ~~Document convention clearly in pattern tools~~ → In CLAUDE.md and g6_decode_panel.m
 
 5. **Cross-Platform SD Card Workflow** (NEW)
    - Test `prepare_sd_card.m` on macOS
@@ -740,7 +740,7 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
 ### Low Priority (Future)
 
 10. **3D Arena Visualization Enhancements**
-    - Load custom patterns from file
+    - ~~Load custom patterns from file~~ ✅ Done (arena_3d_viewer.html + pat-parser.js)
     - Angular resolution histogram (per-pixel calculation)
     - Export 3D models for CAD
 
@@ -766,7 +766,26 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
 
 ## Future Vision: PatternGeneratorApp Architecture
 
-> **Status**: Planning/Design — Not yet scheduled for implementation
+> **Status**: MATLAB implementation largely complete. Next step: architect web tools port.
+
+### Web Tools Port (Next Step)
+
+The MATLAB pattern generation architecture is now mostly implemented (Generator, Previewer, Combiner apps). Before porting to web tools, we need:
+
+1. **Design Vision** — Define the user experience for web-based pattern creation
+   - Single-page vs multi-window approach
+   - Mobile/tablet support considerations
+   - Offline capability requirements
+
+2. **Layout Strategy** — Plan how to organize the web UI
+   - Leverage existing dark theme design system
+   - Responsive layout for different screen sizes
+   - Integration with existing arena_3d_viewer.html
+
+3. **Technical Architecture** — Choose implementation approach
+   - Vanilla JS vs framework (React, Vue, etc.)
+   - Pattern file handling (upload, download, local storage)
+   - Sharing/collaboration features
 
 ### Near-term: New Pattern Types
 
@@ -1501,6 +1520,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-30 (late) | **Roadmap updates: backlog items completed** — Marked High Priority #3 (G6 Pattern Format Support) and #4 (Pattern Index Direction Verification) as COMPLETE. Updated Low Priority #10 (3D Arena Visualization): first task "Load custom patterns from file" done via arena_3d_viewer.html + pat-parser.js. Updated Future Vision section: MATLAB implementation (Generator, Previewer, Combiner) now largely complete; added "Web Tools Port" as next step requiring design vision, layout strategy, and technical architecture planning. |
 | 2026-01-30 | **Web Pattern Viewer implementation** — Added .pat file loading to 3D arena viewer (webDisplayTools). Created `js/pat-parser.js` module for G6 and G4 pattern parsing with row flip compensation. Added pattern loading UI: file picker, pattern info display, frame slider, play/pause with FPS control (1-30), FOV slider with presets (60°/120°/170°). Added `testLoadPattern()` for automated testing. Updated CLAUDE.md with testing docs and close session protocol. Created GitHub issues #8 (UI polish) and #9 (fisheye shader). Marked In-Flight Work #0 (Web Tools Update) as COMPLETE. |
 | 2026-01-29 (Night) | **UI layout refinements for stackable apps** — PatternGeneratorApp: moved 3 buttons to full window width below both panels, equal-width ("Generate & Preview", "Save...", "Export Script..."), status line at bottom, height 604px. PatternCombinerApp: aligned radio buttons with Options content, removed spacer from action buttons, reduced row heights, all buttons visible without cutoff, height 464px. Both apps now stack nicely on screen. All validation tests pass. |
 | 2026-01-29 (PM) | **PatternCombinerApp refinements + PatternPreviewerApp fixes** — UI redesign: window 660×640, three aligned info panels with pattern names in bold, all action buttons visible, editable "Save as:" field. Dynamic file naming: names update when changing options (threshold, split, binary op, mask mode); conventions: `_then_` (sequential), `_mask{N}_` (replace), `_blend_` (blend), `_{OP}_` (binary), `_LR{N}_` (split). PatternPreviewerApp fixes: slider initialization (drawnow fixes compressed ticks), projection views for in-memory patterns (new `generateArenaCoordinatesFromConfig()` method), format shows "G6 (in memory)" with generation, window reuse (finds existing Previewer). All 18 validation tests pass. **Next suggested**: Clean rebuild of Pattern Generator as focused tool that sends to Previewer. |
