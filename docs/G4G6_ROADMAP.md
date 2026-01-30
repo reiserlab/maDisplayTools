@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 > 
-> **Last Updated**: 2026-01-30
+> **Last Updated**: 2026-01-30 (evening)
 > **Next Review**: ~2026-02-03
 
 ---
@@ -303,34 +303,47 @@ These are started projects that need to be picked up and completed. Each section
 
 ### 0. Web Tools Update for Arena Config Changes
 
-**Status**: 🔴 NEEDS UPDATE — Arena config schema changed in MATLAB, web tools need sync
+**Status**: ✅ COMPLETE (Jan 30)
 
 **Changes Made (Jan 28)**:
 1. **File renames**: `G6_2x10_full.yaml` → `G6_2x10.yaml`, `G6_2x8_walking.yaml` → `G6_2x8of10.yaml`, etc.
 2. **Schema change**: `panels_installed` → `columns_installed`
 3. **New naming convention**: Partial arenas use `{rows}x{installed}of{total}` format
 
-**Web Tools to Update**:
+**Completed (Jan 30)**:
+- [x] CI/CD workflow triggered to sync configs
+- [x] `arena_editor.html` updated to use `columns_installed`
+- [x] Config dropdown shows new names
+- [x] 3D viewer loads renamed configs
+- [x] Added `.pat` file loading to 3D viewer (new feature!)
+- [x] Updated `CLAUDE.md` with testing documentation
 
-| File | Changes Needed |
-|------|----------------|
-| `arena_editor.html` | Update config dropdown names, change `panels_installed` → `columns_installed` in YAML export |
-| `arena_3d_viewer.html` | Update URL param examples (`?config=G6_2x10` not `G6_2x10_full`) |
-| `js/arena-configs.js` | Regenerate from YAML (CI/CD should handle this) |
-| `scripts/generate-arena-configs.js` | Update to use `columns_installed` field |
-| `.github/workflows/sync-arena-configs.yml` | Trigger manual sync to pick up renamed files |
+---
 
-**To Pick Up**:
-1. Run CI/CD sync workflow manually (or wait for weekly trigger)
-2. Update `arena_editor.html` YAML export to use `columns_installed`
-3. Test config dropdown shows new names
-4. Test partial arena export produces correct `columns_installed` array
-5. Verify 3D viewer loads renamed configs
+### 0a. Web 3D Viewer Pattern Loading
 
-**Files to Review**:
-- `webDisplayTools/arena_editor.html`
-- `webDisplayTools/arena_3d_viewer.html`
-- `webDisplayTools/scripts/generate-arena-configs.js`
+**Status**: ✅ COMPLETE (Jan 30)
+
+**New Feature**: Load `.pat` files directly in the 3D arena viewer.
+
+**Implemented**:
+- `js/pat-parser.js` — G6 and G4 pattern file parser
+- Pattern loading UI in `arena_3d_viewer.html`
+- Multi-frame playback with FPS control (1-30 FPS)
+- FOV control with presets (Normal 60°, Wide 120°, Fly Eye 170°)
+- `window.testLoadPattern(url)` for automated testing
+
+**Open Issues** (GitHub):
+- [#8: UI polish and playback improvements](https://github.com/reiserlab/webDisplayTools/issues/8)
+  - Remove "Rotate Pattern" button (redundant)
+  - Rename "Pattern" → "Test Patterns"
+  - Add negative FPS for CW/CCW playback
+  - Lock controls during playback
+  - Fix cramped statistics panel
+  - Uniform button sizes
+- [#9: True fisheye shader for fly eye simulation](https://github.com/reiserlab/webDisplayTools/issues/9)
+  - Barrel distortion shader
+  - ~270° horizontal × 180° vertical FOV
 
 ---
 
@@ -938,6 +951,58 @@ webDisplayTools/
 
 ## Session Notes
 
+### 2026-01-30: Web Pattern Viewer Implementation
+
+**Focus**: Add .pat file loading to 3D arena viewer (webDisplayTools)
+
+**Completed**:
+
+1. **Pattern Parser Module** (`js/pat-parser.js`):
+   - G6 format: 17-byte header with "G6PT" magic, 20×20 panels
+   - G4 format: 7-byte header, 16×16 panels
+   - Row flip compensation (encoder flips rows, decoder must flip back)
+   - Verification function with console logging
+   - ES module exports for browser import
+
+2. **3D Viewer Pattern Loading** (`arena_3d_viewer.html`):
+   - "Load .pat File" button with file picker
+   - Pattern info display (filename, generation, dimensions, frames, GS mode)
+   - Frame slider for multi-frame navigation
+   - Play/Pause button with FPS dropdown (1, 5, 10, 20, 30)
+   - Clear Pattern button to return to test patterns
+   - Auto-detect matching arena config from pattern dimensions
+
+3. **FOV Controls**:
+   - FOV slider (30° to 170°)
+   - Preset buttons: Normal (60°), Wide (120°), Fly Eye (170°)
+   - Real-time camera update
+
+4. **Testing Infrastructure**:
+   - `window.testLoadPattern(url)` for automated testing
+   - Chrome extension testing workflow documented
+   - Console logging for pattern verification
+
+5. **Documentation** (`CLAUDE.md`):
+   - Pattern validation section
+   - Chrome extension testing workflow
+   - Close session protocol (references maDisplayTools roadmap)
+
+**GitHub Issues Created**:
+- #8: UI polish and playback improvements
+- #9: True fisheye shader for fly eye simulation
+
+**Files Created/Modified**:
+- `webDisplayTools/js/pat-parser.js` — NEW
+- `webDisplayTools/arena_3d_viewer.html` — Pattern loading, playback, FOV
+- `webDisplayTools/CLAUDE.md` — Testing docs, close session protocol
+
+**Testing**:
+- Tested G6 GS16 pattern (17 frames) — loads and plays correctly
+- FOV presets work as expected
+- Verified with Claude Chrome extension (screenshots, JS execution)
+
+---
+
 ### 2026-01-29 (Night): UI Layout Refinements for Stackable Apps
 
 **Focus**: Make PatternGeneratorApp and PatternCombinerApp shorter so they can be stacked vertically
@@ -1436,6 +1501,7 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 
 | Date | Change |
 |------|--------|
+| 2026-01-30 | **Web Pattern Viewer implementation** — Added .pat file loading to 3D arena viewer (webDisplayTools). Created `js/pat-parser.js` module for G6 and G4 pattern parsing with row flip compensation. Added pattern loading UI: file picker, pattern info display, frame slider, play/pause with FPS control (1-30), FOV slider with presets (60°/120°/170°). Added `testLoadPattern()` for automated testing. Updated CLAUDE.md with testing docs and close session protocol. Created GitHub issues #8 (UI polish) and #9 (fisheye shader). Marked In-Flight Work #0 (Web Tools Update) as COMPLETE. |
 | 2026-01-29 (Night) | **UI layout refinements for stackable apps** — PatternGeneratorApp: moved 3 buttons to full window width below both panels, equal-width ("Generate & Preview", "Save...", "Export Script..."), status line at bottom, height 604px. PatternCombinerApp: aligned radio buttons with Options content, removed spacer from action buttons, reduced row heights, all buttons visible without cutoff, height 464px. Both apps now stack nicely on screen. All validation tests pass. |
 | 2026-01-29 (PM) | **PatternCombinerApp refinements + PatternPreviewerApp fixes** — UI redesign: window 660×640, three aligned info panels with pattern names in bold, all action buttons visible, editable "Save as:" field. Dynamic file naming: names update when changing options (threshold, split, binary op, mask mode); conventions: `_then_` (sequential), `_mask{N}_` (replace), `_blend_` (blend), `_{OP}_` (binary), `_LR{N}_` (split). PatternPreviewerApp fixes: slider initialization (drawnow fixes compressed ticks), projection views for in-memory patterns (new `generateArenaCoordinatesFromConfig()` method), format shows "G6 (in memory)" with generation, window reuse (finds existing Previewer). All 18 validation tests pass. **Next suggested**: Clean rebuild of Pattern Generator as focused tool that sends to Previewer. |
 | 2026-01-29 | **PatternCombinerApp implemented** — New App Designer GUI (620×520 px) for combining two patterns. Three modes: Sequential (concatenate frames), Mask (replace at threshold / 50% blend for GS16; OR/AND/XOR for binary), Left/Right (configurable split point). Features: Pattern 1 sets arena config, Pattern 2 dropdown shows compatible patterns (same dir, same GS), Swap button, frame truncation dialog for spatial modes, stretch mismatch dialog. Updated PatternPreviewerApp with `isUnsaved` flag and red "UNSAVED" warning label. Created `tests/validate_pattern_combiner.m` (12 tests, all pass). Enabled Tools > Pattern Combiner menu. Updated Future Vision table to show 3 of 4 apps complete. |
