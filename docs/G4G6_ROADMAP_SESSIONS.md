@@ -5,6 +5,56 @@
 
 ---
 
+## 2026-01-31: Pattern Editor UI Fixes + Major Issues Documented
+
+**Focus**: Bug fixes for 3D viewer panel labels, combiner naming, and documenting critical issues for future work
+
+**Completed**:
+
+1. **3D Viewer Panel Number Fixes** (`js/pattern-editor/viewers/three-viewer.js`):
+   - Fixed CSS2D label cleanup - labels now properly removed when unchecking "Panel numbers" checkbox
+   - Root cause: Labels were nested inside column groups but cleanup only checked direct children
+   - Solution: Added explicit cleanup of `this.labelObjects` array before clearing arena, plus clearing all children from `labelRenderer.domElement` container
+   - Changed panel number color from yellow (#ffff00) to red (#ff3333) for better visibility
+   - Increased font size from 14px to 17px (20% larger)
+   - Enhanced text shadow for better contrast
+
+2. **Combined Pattern Suggested Names** (`pattern_editor.html`):
+   - Added `getBaseName()` helper to extract clean names from filenames (removes .pat extension, paths, truncates to 20 chars)
+   - Auto-generates descriptive names when combining patterns: `{nameA}_{nameB}_{mode}.pat`
+   - Mode suffixes: `seq` (sequential), `blend`, `mask`, `splitH{%}` (horizontal split), `splitV{%}` (vertical split)
+
+3. **Rename Button** (`pattern_editor.html`):
+   - Added ✎ button to status bar next to filename
+   - Opens prompt dialog to change pattern filename
+   - Automatically adds .pat extension if missing
+   - Marks pattern as dirty after rename
+
+**Major Issues Documented for Next Session**:
+
+1. **CRITICAL - Pattern Geometry Model**: Web uses simple pixel shifting but MATLAB has full spherical projection model. Nearly all pattern generation is geometrically incorrect. Need to analyze `Pattern_Generator.m`, `arena_coordinates.m`, `make_*.m` functions and implement matching JS geometry engine.
+
+2. **Arena Config in Filename**: Web patterns lack folder structure. Proposed solution: prepend arena config (e.g., `G6_2x10_grating_20px.pat`).
+
+3. **Locked Arena Config**: Should be set once and locked, not dropdown-selectable mid-session.
+
+4. **Stretch Feature**: Referenced in MATLAB but not offered in web UI. Needs code analysis.
+
+5. **3D Viewer Features**: Need analysis of missing features (screenshots, view presets, angular resolution histogram, etc.).
+
+6. **Export Formats**: GIF, MP4/MPG, PNG sequence export not implemented.
+
+**Files Modified**:
+- `js/pattern-editor/viewers/three-viewer.js` — Label cleanup, color, size
+- `pattern_editor.html` — getBaseName(), suggested names, rename button
+
+**Key Technical Notes**:
+- CSS2DRenderer appends label elements to its own `domElement` container, not the Three.js scene
+- When removing CSS2DObjects from scene, must also remove their DOM elements from labelRenderer container
+- `this.labelObjects` array tracks all labels for cleanup
+
+---
+
 ## 2026-01-30 (Night): Pattern Editor Streams F, G, H
 
 **Focus**: Complete remaining Pattern Editor work streams
