@@ -5,6 +5,60 @@
 
 ---
 
+## 2026-01-30 (Night): Pattern Editor Streams F, G, H
+
+**Focus**: Complete remaining Pattern Editor work streams
+
+**Completed**:
+
+1. **Stream F: 3D Viewer Integration**:
+   - Fixed Three.js ES6 module imports (full CDN URLs instead of importmap-style)
+   - Fixed arena positioning (columns at Y=0, matching arena_3d_viewer.html)
+   - Fixed camera setup (top-down at cRadius*3, controls.update() call)
+   - Added double-initialization guard to prevent multiple renderers
+   - Verified: pattern renders, frame stepping works
+
+2. **Stream G: Pattern Combiner**:
+   - Created `js/pattern-editor/tools/combiner.js`:
+     - `combineSequential()` — concatenate frames
+     - `combineMask()` — threshold/blend spatially
+     - `combineSplit()` — left/right or top/bottom
+   - Integrated into pattern_editor.html:
+     - Pattern A/B info displays
+     - Load Pattern B button
+     - Swap A ↔ B button
+     - Combination mode dropdown
+     - Error handling for mismatches
+
+3. **Stream H: Integration & Polish**:
+   - All module syntax checks pass
+   - validate-pattern-generation.js: 6/6 pass
+   - validate-g6-encoding.js: 25/25 pass
+   - HTML structure complete
+
+4. **CLAUDE.md Update**:
+   - Added "Planning Best Practices" section
+   - Recommends parallel Explore agents (2-3) for complex tasks
+
+**Files Created/Modified**:
+- `js/pattern-editor/viewers/three-viewer.js` — Fixed imports, positioning
+- `js/pattern-editor/tools/combiner.js` — NEW
+- `pattern_editor.html` — Combiner integration
+- `CLAUDE.md` — Planning best practices
+
+**Key Technical Notes**:
+- Three.js importmap doesn't apply to externally loaded modules; use full URLs
+- Arena columns must be centered at Y=0 for camera math to work
+- Always call `controls.update()` after setting target/position
+
+**Remaining for Future Sessions**:
+- Generate MATLAB reference data for pattern validation
+- Manual end-to-end testing of all features
+- Performance optimization for large patterns
+- Remove development banner when ready
+
+---
+
 ## 2026-01-30 (Late): Claude Code Demo Projects Session
 
 **Focus**: Identify and implement demo projects for colleagues new to Claude Code
