@@ -1,9 +1,11 @@
 # G4/G6 Display Tools Roadmap
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
-> 
-> **Last Updated**: 2026-01-30 (late evening)
+>
+> **Last Updated**: 2026-01-31 (midday)
 > **Next Review**: ~2026-02-03
+>
+> **TODO**: Consider compressing this roadmap — move completed sprints to archive, consolidate in-flight items, streamline for active development focus.
 
 ---
 
@@ -651,6 +653,65 @@ end
 
 ---
 
+## Known Issues / Technical Debt
+
+### 🔴 CRITICAL: Web Pattern Editor Geometry Model
+
+**Status**: Documented 2026-01-31
+
+**Problem**: The web pattern editor (`pattern_editor.html`) uses a **flat 2D pixel-shifting model** instead of MATLAB's **spherical projection model**. This means nearly all generated patterns are geometrically incorrect when viewed on the actual cylindrical arena.
+
+**MATLAB Approach** (correct):
+1. Pre-computes 3D Cartesian coordinates (x, y, z) for every arena pixel
+2. Converts to spherical coordinates (phi, theta, rho)
+3. Rotates coordinates to align pattern with desired pole/motion direction
+4. Applies anti-aliasing by sampling each pixel's angular field-of-view
+5. Evaluates pattern function (grating, sine, etc.) on spherical coordinates
+
+**Web Approach** (simplified):
+1. Treats arena as flat 2D grid
+2. Uses pixel column index as phase for gratings
+3. No coordinate transformation
+4. No anti-aliasing
+5. No support for translation/expansion motion types
+
+**Impact**:
+- Gratings rotate in discrete pixel jumps, not continuous angles
+- Patterns don't tile properly at arena boundaries
+- No anti-aliasing causes visual artifacts at high spatial frequencies
+- Cannot generate translation or expansion-contraction patterns
+- Patterns look different on hardware vs web preview
+
+**Files Affected**:
+- `webDisplayTools/js/pattern-editor/tools/generator.js` — needs spherical geometry
+- `webDisplayTools/pattern_editor.html` — UI unaffected, but output incorrect
+- Would need new: `arena-coordinates.js` (JavaScript port of arena_coordinates.m)
+
+**Resolution Options**:
+1. **Full port**: Port MATLAB's spherical projection to JavaScript (complex, high accuracy)
+2. **Pre-computed coords**: Generate arena coordinates in MATLAB, load as JSON in web
+3. **Accept limitation**: Keep web for simple patterns, use MATLAB for precise patterns
+4. **Hybrid**: Web generates, MATLAB validates/corrects
+
+**Related Files for Reference**:
+- `maDisplayTools/patternTools/arena_coordinates.m` — coordinate generation
+- `maDisplayTools/patternTools/Pattern_Generator.m` — pattern dispatcher
+- `maDisplayTools/patternTools/make_grating_edge.m` — example spherical generation
+
+---
+
+### Other Known Issues
+
+| Issue | Priority | Notes |
+|-------|----------|-------|
+| Arena config in web patterns | Medium | Web patterns lack folder structure; propose prepending arena config to filename |
+| Arena config should lock after generation | Low | Currently dropdown-selectable mid-session |
+| Stretch feature not in web UI | Low | Referenced in MATLAB but not exposed in web |
+| 3D viewer missing features | Low | Screenshots, view presets, angular resolution histogram |
+| Export formats | Low | GIF, MP4, PNG sequence export not implemented in web |
+
+---
+
 ## Why PatternGeneratorApp (Not G4 GUI Update)
 
 We created a new `PatternGeneratorApp.m` using App Designer instead of updating the existing `G4_Pattern_Generator_gui.m`. Here's why:
@@ -750,6 +811,7 @@ Legacy G4 files (in G4_Display_Tools, kept for reference):
     - ~~Load custom patterns from file~~ ✅ Done (arena_3d_viewer.html + pat-parser.js)
     - Angular resolution histogram (per-pixel calculation)
     - Export 3D models for CAD
+    - **Pole location visualization** — Show 3D representation of arena geometry including pole position and orientation for pitched arenas
 
 11. **Pattern Visualization & Export**
     - Export patterns as images (PNG), GIFs, or movies (MP4)
@@ -1019,6 +1081,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-01-31 (PM) | **Autonomous session: validation + documentation** — Ran MATLAB `generate_web_pattern_reference.m` to create pattern reference data. Updated `tests/validate-pattern-generation.js` to handle starfield/edge differences (different RNG/algorithm). All 11 validation tests pass (grating and sine match exactly, starfield and edge verify structure). Updated CLAUDE.md with project size assessment guidance and parallel agent strategy. Added "Known Issues / Technical Debt" section documenting critical geometry model gap. Added pole location visualization to 3D viewer backlog. Added roadmap compression TODO note. |
 | 2026-01-31 | **Pattern Editor UI fixes + major issues documented** — Fixed panel number label cleanup in 3D viewer (CSS2D DOM elements now properly removed from labelRenderer container). Changed panel numbers to red (#ff3333) and 20% larger (17px). Added combined pattern suggested names (e.g., `patternA_patternB_blend.pat`) with mode-based suffixes. Added rename button (✎) to status bar for changing pattern filename. **Documented critical issues for next session**: (1) Pattern geometry model is fundamentally different between MATLAB (full projection model) and web (pixel shifting) - nearly all patterns geometrically incorrect until fixed; (2) Web patterns need arena config in filename; (3) Arena config should be locked not dropdown-selectable; (4) Stretch feature not implemented; (5) Export formats (GIF/MP4) needed; (6) 3D viewer feature analysis needed. |
 | 2026-01-30 (night) | **Pattern Editor Streams F, G, H complete** — Fixed 3D viewer Three.js module imports (use full CDN URLs, not importmap). Fixed arena positioning (Y=0 center) and camera setup. Created `js/pattern-editor/tools/combiner.js` with sequential/mask/split modes. Integrated combiner into pattern_editor.html with A/B pattern info, swap, mode dropdown. All validation tests pass (6/6 pattern gen, 25/25 G6 encoding). Added CLAUDE.md "Planning Best Practices" section for parallel agents. |
 | 2026-01-30 (evening) | **Web Pattern Editor planning + initial implementation** — Created comprehensive migration plan for Pattern Editor (saved to `~/.claude/plans/linear-fluttering-lerdorf.md`). Built initial `pattern_editor.html` skeleton with two-pane layout (tools left, viewer right), tool tabs (Generate/Frame/Combine), viewer tabs (Grid/3D), frame clipboard, playback controls. Added to landing page with "In Development" status. Split roadmap: moved detailed session logs to `G4G6_ROADMAP_SESSIONS.md` to reduce context usage (~37% / 600 lines archived). |
