@@ -222,6 +222,14 @@ maDisplayTools/
 - Making architectural decisions
 - Adding deferred items
 
+### Session Logs
+Detailed session logs are archived in `docs/G4G6_ROADMAP_SESSIONS.md` to reduce context usage.
+
+**Convention:**
+- The main roadmap (`G4G6_ROADMAP.md`) contains only a brief changelog table
+- Detailed session notes go in `G4G6_ROADMAP_SESSIONS.md`
+- At session close, add a one-line entry to the changelog table and append full details to the sessions file
+
 ### Single Source of Truth
 - **Panel specs**: `utils/get_generation_specs.m`
 - **Arena configs**: `configs/arenas/*.yaml`
