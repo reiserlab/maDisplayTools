@@ -267,13 +267,30 @@ classdef PatternPreviewerApp < matlab.apps.AppBase
 
         function inferArenaFromPath(app, filepath)
             % Try to infer arena config from pattern file path
-            % Patterns are stored in patterns/{arena_name}/
+            % Method 1: Check filename prefix (e.g., G6_2x10_grating.pat)
+            % Method 2: Check folder name (patterns stored in patterns/{arena_name}/)
             try
                 [folder, ~, ~] = fileparts(filepath);
-                [~, arenaName] = fileparts(folder);
+                [~, folderName] = fileparts(folder);
 
-                % Look for matching arena config
-                configPath = fullfile(app.maDisplayToolsRoot, 'configs', 'arenas', [arenaName '.yaml']);
+                % Method 1: Try to parse arena config from filename prefix
+                [configFromFilename, ~] = parse_arena_from_filename(filepath);
+
+                % Method 2: Use folder name as fallback
+                arenaName = '';
+                configPath = '';
+
+                if ~isempty(configFromFilename)
+                    % Try filename prefix first
+                    arenaName = configFromFilename;
+                    configPath = fullfile(app.maDisplayToolsRoot, 'configs', 'arenas', [arenaName '.yaml']);
+                end
+
+                if isempty(arenaName) || ~exist(configPath, 'file')
+                    % Fall back to folder name
+                    arenaName = folderName;
+                    configPath = fullfile(app.maDisplayToolsRoot, 'configs', 'arenas', [arenaName '.yaml']);
+                end
 
                 if exist(configPath, 'file')
                     try
