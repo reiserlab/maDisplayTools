@@ -700,12 +700,34 @@ end
 
 ---
 
+### In-Flight: Spherical Geometry Rewrite
+
+**Plan file:** `~/.claude/plans/validated-leaping-fog.md`
+
+**Status:** Phase 1 complete, Phase 2 in progress
+
+**Goal:** Port MATLAB's spherical coordinate pattern generation to JavaScript, fixing the fundamental geometry mismatch where web patterns use flat 2D pixel-shifting.
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 1 | ✅ Done | Core coordinate system (arenaCoordinates, rotateCoordinates, cart2sphere, sphere2cart, samplesByPRad) |
+| 2 | 🔄 Next | Basic rotation patterns with spherical coordinates |
+| 3 | Pending | Anti-aliasing integration |
+| 4 | Pending | Translation and expansion motion types |
+| 5 | Pending | UI controls for spherical patterns |
+| 6 | Pending | MATLAB reference validation suite |
+
+**New files:**
+- `webDisplayTools/js/arena-geometry.js` — Coordinate generation and transformations
+
+---
+
 ### Other Known Issues
 
 | Issue | Priority | Notes |
 |-------|----------|-------|
-| Arena config in web patterns | Medium | Web patterns lack folder structure; propose prepending arena config to filename |
-| Arena config should lock after generation | Low | Currently dropdown-selectable mid-session |
+| ~~Arena config in web patterns~~ | ~~Medium~~ | ✅ FIXED: Filename prefix added (G6_2x10_pattern.pat) |
+| ~~Arena config should lock after generation~~ | ~~Low~~ | ✅ FIXED: Lock button added to status bar |
 | Stretch feature not in web UI | Low | Referenced in MATLAB but not exposed in web |
 | 3D viewer missing features | Low | Screenshots, view presets, angular resolution histogram |
 | Export formats | Low | GIF, MP4, PNG sequence export not implemented in web |
@@ -1081,6 +1103,8 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-02 (PM) | **Pattern Editor v0.9 + Icon Generator v0.8** — Major UI improvements: GENERATE button 25% wider with bigger arrows. Tabbed clipboard (Frames/Patterns tabs with counts). Two capture buttons ("Frame" green, "Pat" blue) on viewer. Clipboard clears on arena change. New Image tab placeholder. Animate tab mode toggle (Frame Shifting vs Frame Animation). Frame Animation builds patterns from clipboard frames. Icon Generator: removed dropdown, auto-detects arena from filename/path (e.g., `G6_2x10_*.pat`). **Next session**: Test all UI improvements on GitHub Pages. |
+| 2026-02-02 | **Session review + Pattern Editor v0.6** — Reviewed parallel session work (spherical geometry ~95% complete, pattern editor streams A-H complete, icon generator pat-parser conflict resolved). **Fixed icon generator issue**: parallel sessions toggled ES6 exports; final state correct but test page had wrong method name (`parse` vs `parsePatFile`). **Pattern Editor updates**: Redesigned GENERATE button (narrow column with vertical stacked letters, arrows above/below pointing right). Split clipboard into Frames and Patterns sections with single-selection, delete-on-hover X buttons. Added pole geometry visualization to 3D viewer (red line through arena with arrowhead, toggled via checkbox). Compacted UI: removed info notes, added tooltips, combined inputs on same lines (pole az/el, dots/size/seed, duty/phase, mode/high-low). Spherical geometry needs more testing for translation patterns with non-standard pole. Updated to v0.6. |
 | 2026-01-31 (PM) | **Autonomous session: validation + documentation** — Ran MATLAB `generate_web_pattern_reference.m` to create pattern reference data. Updated `tests/validate-pattern-generation.js` to handle starfield/edge differences (different RNG/algorithm). All 11 validation tests pass (grating and sine match exactly, starfield and edge verify structure). Updated CLAUDE.md with project size assessment guidance and parallel agent strategy. Added "Known Issues / Technical Debt" section documenting critical geometry model gap. Added pole location visualization to 3D viewer backlog. Added roadmap compression TODO note. |
 | 2026-01-31 | **Pattern Editor UI fixes + major issues documented** — Fixed panel number label cleanup in 3D viewer (CSS2D DOM elements now properly removed from labelRenderer container). Changed panel numbers to red (#ff3333) and 20% larger (17px). Added combined pattern suggested names (e.g., `patternA_patternB_blend.pat`) with mode-based suffixes. Added rename button (✎) to status bar for changing pattern filename. **Documented critical issues for next session**: (1) Pattern geometry model is fundamentally different between MATLAB (full projection model) and web (pixel shifting) - nearly all patterns geometrically incorrect until fixed; (2) Web patterns need arena config in filename; (3) Arena config should be locked not dropdown-selectable; (4) Stretch feature not implemented; (5) Export formats (GIF/MP4) needed; (6) 3D viewer feature analysis needed. |
 | 2026-01-30 (night) | **Pattern Editor Streams F, G, H complete** — Fixed 3D viewer Three.js module imports (use full CDN URLs, not importmap). Fixed arena positioning (Y=0 center) and camera setup. Created `js/pattern-editor/tools/combiner.js` with sequential/mask/split modes. Integrated combiner into pattern_editor.html with A/B pattern info, swap, mode dropdown. All validation tests pass (6/6 pattern gen, 25/25 G6 encoding). Added CLAUDE.md "Planning Best Practices" section for parallel agents. |

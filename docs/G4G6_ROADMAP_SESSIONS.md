@@ -5,6 +5,142 @@
 
 ---
 
+## 2026-02-02 (PM): Pattern Editor v0.9 + Icon Generator v0.8
+
+**Focus**: Major UI improvements based on user feedback
+
+**Pattern Editor Changes (v0.8 → v0.9)**:
+
+1. **GENERATE Button Styling**:
+   - Width increased 25% (28px → 35px column)
+   - Font weight 800 (bolder)
+   - Arrow size increased (12px → 18px)
+
+2. **Clipboard UI Redesign**:
+   - New tabbed design: "Frames (N)" tab on left, "Patterns (N)" tab on right
+   - Click tab to switch between frames and patterns view
+   - Counts shown in tab labels
+   - Clipboard clears automatically when arena dropdown changes
+   - Clipboard clears when arena unlocked (with confirmation dialog)
+
+3. **Two Capture Buttons on Viewer**:
+   - "↓ Frame" button (green accent) - captures current frame
+   - "↓ Pat" button (blue #64b5f6) - captures full pattern
+   - Each auto-switches to relevant clipboard tab
+
+4. **Animate Tab Mode Toggle**:
+   - "Frame Shifting" mode (existing) - shifts pattern by pixel increments
+   - "Frame Animation" mode (new) - builds patterns from clipboard frames
+   - Sequence builder UI with drag-to-reorder
+   - "Add All Clipboard Frames" button
+   - Preview and "Save .pat" buttons
+
+5. **Image Tab Placeholder**:
+   - Fourth tool tab with "Coming Soon" message
+   - For future image-to-pattern import feature
+
+**Icon Generator Changes (v0.7 → v0.8)**:
+
+1. **Arena Auto-Detection**:
+   - Removed dropdown selector entirely
+   - Infers arena from filename (e.g., `G6_2x10_grating.pat`)
+   - Also checks parent folder name (e.g., `/patterns/G6_2x10/pattern.pat`)
+   - Shows "✓ Detected: G6 (2×10) - 360°" on success
+   - Shows error message if arena cannot be detected
+
+2. **Test Patterns**:
+   - Still work, using default G6_2x10 arena
+
+**Commits**:
+- `1347ee7` - Major UI improvements: Pattern Editor v0.9, Icon Generator v0.8
+
+**Deferred**:
+- Spherical geometry pole position bug - needs MATLAB `cart2sph` comparison
+
+**Next Session**:
+- Test all UI improvements on GitHub Pages
+- Verify clipboard tab switching works correctly
+- Test icon generator arena detection with real pattern files
+
+---
+
+## 2026-02-02: Session Review + Pattern Editor v0.6
+
+**Focus**: Review parallel session work from Feb 1-2, fix icon generator issues, implement requested UI improvements
+
+**Parallel Session Assessment**:
+
+Three workstreams were running on the same branch (`claude/fix-todo-ml3v6hjwm3nhlmjg-DTfEp`):
+
+1. **Spherical Geometry Implementation** (~95% Complete):
+   - Full coordinate system in `js/arena-geometry.js` (386 lines)
+   - Three motion types: rotation, expansion, translation
+   - Anti-aliasing with sub-pixel sampling
+   - MATLAB reference validation passing (6 test cases)
+   - Pattern editor UI controls integrated
+   - **Issue found**: Translation patterns with non-standard pole positions need more testing
+
+2. **Pattern Editor Interface** (Streams A-H Complete):
+   - Two-pane layout, tool/viewer tabs
+   - Generator with spherical controls
+   - Combiner tool (sequential/mask/split)
+   - 3D viewer integration
+   - Frame clipboard functional
+
+3. **Icon Generator** (Issue Resolved):
+   - Parallel sessions conflicted on `pat-parser.js`:
+     - `54ec0ee`: "Fix PatParser loading error - remove ES6 exports"
+     - `af62b10`: "Add ES6 export back to pat-parser.js for pattern editor compatibility"
+   - Final state: dual-export pattern correct
+   - Test page bug: `test_patparser_loading.html` tested `PatParser.parse()` instead of `parsePatFile()`
+   - Fixed test page to use correct method name
+
+**Pattern Editor Changes (v0.6)**:
+
+1. **GENERATE Button Redesign**:
+   - Narrow column (28px wide) between tools and viewer
+   - Vertical stacked letters: G-E-N-E-R-A-T-E
+   - Arrows above and below pointing right (→)
+
+2. **Clipboard Split**:
+   - Left section: Frames (for animation, max ~10)
+   - Right section: Patterns (for combine/preview)
+   - Single selection only (not multi-select)
+   - Delete X button appears on hover
+
+3. **Pole Geometry Visualization**:
+   - New "Pole geometry" checkbox in 3D viewer options
+   - Red line through arena showing pole axis
+   - Arrowhead indicates positive direction (right-hand rule)
+   - Updates live when pole azimuth/elevation inputs change
+
+4. **UI Compaction**:
+   - Removed info notes ("ℹ️ Direction determined by pole position...")
+   - Removed "Starfield uses spherical motion..." text
+   - Added tooltips to all inputs via `title` attribute
+   - Combined on same line:
+     - Pole Azimuth + Pole Elevation
+     - Dots + Size + Seed (starfield)
+     - Arena Model + Anti-aliasing
+     - Duty Cycle + Phase Shift
+     - Grayscale Mode + High/Low levels
+     - Direction + Step Size (frame builder)
+   - Shortened labels: "Brightness", "Size Mode", "Overlap" instead of verbose
+
+**Files Modified**:
+- `pattern_editor.html` — Button, clipboard, UI compaction, pole listeners
+- `js/pattern-editor/viewers/three-viewer.js` — Pole geometry visualization
+- `test_patparser_loading.html` — Fixed method name bug
+- `maDisplayTools/docs/G4G6_ROADMAP.md` — Changelog entry
+- `maDisplayTools/docs/G4G6_ROADMAP_SESSIONS.md` — This session log
+
+**Known Issues for Future**:
+- Icon generator: May need cache clear to pick up changes on GitHub Pages
+- Translation patterns: Need systematic testing with various pole positions
+- Reverse-phi patterns: Add to roadmap for frame chaining feature
+
+---
+
 ## 2026-01-31 (PM): Autonomous Session - Validation & Documentation
 
 **Focus**: Autonomous work while user away — validation infrastructure, documentation updates, roadmap maintenance
