@@ -5,6 +5,48 @@
 
 ---
 
+## 2026-02-02 (PM late): Pattern Editor v0.9.4
+
+**Focus**: Clipboard icon thumbnails, bug fixes, documentation
+
+**Completed**:
+
+1. **Icon Thumbnails for Clipboard**:
+   - Integrated `icon-generator.js` to create cylindrical top-down view thumbnails
+   - 64x64px icons on white background
+   - Falls back to flat thumbnails if arena config unavailable
+
+2. **LOADED Badge**:
+   - Shows "LOADED" badge on clipboard items currently in viewer
+   - Green accent border on loaded items
+   - State tracking via `loadedClipboardFrameId` / `loadedClipboardPatternId`
+
+3. **Bug Fixes**:
+   - Fixed `drawPatternGrid()` undefined → changed to `renderCurrentViewer()`
+   - Fixed `itemType` undefined in `createClipboardThumb()` → changed to `type`
+   - Fixed starfield generation: `starfieldSeed` → `randomSeed` element ID
+   - Double-click pattern now exits edit mode (calls `setActiveViewer('grid')`)
+
+4. **UI Improvements**:
+   - Increased clipboard height from 36px to 60px
+   - Added "← Tools" home link to navigate back to index.html
+   - Updated tooltips: "Double-click to view"
+
+5. **Documentation**:
+   - Added Tooltip Guidelines section to CLAUDE.md
+   - Created GitHub issue #27 for remaining known issues
+
+**Known Issues (deferred to #27)**:
+- Icon size too small in white square
+- Icon projection wrong for full-field patterns (height mapping)
+- Playback controls should be disabled in edit mode
+- Animation tab frame selection feedback needs improvement
+- "Add all clipboard frames" doesn't work correctly
+
+**Version**: v0.9.4
+
+---
+
 ## 2026-02-02 (PM): Pattern Editor v0.9 + Icon Generator v0.8
 
 **Focus**: Major UI improvements based on user feedback
