@@ -64,6 +64,49 @@
 
 ---
 
+## 2026-02-02 (late AM): Icon Generator v0.9 + Pole Arrow Fix
+
+**Focus**: Fix folder-based arena detection in Icon Generator
+
+**Problem Identified**:
+- User reported Icon Generator fails to detect arena from folder name
+- Root cause: Browser security prevents single file inputs from exposing folder paths
+- `file.webkitRelativePath` is only populated when using `webkitdirectory` attribute
+
+**Icon Generator Changes (v0.8 → v0.9)**:
+
+1. **Folder Upload Option**:
+   - Added "Select Folder..." button using `webkitdirectory` attribute
+   - Browser scans folder for .pat files, prompts if multiple found
+   - Full path now exposed (e.g., `G6_2x10/sine_grating.pat`)
+   - Arena detection works from folder name
+
+2. **Manual Arena Override**:
+   - Dropdown appears only when auto-detection fails
+   - Grouped by generation (G3, G4, G4.1, G6)
+   - Allows loading patterns that don't follow naming convention
+
+**Pattern Editor Changes**:
+
+1. **Pole Axis Arrow Length**:
+   - Changed from 2x to 1.1x max(arena height, diameter)
+   - User found 2x too long, 1.5x still too long
+   - Line spans from -0.55*max to +0.55*max for 1.1x total
+
+**Files Modified**:
+- `icon_generator.html` — v0.8 → v0.9
+- `js/pattern-editor/viewers/three-viewer.js` — arrow length
+- `pattern_editor.html` — timestamp
+
+**Testing Notes**:
+- Icon Generator screenshot shows it working correctly (manual dropdown appears when needed)
+- User mentioned Pattern Editor file loading issue but screenshot was of Icon Generator
+- No reproducible Pattern Editor issue identified
+
+**Commits**: `1cf10a4`, `be23328`
+
+---
+
 ## 2026-02-02: Session Review + Pattern Editor v0.6
 
 **Focus**: Review parallel session work from Feb 1-2, fix icon generator issues, implement requested UI improvements
