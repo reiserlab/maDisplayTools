@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-01-31 (midday)
-> **Next Review**: ~2026-02-03
+> **Last Updated**: 2026-02-03
+> **Next Review**: ~2026-02-07
 >
 > **TODO**: Consider compressing this roadmap — move completed sprints to archive, consolidate in-flight items, streamline for active development focus.
 
@@ -1103,6 +1103,8 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-03 (PM) | **Pattern Editor v0.9.12** — Fixed frame reference tracking bug when deleting clipboard frames (loadedClipboardFrameId now cleared when loaded frame is deleted, preventing confusion when array indices shift). Added icon thumbnail preview in Frame Shifting panel (64x64 thumbnail shows which frame is loaded for shifting, with Clear button). **Icon Generator v1.3** — Added GIF generation mode (select mode, FPS, generates animated GIF from all pattern frames), progress bar during encoding, proper Download GIF functionality. |
+| 2026-02-03 | **Pattern Editor v0.9.7** — Fixed critical JavaScript falsy-value bug where `poleElevation = 0` was silently converted to `-90` (because `0 || -90` evaluates to -90). Added `parseFloatWithDefault()` helper using `Number.isFinite()` to correctly handle zero values. Fixed 6 occurrences in pattern_editor.html. Patterns with Pole El = 0 now correctly produce concentric rings (matching MATLAB) instead of horizontal stripes. |
 | 2026-02-02 (PM) | **Pattern Editor v0.9.4** — Icon thumbnails for clipboard (cylindrical view using icon-generator.js), "Double-click to view" tooltip, LOADED badge for active items. Fixed multiple bugs: `drawPatternGrid()` undefined, `itemType` undefined, starfield `randomSeed` element ID mismatch. Double-click pattern now exits edit mode. Increased clipboard height. Added "← Tools" home link. Created GitHub issue #27 for remaining bugs (icon size, full-field projection, animation tab UX). Added tooltip guidelines to CLAUDE.md. |
 | 2026-02-02 (late AM) | **Icon Generator v0.9** — Added folder upload option with `webkitdirectory` attribute (browsers expose full path when selecting folder). Added manual arena override dropdown when auto-detection fails. Fixed browser security limitation where single file input doesn't expose folder path. Reduced pole axis arrow length to 1.1x max(height, diameter). **Status**: All changes committed and pushed. |
 | 2026-02-02 (PM) | **Pattern Editor v0.9 + Icon Generator v0.8** — Major UI improvements: GENERATE button 25% wider with bigger arrows. Tabbed clipboard (Frames/Patterns tabs with counts). Two capture buttons ("Frame" green, "Pat" blue) on viewer. Clipboard clears on arena change. New Image tab placeholder. Animate tab mode toggle (Frame Shifting vs Frame Animation). Frame Animation builds patterns from clipboard frames. Icon Generator: removed dropdown, auto-detects arena from filename/path (e.g., `G6_2x10_*.pat`). **Next session**: Test all UI improvements on GitHub Pages. |

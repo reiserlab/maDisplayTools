@@ -5,6 +5,117 @@
 
 ---
 
+## 2026-02-03 (PM): Pattern Editor v0.9.12 — Frame Tracking Bug Fix + Icon Preview
+
+**Focus**: Fix clipboard frame deletion bug and add visual feedback for Frame Shifting
+
+**Problem Reported**:
+User found that when deleting frames from clipboard, the source frame reference in Frame Shifting mode would get mixed up. For example:
+- Load Frame 2 for shifting
+- Delete Frame 1
+- Frame tracking gets confused because array indices shifted
+
+**Root Cause**:
+The `deleteClipboardEntry()` function cleared `selectedFrameId` but not `loadedClipboardFrameId`. The frame tracking used IDs (correct approach) but didn't clean up the loaded frame reference when that frame was deleted.
+
+**Solution Implemented**:
+
+1. **Fixed frame deletion tracking** in `deleteClipboardEntry()`:
+```javascript
+// Clear loaded frame reference if this was the loaded frame
+if (state.loadedClipboardFrameId === id) {
+    state.loadedClipboardFrameId = null;
+    state.editor.editingClipboardId = null;
+    clearShiftingFrame();
+}
+```
+
+2. **Added icon thumbnail preview** in Frame Shifting panel:
+   - SOURCE FRAME section now shows 64x64 icon of loaded frame
+   - Text displays "✓ Loaded: [frame name]"
+   - Clear Source Frame button visible when frame loaded
+   - Icon disappears when frame cleared or deleted
+   - Updated `updateShiftingFrameStatus(frameName, thumbnail)` to display icon
+
+**Verification**:
+- Tested via Chrome extension
+- Generated pattern, captured 3 frames
+- Loaded Frame 2, verified icon preview shows correct frame
+- Deleted Frame 1, verified Frame 2 still correctly loaded (not confused with Frame 3)
+- LOADED badge correctly tracks the right frame after deletion
+
+**Files Modified**:
+- `pattern_editor.html` — v0.9.11 → v0.9.12
+
+**Commit**: `4e7eae9` — "Pattern Editor v0.9.12: Fix frame deletion tracking and add icon preview"
+
+**Also Noted** (from earlier in session):
+- Icon Generator v1.3 already had GIF generation added (mode toggle, FPS selector, progress bar, proper download)
+- js/icon-generator.js has generatePatternGIF() with local worker script for CORS compatibility
+
+**Remaining Work** (deferred):
+- GIF thumbnails for clipboard patterns with hover animation (mentioned in plan but deprioritized)
+
+---
+
+## 2026-02-03: Pattern Editor v0.9.7 — Pole Elevation Bug Fix
+
+**Focus**: Fix critical JavaScript falsy-value bug causing incorrect spherical patterns
+
+**Problem Identified**:
+- User showed MATLAB vs JavaScript comparison with identical parameters (Translation + Sine Grating + Pole El = 0)
+- MATLAB produced concentric rings (correct)
+- JavaScript produced horizontal stripes (wrong)
+- Initial investigation suspected coordinate transformation bugs, but MATLAB tests confirmed `cart2sphere`, `sphere2cart`, and `rotateCoordinates` all match exactly
+
+**Root Cause Found**:
+The bug was in the UI parameter passing in `pattern_editor.html`, NOT in the spherical geometry code:
+
+```javascript
+// BROKEN - Line ~2687 and 5 other locations:
+const poleElevation = parseFloat(document.getElementById('poleElevation').value) || -90;
+
+// When user enters 0:
+// parseFloat("0") → 0
+// 0 || -90 → -90 (because 0 is falsy in JavaScript!)
+```
+
+This caused all patterns with Pole El = 0 to silently use Pole El = -90 instead.
+
+**Solution Implemented**:
+
+1. **Added helper function** (around line 2597):
+```javascript
+function parseFloatWithDefault(value, defaultVal) {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : defaultVal;
+}
+```
+
+2. **Fixed 6 occurrences** of the falsy-value pattern:
+   - Line ~1964: poleElevation in generateFromPreviousParams()
+   - Line ~2088: poleElevation in handleGenerate()
+   - Line ~2699: poleElevation for grating
+   - Line ~2730: poleElevationSine for sine grating
+   - Line ~2765: poleElevationStar for starfield
+   - Line ~2796: poleElevationEdge for edge pattern
+   - Also fixed poleAzimuth in same locations for consistency
+
+**Verification**:
+- Generated Translation + Sine Grating + Pole El = 0 after fix
+- Now produces concentric rings matching MATLAB output
+- The underlying `PatternGenerator.generateSphericalGrating()` and `ArenaGeometry` functions were verified correct earlier - they produce byte-identical output to MATLAB when given correct parameters
+
+**Files Modified**:
+- `pattern_editor.html` — Added parseFloatWithDefault helper, fixed 6 poleElevation occurrences, version v0.9.7
+
+**Commit**: `5c9a354` — "Fix spherical pattern pole elevation bug (poleEl=0 was ignored)"
+
+**Key Lesson**:
+JavaScript's `||` operator for default values is dangerous with numeric inputs where 0 is a valid value. Always use `Number.isFinite()` or nullish coalescing (`??`) for numeric defaults.
+
+---
+
 ## 2026-02-02 (PM late): Pattern Editor v0.9.4
 
 **Focus**: Clipboard icon thumbnails, bug fixes, documentation
