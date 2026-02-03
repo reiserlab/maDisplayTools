@@ -25,6 +25,14 @@ arena_info:
 # ============================================================================
 plugins:
 
+  # BIAS Camera Plugin
+  - name: "bias_camera"
+    type: "class"
+    matlab:
+      class: "BiasPlugin"
+    config:
+      bias_executable: "C:\Users\rathores\MATLAB\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe"  # UPDATE THIS BEFORE RUNNING IF NEEDED
+  
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
@@ -47,7 +55,14 @@ experiment_structure:
 pretrial:
   include: true
   commands:
-   
+   # Test BIAS camera connection
+    - type: "plugin"
+      plugin_name: "bias_camera"
+      command_name: "connect"
+      params:
+        ip: "127.0.0.1" # UPDATE THESE BEFORE RUNNING IF NEED BE
+        port: 5010
+    
     # Display a test pattern to verify arena
     - type: "controller"
       command_name: "startG41Trial"

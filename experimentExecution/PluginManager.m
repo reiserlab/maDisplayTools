@@ -9,8 +9,8 @@ classdef PluginManager < handle
     
     properties (Access = private)
         pluginRegistry      % containers.Map: plugin ID -> Plugin object
-        logger
-        outputDir% ExperimentLogger instance
+        logger              % ExperimentLogger instance
+        logOutputDir        % Directory to save any plugin logs
     end
     
     methods (Access = public)
@@ -22,7 +22,7 @@ classdef PluginManager < handle
             
             self.pluginRegistry = containers.Map();
             self.logger = logger;
-            self.outputDir = fileparts(self.logger.logFile); % This is outputDir/logs, same location as experiment.log
+            self.logOutputDir = fileparts(self.logger.logFile); % This is outputDir/logs, same location as experiment.log
         end
         
         function initializePlugin(self, pluginDef)
@@ -46,7 +46,7 @@ classdef PluginManager < handle
             end
             if ~isfield(pluginDef.config, 'log_file') || isempty(pluginDef.config.log_file)
              % Default: outputDir/logs/<pluginname>_timestamps.log
-                pluginDef.config.log_file = fullfile(self.outputDir, sprintf('%s.log', pluginName));
+                pluginDef.config.log_file = fullfile(self.logOutputDir, sprintf('%s.log', pluginName));
             end
 
 
