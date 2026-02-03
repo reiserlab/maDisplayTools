@@ -95,21 +95,18 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     fprintf('\n=== Extracting patterns from YAML files ===\n');
     
     try
-        [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_paths);
+        [pattern_paths_per_yaml, yaml_files] = extract_patterns_from_yaml(yaml_file_paths);
     catch ME
         result.error = sprintf('Pattern extraction failed: %s', ME.message);
         return;
     end
     
     result.yaml_files = yaml_files;
-    result.num_patterns = length(pattern_paths);
     
-    if result.num_patterns == 0
-        result.error = 'No patterns found in YAML file(s)';
-        return;
+    % Show per-YAML summary
+    for i = 1:length(yaml_files)
+        fprintf('  %s: %d patterns\n', yaml_files{i}, length(pattern_paths_per_yaml{i}));
     end
-    
-    fprintf('\nReady to deploy %d unique patterns\n', result.num_patterns);
 
     %% NEW: Validate all YAML protocols before deployment
     fprintf('\n=== Validating YAML protocols ===\n');
@@ -119,33 +116,31 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     
     for i = 1:length(yaml_files)
         yaml_path = yaml_files{i};
+        patterns_for_this_yaml = pattern_paths_per_yaml{i};
         
-        % Extract pattern directory from first pattern (assumes all from same dir)
-        if ~isempty(pattern_paths)
-            [pattern_dir, ~, ~] = fileparts(pattern_paths{1});
-        else
-            pattern_dir = pwd;  % Fallback
-        end
-        
-        % Run validation
-        [isValid, errors, warnings] = validate_protocol_for_sd_card(yaml_path, pattern_dir, 'Verbose', false);
+        % Run validation - pass the resolved patterns for this YAML
+        [isValid, errors, warnings] = validate_protocol_for_sd_card(...
+            yaml_path, patterns_for_this_yaml, 'Verbose', false);
         
         if ~isValid
             validation_failed = true;
             [~, yaml_name] = fileparts(yaml_path);
-            fprintf(['  ✗ VALIDATION FAILED with %d error(s) in ' yaml_name '\n'], length(errors));
+            fprintf('  ✗ VALIDATION FAILED with %d error(s) in %s\n', length(errors), yaml_name);
             all_errors = [all_errors; errors];
             
             % Print errors for this YAML
             for j = 1:length(errors)
                 fprintf('    %d. %s\n', j, errors{j});
             end
-        else           
+        else
+            [~, yaml_name] = fileparts(yaml_path);
+            fprintf('  ✓ %s validated\n', yaml_name);
+            
             % Print warnings if any
             if ~isempty(warnings)
-                fprintf('  ⚠ %d warning(s):\n', length(warnings));
+                fprintf('    ⚠ %d warning(s):\n', length(warnings));
                 for j = 1:length(warnings)
-                    fprintf('    %d. %s\n', j, warnings{j});
+                    fprintf('      %d. %s\n', j, warnings{j});
                 end
             end
         end
@@ -159,6 +154,28 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     end
     
     fprintf('\n✓ All protocols validated successfully\n');
+    
+    %% Step 2: Flatten and deduplicate patterns for SD card deployment
+    fprintf('\n=== Preparing patterns for SD card ===\n');
+    
+    % Concatenate all patterns from all YAMLs
+    all_patterns = [];
+    for i = 1:length(pattern_paths_per_yaml)
+        all_patterns = [all_patterns; pattern_paths_per_yaml{i}];
+    end
+    
+    % Remove duplicates while preserving order
+    pattern_paths = unique(all_patterns, 'stable');
+    
+    result.num_patterns = length(pattern_paths);
+    
+    if result.num_patterns == 0
+        result.error = 'No patterns found in YAML file(s)';
+        return;
+    end
+    
+    fprintf('Total patterns: %d (from all YAMLs)\n', length(all_patterns));
+    fprintf('Unique patterns to deploy: %d\n', result.num_patterns);
     
     %% Step 2: Deploy to SD card
     fprintf('\n=== Deploying to SD card ===\n');

@@ -1,4 +1,4 @@
-function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFilePath, patternDir, varargin)
+function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFilePath, resolvedPatternPaths, varargin)
 % VALIDATE_PROTOCOL_FOR_SD_CARD Comprehensive validation before SD card deployment
 %
 % This function performs all validation that should occur BEFORE patterns are
@@ -6,12 +6,13 @@ function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFil
 % validation overhead and catches errors early in the workflow.
 %
 % Syntax:
-%   [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFilePath, patternDir)
+%   [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFilePath, resolvedPatternPaths)
 %   [isValid, errors, warnings] = validate_protocol_for_sd_card(..., 'Verbose', true)
 %
 % Input Arguments:
-%   protocolFilePath - Path to YAML protocol file (required)
-%   patternDir       - Directory containing pattern files referenced in protocol (required)
+%   protocolFilePath     - Path to YAML protocol file (required)
+%   resolvedPatternPaths - Cell array of full pattern file paths already resolved
+%                          by extract_patterns_from_yaml() (required)
 %
 % Name-Value Pairs:
 %   'Verbose' - Print detailed validation progress (default: true)
@@ -49,16 +50,17 @@ function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFil
 %      - Value ranges appropriate
 %
 %   6. Pattern file validation
-%      - All referenced patterns exist in patternDir
+%      - All pattern files exist (using resolvedPatternPaths)
 %      - Pattern files readable
-%      - Pattern IDs unique and sequential
+%      - Pattern dimensions match arena configuration
 %
 % Example:
-%   % Validate protocol before SD card preparation
-%   protocolPath = './protocols/my_experiment.yaml';
-%   patternPath = './patterns';
+%   % Extract patterns from YAML (resolves paths)
+%   [patterns_per_yaml, yaml_files] = extract_patterns_from_yaml('experiment.yaml');
 %   
-%   [valid, errors, warns] = validate_protocol_for_sd_card(protocolPath, patternPath);
+%   % Validate using resolved paths
+%   [valid, errors, warns] = validate_protocol_for_sd_card(...
+%       yaml_files{1}, patterns_per_yaml{1});
 %   
 %   if ~valid
 %       fprintf('Validation failed with %d errors:\n', length(errors));
@@ -69,18 +71,18 @@ function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFil
 %       fprintf('Validation passed! Safe to copy to SD card.\n');
 %   end
 %
-% See also: ProtocolParser, run_protocol
+% See also: ProtocolParser, run_protocol, extract_patterns_from_yaml
 
     % Parse input arguments
     p = inputParser;
     addRequired(p, 'protocolFilePath', @(x) ischar(x) || isstring(x));
-    addRequired(p, 'patternDir', @(x) ischar(x) || isstring(x));
+    addRequired(p, 'resolvedPatternPaths', @iscell);
     addParameter(p, 'Verbose', true, @islogical);
-    parse(p, protocolFilePath, patternDir, varargin{:});
+    parse(p, protocolFilePath, resolvedPatternPaths, varargin{:});
     
     verbose = p.Results.Verbose;
     protocolFilePath = char(p.Results.protocolFilePath);
-    patternDir = char(p.Results.patternDir);
+    resolvedPatternPaths = p.Results.resolvedPatternPaths;
     
     % Initialize outputs
     errors = {};
@@ -89,7 +91,7 @@ function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFil
     if verbose
         fprintf('\n=== Protocol Validation for SD Card Deployment ===\n');
         fprintf('Protocol: %s\n', protocolFilePath);
-        fprintf('Pattern Directory: %s\n\n', patternDir);
+        fprintf('Patterns to validate: %d\n\n', length(resolvedPatternPaths));
     end
     
     %% Phase 1: Parse and validate YAML structure
@@ -163,7 +165,7 @@ function [isValid, errors, warnings] = validate_protocol_for_sd_card(protocolFil
         fprintf('Phase 6: Pattern File Validation\n');
     end
     
-    [patErrors, patWarnings] = validatePatternFiles(protocol, patternDir, verbose);
+    [patErrors, patWarnings] = validatePatternFiles(protocol, resolvedPatternPaths, verbose);
     errors = [errors, patErrors];
     warnings = [warnings, patWarnings];
     
@@ -512,52 +514,24 @@ function [errors, warnings] = validatePluginCommand(cmd, context, index)
     % based on plugin type, which is determined from plugin definitions
 end
 
-function [errors, warnings] = validatePatternFiles(protocol, patternDir, verbose)
+function [errors, warnings] = validatePatternFiles(protocol, resolvedPatternPaths, verbose)
     errors = {};
     warnings = {};
     
-    % Collect all pattern references
-    patternPaths = {};
-    
-    % From pretrial
-    if ~isempty(protocol.pretrialCommands)
-        patternPaths = [patternPaths, extractPatternPathsFromCommands(protocol.pretrialCommands)];
-    end
-    
-    % From block conditions
-    for i = 1:length(protocol.blockConditions)
-        patternPaths = [patternPaths, extractPatternPathsFromCommands(protocol.blockConditions(i).commands)];
-    end
-    
-    % From intertrial
-    if ~isempty(protocol.intertrialCommands)
-        patternPaths = [patternPaths, extractPatternPathsFromCommands(protocol.intertrialCommands)];
-    end
-    
-    % From posttrial
-    if ~isempty(protocol.posttrialCommands)
-        patternPaths = [patternPaths, extractPatternPathsFromCommands(protocol.posttrialCommands)];
-    end
-    
-    % Get unique patterns
-    uniquePatterns = unique(patternPaths);
-    
     if verbose
-        fprintf('  Found %d pattern reference(s), %d unique\n', ...
-            length(patternPaths), length(uniquePatterns));
+        fprintf('  Validating %d pattern file(s)...\n', length(resolvedPatternPaths));
     end
     
-    % Validate each pattern file
-    fullPaths = {};  % Store full paths for dimension validation
-    for i = 1:length(uniquePatterns)
-        patPath = uniquePatterns{i};
-        
-        % Build full path
-        fullPath = fullfile(patternDir, patPath);
+    % Validate each pattern file exists and is readable
+    missing_patterns = {};
+    readable_patterns = {};
+    
+    for i = 1:length(resolvedPatternPaths)
+        fullPath = resolvedPatternPaths{i};
         
         % Check existence
         if ~exist(fullPath, 'file')
-            errors{end+1} = sprintf('Pattern file not found: %s', fullPath);
+            missing_patterns{end+1} = fullPath; %#ok<AGROW>
             continue;
         end
         
@@ -565,30 +539,36 @@ function [errors, warnings] = validatePatternFiles(protocol, patternDir, verbose
         try
             fid = fopen(fullPath, 'r');
             if fid == -1
-                errors{end+1} = sprintf('Cannot read pattern file: %s', fullPath);
+                errors{end+1} = sprintf('Cannot read pattern file: %s', fullPath); %#ok<AGROW>
             else
                 fclose(fid);
-                fullPaths{end+1} = fullPath;  % Store for dimension validation
+                readable_patterns{end+1} = fullPath; %#ok<AGROW>
             end
         catch ME
             errors{end+1} = sprintf('Error accessing pattern file %s: %s', ...
-                fullPath, ME.message);
+                fullPath, ME.message); %#ok<AGROW>
+        end
+    end
+    
+    % Report missing patterns
+    if ~isempty(missing_patterns)
+        for i = 1:length(missing_patterns)
+            errors{end+1} = sprintf('Pattern file not found: %s', missing_patterns{i}); %#ok<AGROW>
         end
     end
     
     if verbose && isempty(errors)
-        fprintf('  ✓ All %d pattern file(s) exist and readable\n', length(uniquePatterns));
+        fprintf('  ✓ All pattern files exist and readable\n');
     end
     
     % Validate pattern dimensions match arena configuration
-    if ~isempty(fullPaths)
+    if ~isempty(readable_patterns)
         if verbose
-            fprintf('  Validating pattern dimensions against arena...\n');
+            fprintf('  Validating pattern dimensions...\n');
         end
         
         try
-            % Use maDisplayTools.validate_all_patterns to check dimensions
-            maDisplayTools.validate_all_patterns(fullPaths, ...
+            maDisplayTools.validate_all_patterns(readable_patterns, ...
                 protocol.arenaConfig.num_rows, ...
                 protocol.arenaConfig.num_cols);
             
@@ -601,22 +581,6 @@ function [errors, warnings] = validatePatternFiles(protocol, patternDir, verbose
             errors{end+1} = sprintf('Pattern dimension validation failed: %s', ME.message);
             if verbose
                 fprintf('  ✗ Pattern dimension validation failed\n');
-            end
-        end
-    end
-end
-
-function patternPaths = extractPatternPathsFromCommands(commands)
-    % Extract pattern file paths from command list
-    patternPaths = {};
-    
-    for i = 1:length(commands)
-        cmd = commands{i};
-        
-        % Only controller commands with trial parameters have patterns
-        if isfield(cmd, 'type') && strcmp(cmd.type, 'controller')
-            if isfield(cmd, 'pattern')
-                patternPaths{end+1} = cmd.pattern;
             end
         end
     end

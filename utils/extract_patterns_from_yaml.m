@@ -1,20 +1,22 @@
-function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_paths)
-% EXTRACT_PATTERNS_FROM_YAML Extract ordered list of unique patterns from YAML files
+function [pattern_paths_per_yaml, yaml_files] = extract_patterns_from_yaml(yaml_file_paths)
+% EXTRACT_PATTERNS_FROM_YAML Extract patterns from YAML files, organized per file
 %
-%   pattern_paths = extract_patterns_from_yaml(yaml_file_paths)
-%   [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_paths)
+%   pattern_paths_per_yaml = extract_patterns_from_yaml(yaml_file_paths)
+%   [pattern_paths_per_yaml, yaml_files] = extract_patterns_from_yaml(yaml_file_paths)
 %
 %   Extracts all pattern file paths from one or more YAML experiment protocol files.
 %   Handles pattern_library field for relative path resolution.
-%   Removes duplicates while preserving order of first appearance.
+%   Patterns are kept separated by source YAML file for validation purposes.
 %   Order: pretrial -> block conditions -> intertrial -> posttrial (per YAML file).
 %
 %   INPUTS:
 %       yaml_file_paths - String, char array, or cell array of YAML file path(s)
 %
 %   OUTPUTS:
-%       pattern_paths - Cell array of unique full pattern paths (ordered)
-%       yaml_files    - Cell array of YAML file paths processed (normalized)
+%       pattern_paths_per_yaml - Cell array where pattern_paths_per_yaml{i}
+%                                contains all resolved full paths from yaml_files{i}
+%                                (may contain duplicates within or across YAMLs)
+%       yaml_files             - Cell array of YAML file paths processed (normalized)
 %
 %   PATTERN_LIBRARY SUPPORT:
 %       If experiment_info.pattern_library is specified in the YAML:
@@ -26,10 +28,17 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
 %
 %   EXAMPLE:
 %       % Single YAML
-%       patterns = extract_patterns_from_yaml('experiment1.yaml');
+%       [patterns_per_yaml, yamls] = extract_patterns_from_yaml('experiment1.yaml');
+%       patterns = patterns_per_yaml{1};  % Patterns from first YAML
 %       
-%       % Multiple YAMLs (removes cross-file duplicates)
-%       patterns = extract_patterns_from_yaml({'exp1.yaml', 'exp2.yaml', 'exp3.yaml'});
+%       % Multiple YAMLs - patterns kept separate by source file
+%       [patterns_per_yaml, yamls] = extract_patterns_from_yaml({'exp1.yaml', 'exp2.yaml'});
+%       exp1_patterns = patterns_per_yaml{1};  % From exp1.yaml
+%       exp2_patterns = patterns_per_yaml{2};  % From exp2.yaml
+%       
+%       % Flatten and deduplicate after validation if needed
+%       all_patterns = [patterns_per_yaml{:}];
+%       unique_patterns = unique(all_patterns, 'stable');
 %
 %   See also: prepare_sd_card, deploy_experiments_to_sd
 
@@ -44,7 +53,7 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
     end
     
     if isempty(yaml_file_paths)
-        pattern_paths = {};
+        pattern_paths_per_yaml = {};
         yaml_files = {};
         return;
     end
@@ -59,8 +68,8 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
     
     yaml_files = yaml_file_paths;
     
-    %% Extract patterns from each YAML file
-    all_patterns = {};  % Will accumulate patterns in order
+    %% Extract patterns from each YAML file (keep separated by file)
+    pattern_paths_per_yaml = cell(length(yaml_file_paths), 1);
     
     for i = 1:length(yaml_file_paths)
         yaml_path = yaml_file_paths{i};
@@ -80,8 +89,8 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
                 end
             end
             
-            % Append to master list (duplicates will be removed later)
-            all_patterns = [all_patterns; file_patterns]; %#ok<AGROW>
+            % Store patterns for this YAML (keep separate, don't concatenate)
+            pattern_paths_per_yaml{i} = file_patterns;
             
             fprintf('  Found %d pattern references\n', length(file_patterns));
             
@@ -91,23 +100,16 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
         end
     end
     
-    %% Remove duplicates while preserving order
-    % Ensure all patterns are char vectors before unique
-    for i = 1:length(all_patterns)
-        if isstring(all_patterns{i})
-            all_patterns{i} = char(all_patterns{i});
-        end
-    end
-    
-    [pattern_paths, ~, ~] = unique(all_patterns, 'stable');
-    
-    fprintf('\nTotal unique patterns: %d\n', length(pattern_paths));
-    
     %% Validate all pattern files exist
+    fprintf('\nValidating pattern files...\n');
     missing_patterns = {};
-    for i = 1:length(pattern_paths)
-        if ~isfile(pattern_paths{i})
-            missing_patterns{end+1} = pattern_paths{i}; %#ok<AGROW>
+    
+    for i = 1:length(pattern_paths_per_yaml)
+        patterns = pattern_paths_per_yaml{i};
+        for j = 1:length(patterns)
+            if ~isfile(patterns{j})
+                missing_patterns{end+1} = sprintf('[%s] %s', yaml_files{i}, patterns{j}); %#ok<AGROW>
+            end
         end
     end
     
@@ -119,6 +121,8 @@ function [pattern_paths, yaml_files] = extract_patterns_from_yaml(yaml_file_path
         error('extract_patterns_from_yaml:MissingPatterns', ...
             '%d pattern file(s) not found', length(missing_patterns));
     end
+    
+    fprintf('✓ All pattern files found\n');
 end
 
 
