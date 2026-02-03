@@ -10,13 +10,13 @@ experiment_info:
   name: "Multi-Plugin Visual Stimulus Experiment"
   date_created: "2024-01-15"
   author: "Research Lab"
-  pattern_library:
+  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12"
 
 # ============================================================================
 # ARENA CONFIGURATION
 # ============================================================================
 arena_info:
-  num_rows: 4
+  num_rows: 2
   num_cols: 12
   generation: "G4.1"
 
@@ -75,12 +75,12 @@ plugins:
   # Script Plugin - Custom preprocessing
   - name: "preprocessing"
     type: "script"
-    script: './user_functions/preprocess_data'
+    script_path: './user_functions/preprocess_data'
 
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
-    script: './user_functions/analyze_trial'
+    script_path: './user_functions/analyze_trial'
 
 # ============================================================================
 # EXPERIMENT STRUCTURE
@@ -138,8 +138,8 @@ pretrial:
     # Display a test pattern to verify arena
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: './patterns/pat0001_test_grid.pat'
-      pattern_ID: 1
+      pattern: 'pat0094_num93_2x12.pat'
+      pattern_ID: 94
       duration: 2000  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -186,8 +186,8 @@ block:
         # Display pattern
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: './patterns/pat0002_vertical_bars.pat'
-          pattern_ID: 2
+          pattern: 'pat0071_num70_2x12.pat'
+          pattern_ID: 71
           duration: 5000  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -229,7 +229,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: './patterns/pat0003_horizontal_bars.pat'
+          pattern: 'pat0002_num01_2x12.pat'
           pattern_ID: 3
           duration: 5000
           mode: 2
@@ -271,7 +271,7 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: './patterns/pat0004_checkerboard.pat'
+          pattern: 'pat0007_num06_2x12.pat'
           pattern_ID: 4
           duration: 3000  # 3 seconds
           mode: 2  # position mode (static)
@@ -313,8 +313,8 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: './patterns/pat0005_expanding_grating.pat'
-          pattern_ID: 5
+          pattern: 'pat0012_num11_2x12.pat'
+          pattern_ID: 12
           duration: 4000  # 4 seconds
           mode: 2
           frame_index: 1
@@ -382,7 +382,7 @@ intertrial:
     # Reset to baseline pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: './patterns/pat0006_uniform_gray.pat'
+      pattern: 'pat0014_num13_2x12.pat'
       pattern_ID: 6
       duration: 2000  # 2 second inter-trial interval
       mode: 2
@@ -426,7 +426,7 @@ posttrial:
     # Display completion message pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: './patterns/pat0007_complete.pat'
+      pattern: 'pat0031_num30_2x12.pat'
       pattern_ID: 7
       duration: 2000
       mode: 2

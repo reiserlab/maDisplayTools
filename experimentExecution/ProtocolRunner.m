@@ -281,9 +281,15 @@ classdef ProtocolRunner < handle
         end
         
         function initializeLogger(self)
-            % Create experiment logger
+            % Create experiment logger with timestamped filename
             
-            logFile = fullfile(self.experimentDir, 'logs', 'experiment.log');
+            % Generate timestamp for current experiment run
+            timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+            
+            % Create log filename with timestamp
+            logFilename = sprintf('experimentLog_%s.log', timestamp);
+            logFile = fullfile(self.experimentDir, 'logs', logFilename);
+            
             self.logger = ExperimentLogger(logFile, self.verbose);
         end
         
@@ -630,9 +636,14 @@ classdef ProtocolRunner < handle
         end
         
         function generateExperimentSummary(self)
-            % Create experiment summary file
+            % Create experiment summary file with timestamped filename
             
-            summaryFile = fullfile(self.experimentDir, 'summary.txt');
+            % Generate timestamp for current experiment run
+            timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+            
+            % Create summary filename with timestamp
+            summaryFilename = sprintf('experimentSummary_%s.txt', timestamp);
+            summaryFile = fullfile(self.experimentDir, summaryFilename);
             fid = fopen(summaryFile, 'w');
             
             fprintf(fid, 'EXPERIMENT SUMMARY\n');

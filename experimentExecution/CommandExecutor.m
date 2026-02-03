@@ -72,88 +72,106 @@ classdef CommandExecutor < handle
 
             self.logger.log('INFO', sprintf('Controller command: %s', commandName));
             
-                % Execute based on specific command
-            switch commandName
-                    
-                case 'allOn'
-                    suc = self.arenaController.allOn();
-                    self.logger.log('INFO', sprintf('all on success: %d', suc));
-                    
-                case 'allOff'
-                    suc = self.arenaController.allOff();
-                    self.logger.log('INFO', sprintf('all off success: %d', suc));
-                    
-                case 'stopDisplay'
-                    suc = self.arenaController.stopDisplay(); 
-                    self.logger.log('INFO', sprintf('stop display success: %d', suc));
-
-                case 'setPositionX'
-                    if ~isfield(command, 'posX')
-                        self.logger.log('ERROR', sprintf('setPositionX failed due to missing parameter.'));
-                        error('posX parameter missing, cannot execute setPositionX');
-                    else
-                        posX = command.posX;
-                        suc = self.arenaController.setPositionX(posX);
-                        self.logger.log('INFO', sprintf('set position x succes: %d', suc));
-                    end
-
-                case 'setColorDepth'
-                    if ~isfield(command, 'gs_val')
-                        self.logger.log('ERROR', sprintf('set color depth failed due to missing parameter'));
-                        error('gs_val parameter missing, cannot execute setColorDepth');
+            % Execute based on specific command, with error handling
+            try
+                switch commandName
                         
-                    else
+                    case 'allOn'
+                        suc = self.arenaController.allOn();
+                        if ~suc
+                            self.logger.log('ERROR', 'allOn command failed - controller returned false');
+                            error('Controller command failed: allOn');
+                        end
+                        self.logger.log('INFO', 'allOn command succeeded');
+                        
+                    case 'allOff'
+                        suc = self.arenaController.allOff();
+                        if ~suc
+                            self.logger.log('ERROR', 'allOff command failed - controller returned false');
+                            error('Controller command failed: allOff');
+                        end
+                        self.logger.log('INFO', 'allOff command succeeded');
+                        
+                    case 'stopDisplay'
+                        suc = self.arenaController.stopDisplay();
+                        if ~suc
+                            self.logger.log('ERROR', 'stopDisplay command failed - controller returned false');
+                            error('Controller command failed: stopDisplay');
+                        end
+                        self.logger.log('INFO', 'stopDisplay command succeeded');
+
+                    case 'setPositionX'
+                        if ~isfield(command, 'posX')
+                            self.logger.log('ERROR', sprintf('setPositionX failed due to missing parameter.'));
+                            error('posX parameter missing, cannot execute setPositionX');
+                        end
+                        posX = command.posX;
+                        % setPositionX does not return a value, so we just call it
+                        self.arenaController.setPositionX(posX);
+                        self.logger.log('INFO', sprintf('setPositionX command sent: posX=%d', posX));
+
+                    case 'setColorDepth'
+                        if ~isfield(command, 'gs_val')
+                            self.logger.log('ERROR', sprintf('set color depth failed due to missing parameter'));
+                            error('gs_val parameter missing, cannot execute setColorDepth');
+                        end
                         gs_val = command.gs_val;
                         suc = self.arenaController.setColorDepth(gs_val);
-                        self.logger.log('INFO', sprintf('set color depth success: %d', suc));
-                    end
-
-                case {'startG41Trial', 'trialParams'}
-                    % Unified trial execution using trialParams()
-                    % Supports both 'startG41Trial' and 'trialParams' command names
-
-                    % All fields required for unified interface
-                    required_fields = {'mode', 'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate', 'gain'};
-                    self.check_required_fields(command, required_fields);
-
-                    mode = command.mode;
-                    if mode < 2 || mode > 4
-                        self.logger.log('ERROR', sprintf('Trial failed: mode must be 2, 3, or 4 (got %d)', mode));
-                        error('Trial failed: mode must be 2, 3, or 4');
-                    end
-
-                    % Extract parameters
-                    patID = command.pattern_ID;
-                    posX = command.frame_index;
-                    dur = command.duration;
-                    frameRate = command.frame_rate;
-                    gain = command.gain;
-
-                    % Log info about parameters ignored by specific modes
-                    if mode == 2 && gain ~= 0
-                        self.logger.log('INFO', sprintf('Note: gain=%d is ignored in mode 2 (constant rate)', gain));
-                    elseif mode == 3
-                        if frameRate ~= 0
-                            self.logger.log('INFO', sprintf('Note: frame_rate=%d is ignored in mode 3 (position stream)', frameRate));
+                        if ~suc
+                            self.logger.log('ERROR', sprintf('setColorDepth command failed - controller returned false'));
+                            error('Controller command failed: setColorDepth');
                         end
-                        if gain ~= 0
-                            self.logger.log('INFO', sprintf('Note: gain=%d is ignored in mode 3 (position stream)', gain));
-                        end
-                    elseif mode == 4 && frameRate ~= 0
-                        self.logger.log('INFO', sprintf('Note: frame_rate=%d is ignored in mode 4 (closed-loop ADC)', frameRate));
-                    end
+                        self.logger.log('INFO', sprintf('setColorDepth command succeeded: gs_val=%d', gs_val));
 
-                    % Execute using trialParams which waits for "Sequence completed"
-                    self.logger.log('INFO', sprintf('Trial: mode=%d, patID=%d, pos=%d, dur=%.1fs, fps=%d, gain=%d', ...
-                        mode, patID, posX, dur, frameRate, gain));
-                    suc = self.arenaController.trialParams(mode, patID, frameRate, posX, gain, dur*10, true);
-                    if ~suc
-                        self.logger.log('WARNING', 'trialParams returned false - trial may not have completed successfully');
-                    end
- 
-                otherwise
-                    self.logger.log('ERROR', sprintf('command failed due to unknown controller command %s',commandName));
-                    error('Unknown controller command: %s', commandName);
+                    case {'startG41Trial', 'trialParams'}
+                        % Unified trial execution using trialParams()
+                        % Supports both 'startG41Trial' and 'trialParams' command names
+
+                        % All fields required for unified interface
+                        required_fields = {'mode', 'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate', 'gain'};
+                        self.check_required_fields(command, required_fields);
+
+                        mode = command.mode;
+                        if mode < 2 || mode > 4
+                            self.logger.log('ERROR', sprintf('Trial failed: mode must be 2, 3, or 4 (got %d)', mode));
+                            error('Trial failed: mode must be 2, 3, or 4');
+                        end
+
+                        % Extract parameters
+                        patID = command.pattern_ID;
+                        posX = command.frame_index;
+                        dur = command.duration;
+                        frameRate = command.frame_rate;
+                        gain = command.gain;
+
+                        % Execute using trialParams which waits for "Sequence completed"
+                        self.logger.log('INFO', sprintf('Trial: mode=%d, patID=%d, pos=%d, dur=%.1fs, fps=%d, gain=%d', ...
+                            mode, patID, posX, dur, frameRate, gain));
+                        suc = self.arenaController.trialParams(mode, patID, frameRate, posX, gain, dur*10, true);
+                        if ~suc
+                            self.logger.log('ERROR', 'trialParams command failed - controller returned false or timeout');
+                            error('Controller command failed: trialParams');
+                        end
+                        self.logger.log('INFO', 'trialParams command succeeded');
+     
+                    otherwise
+                        self.logger.log('ERROR', sprintf('command failed due to unknown controller command %s',commandName));
+                        error('Unknown controller command: %s', commandName);
+                end
+                
+            catch ME
+                % Log the exception details
+                self.logger.log('ERROR', sprintf('Controller command %s threw exception: %s', ...
+                    commandName, ME.message));
+                
+                % Log stack trace if available
+                if ~isempty(ME.stack)
+                    self.logger.log('ERROR', sprintf('  at %s (line %d)', ...
+                        ME.stack(1).name, ME.stack(1).line));
+                end
+                
+                % Re-throw to halt experiment
+                rethrow(ME);
             end
 
             self.logger.log('INFO', sprintf('%s command completed', commandName));

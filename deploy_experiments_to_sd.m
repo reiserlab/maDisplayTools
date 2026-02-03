@@ -110,6 +110,55 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     end
     
     fprintf('\nReady to deploy %d unique patterns\n', result.num_patterns);
+
+    %% NEW: Validate all YAML protocols before deployment
+    fprintf('\n=== Validating YAML protocols ===\n');
+    
+    validation_failed = false;
+    all_errors = {};
+    
+    for i = 1:length(yaml_files)
+        yaml_path = yaml_files{i};
+        
+        % Extract pattern directory from first pattern (assumes all from same dir)
+        if ~isempty(pattern_paths)
+            [pattern_dir, ~, ~] = fileparts(pattern_paths{1});
+        else
+            pattern_dir = pwd;  % Fallback
+        end
+        
+        % Run validation
+        [isValid, errors, warnings] = validate_protocol_for_sd_card(yaml_path, pattern_dir, 'Verbose', false);
+        
+        if ~isValid
+            validation_failed = true;
+            [~, yaml_name] = fileparts(yaml_path);
+            fprintf(['  ✗ VALIDATION FAILED with %d error(s) in ' yaml_name '\n'], length(errors));
+            all_errors = [all_errors; errors];
+            
+            % Print errors for this YAML
+            for j = 1:length(errors)
+                fprintf('    %d. %s\n', j, errors{j});
+            end
+        else           
+            % Print warnings if any
+            if ~isempty(warnings)
+                fprintf('  ⚠ %d warning(s):\n', length(warnings));
+                for j = 1:length(warnings)
+                    fprintf('    %d. %s\n', j, warnings{j});
+                end
+            end
+        end
+    end
+    
+    % Stop if any validation failed
+    if validation_failed
+        result.error = sprintf('Protocol validation failed with %d total error(s). See details above.', length(all_errors));
+        fprintf('\n✗ Deployment aborted due to validation errors\n\n');
+        return;
+    end
+    
+    fprintf('\n✓ All protocols validated successfully\n');
     
     %% Step 2: Deploy to SD card
     fprintf('\n=== Deploying to SD card ===\n');
@@ -158,6 +207,8 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
             fprintf('  Added %d pattern mappings\n', update_info.num_mappings);
             fprintf('  Updated %d pattern_ID fields\n', update_info.num_ids_updated);
             total_ids_updated = total_ids_updated + update_info.num_ids_updated;
+
+            
         catch ME
             warning('Failed to process %s: %s', yaml_path, ME.message);
             result.yaml_updates{i} = struct('success', false, 'error', ME.message);

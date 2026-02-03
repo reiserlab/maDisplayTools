@@ -10,7 +10,7 @@ experiment_info:
   name: "Simple arena-only experiment"
   date_created: "12-15-2025"
   author: "Lisa F"
-  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo"
+  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12"
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -51,8 +51,8 @@ pretrial:
     # Display a test pattern to verify arena
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: 'pat0001_2row_gs2_sqGrate.pat'
-      pattern_ID: 1
+      pattern: 'pat0003_num02_2x12.pat'
+      pattern_ID: 3
       duration: 2  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -75,8 +75,8 @@ block:
         # Display pattern
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: 'pat0001_2row_gs2_sqGrate.pat'
-          pattern_ID: 1
+          pattern: 'pat0006_num05_2x12.pat'
+          pattern_ID: 6
           duration: 5  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -90,8 +90,8 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: 'pat0002.pat'
-          pattern_ID: 2
+          pattern: 'pat0010_num09_2x12.pat'
+          pattern_ID: 10
           duration: 5 # 5 seconds
           mode: 2
           frame_index: 1
@@ -104,8 +104,8 @@ block:
         
         - type: "controller"
           command_name: "startG41Trial"
-          pattern: 'pat0003.pat'
-          pattern_ID: 3
+          pattern: 'pat0002_num01_2x12.pat'
+          pattern_ID: 2
           duration: 3  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -134,7 +134,7 @@ intertrial:
     # Reset to baseline pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: 'pat0001_2row_gs2_sqGrate.pat'
+      pattern: 'pat0001_num00_2x12.pat'
       pattern_ID: 1
       duration: 2  # 2 second inter-trial interval
       mode: 2
@@ -153,8 +153,8 @@ posttrial:
     # Display posttrial pattern
     - type: "controller"
       command_name: "startG41Trial"
-      pattern: 'pat0004.pat'
-      pattern_ID: 4
+      pattern: 'pat0023_num22_2x12.pat'
+      pattern_ID: 23
       duration: 2
       mode: 2
       frame_index: 1
