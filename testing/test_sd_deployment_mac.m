@@ -16,6 +16,7 @@ test_root = fullfile(tempdir, 'sd_deployment_test');
 fake_pattern_lib = fullfile(test_root, 'pattern_library');
 fake_sd_card = fullfile(test_root, 'fake_sd_card');
 yaml_dir = fullfile(test_root, 'yaml_files');
+output_dir = fullfile(test_root, 'updated_yaml_files');
 
 fprintf('Setting up test environment...\n');
 fprintf('  Test root: %s\n', test_root);
@@ -29,6 +30,7 @@ end
 mkdir(fake_pattern_lib);
 mkdir(fake_sd_card);
 mkdir(yaml_dir);
+mkdir(output_dir);
 
 %% Create fake pattern files
 fprintf('\nCreating fake pattern files...\n');
@@ -161,7 +163,7 @@ end
 fprintf('\n=== TEST 2: Deploy to Fake SD Card ===\n');
 
 try
-    result = deploy_experiments_to_sd(yaml_file, fake_sd_card);
+    result = deploy_experiments_to_sd(yaml_file, fake_sd_card, output_dir);
     
     if result.success
         fprintf('âœ" SUCCESS: Deployment completed\n');
@@ -294,7 +296,7 @@ mkdir(fake_sd_card);
 
 % Deploy both YAMLs
 try
-    result = deploy_experiments_to_sd({yaml_file, yaml_file2}, fake_sd_card);
+    result = deploy_experiments_to_sd({yaml_file, yaml_file2}, fake_sd_card, output_dir);
     
     if result.success
         fprintf('âœ" SUCCESS: Multi-YAML deployment\n');

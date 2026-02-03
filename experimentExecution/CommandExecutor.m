@@ -182,7 +182,7 @@ classdef CommandExecutor < handle
             % Pause execution
             %
             % Command fields:
-            %   duration - Wait duration in milliseconds
+            %   duration - Wait duration in seconds
             
             if ~isfield(command, 'duration')
                 error('Wait command missing ''duration'' field');
@@ -192,7 +192,7 @@ classdef CommandExecutor < handle
             
             self.logger.log('INFO', sprintf('Wait command: %d ms', duration));
             
-            % Convert milliseconds to seconds and pause
+            % pause
             pause(duration);
             
             self.logger.log('DEBUG', 'Wait command completed');
@@ -234,8 +234,7 @@ classdef CommandExecutor < handle
                     commandName = command.command_name;
                     self.logger.log('DEBUG', sprintf('  Serial command: %s', commandName));
                     
-                    self.pluginManager.executePluginCommand(pluginID, ...
-                                                          'command', commandName);
+                    self.pluginManager.executePluginCommand(pluginID, commandName);
                     
                 case 'class'
                     if ~isfield(command, 'command_name')
@@ -247,12 +246,9 @@ classdef CommandExecutor < handle
                     
                     if isfield(command, 'params')
                         params = command.params;
-                        self.pluginManager.executePluginCommand(pluginID, ...
-                                                              'method', methodName, ...
-                                                              'params', params);
+                        self.pluginManager.executePluginCommand(pluginID, methodName, params);
                     else
-                        self.pluginManager.executePluginCommand(pluginID, ...
-                                                              'method', methodName);
+                        self.pluginManager.executePluginCommand(pluginID, methodName);
                     end
                     
                 case 'script'
