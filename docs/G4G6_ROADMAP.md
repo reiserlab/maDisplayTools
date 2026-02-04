@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-02-03
+> **Last Updated**: 2026-02-04
 > **Next Review**: ~2026-02-07
 >
 > **TODO**: Consider compressing this roadmap — move completed sprints to archive, consolidate in-flight items, streamline for active development focus.
@@ -1103,6 +1103,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-04 | **Icon Generator v1.4 + Partial Arena Fixes** — Fixed icon generator angular orientation to match 3D viewer (partial arena gap now centered at South). Fixed "arena is not defined" typo. Changed default inner radius to 0.4 for thicker ring. Flipped vertical orientation (top of arena at center of ring). Fixed gap line drawing to include `angleOffsetRad`. Pattern Editor v0.9.21: Fixed 3D viewer not updating on arena change (added `threeViewer.reinit()` call). Fixed partial arena support in 3D viewer (using `columns_installed.length` for comparison). |
 | 2026-02-03 (night) | **Pattern Editor v0.9.14** — Fixed partial arena dimension calculations (5 locations in pattern_editor.html, 4 in generator.js). G6_3x12of18 now correctly produces 240×60 px patterns (was incorrectly 360×60). G6_2x8of10 correctly produces 160×40 px patterns. Added animated GIF thumbnails for clipboard patterns (cycles through frames on hover at ~6-7 FPS, shows frame count badge). Tested Icon Generator path detection for partial arenas (works correctly). All 73 MATLAB validation tests pass. **BUG DISCOVERED**: Edge patterns generate 201 frames instead of expected 16 frames (validation tests only compare frame 0, not frame count). |
 | 2026-02-03 (PM) | **Pattern Editor v0.9.12** — Fixed frame reference tracking bug when deleting clipboard frames (loadedClipboardFrameId now cleared when loaded frame is deleted, preventing confusion when array indices shift). Added icon thumbnail preview in Frame Shifting panel (64x64 thumbnail shows which frame is loaded for shifting, with Clear button). **Icon Generator v1.3** — Added GIF generation mode (select mode, FPS, generates animated GIF from all pattern frames), progress bar during encoding, proper Download GIF functionality. |
 | 2026-02-03 | **Pattern Editor v0.9.7** — Fixed critical JavaScript falsy-value bug where `poleElevation = 0` was silently converted to `-90` (because `0 || -90` evaluates to -90). Added `parseFloatWithDefault()` helper using `Number.isFinite()` to correctly handle zero values. Fixed 6 occurrences in pattern_editor.html. Patterns with Pole El = 0 now correctly produce concentric rings (matching MATLAB) instead of horizontal stripes. |
