@@ -306,6 +306,74 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 ---
 
+## Planned Sessions
+
+### Pattern Compatibility Testing Session
+
+**Goal**: Verify end-to-end pattern compatibility between MATLAB and Web tools.
+
+**Test Matrix**:
+| Dimension | Values to Test |
+|-----------|----------------|
+| Generation | G4, G6 |
+| Arena Type | Full, Partial |
+| Grayscale | GS2 (binary), GS16 (4-bit) |
+| Source | Each pattern-generating widget |
+
+**Tests**:
+1. **MATLAB → Web**: Patterns made in MATLAB load correctly in web 3D viewer
+2. **Web → MATLAB**: Patterns made in web Pattern Editor play correctly in MATLAB PatternPreviewerApp
+3. **Round-trip**: Save from one platform, load in other, verify pixel-identical
+
+**Widgets to Test**:
+- Pattern Editor (web) — all pattern types (grating, sine, rotation, expansion, translation, starfield, edge)
+- PatternGeneratorApp (MATLAB) — same pattern types
+- Icon Generator (web) — verify saved patterns
+- PatternCombinerApp (MATLAB) — combined patterns
+
+**Success Criteria**: All patterns from the test matrix load and display correctly on both platforms.
+
+---
+
+### Web 3D Viewer Feature Review Session
+
+**Goal**: Review standalone Arena 3D Viewer features and decide which to port to Pattern Editor's 3D view.
+
+**Standalone Viewer Features to Evaluate**:
+- Auto-rotate animation
+- Screenshot export with stats overlay
+- FOV presets (60°, 120°, 170° fly eye)
+- Statistics panel (angular resolution, pixel counts)
+- Pattern presets dropdown
+
+**New Feature: Mercator Projection View**
+- If straightforward to implement, add Mercator projection tab to Pattern Editor
+- Alternative 2D view alongside Grid view
+
+---
+
+### Deferred: Observer Perspective Controls
+
+**Status**: 🔴 DEFERRED — Needs design discussion about arena config integration
+
+**Features to Consider (Later)**:
+1. **Arena Pitch** — Tilt the arena relative to horizontal (already in PatternGeneratorApp)
+2. **Observer Translation** — Move observer position within arena (not just center)
+3. **Observer Height** — Vertical position of viewpoint
+
+**Why Deferred**:
+- These parameters affect pattern generation, not just visualization
+- Need to decide: Are these part of arena config? Pattern metadata? Runtime-only?
+- Current arena config schema doesn't include observer position
+- Should observer position be saved with patterns or be a preview-only setting?
+
+**To Pick Up Later**:
+1. Design discussion: Where do observer parameters live?
+2. Update arena config schema if needed
+3. Implement in both MATLAB and Web tools consistently
+
+---
+
 ## In-Flight Work
 
 These are started projects that need to be picked up and completed. Each section describes current state, what's left, and how to resume.
