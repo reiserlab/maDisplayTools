@@ -181,9 +181,8 @@ classdef ProtocolParser < handle
             
             % Validate plugins (if present)
             if isfield(data, 'plugins')
-                if isstruct(data.plugins) && ~iscell(data.plugins)
-                    data.plugins = {data.plugins};
-                end
+                data.plugins = self.ensure_cell_array(data.plugins);
+               
                 self.validatePlugins(data.plugins);
             end
             
@@ -377,17 +376,13 @@ classdef ProtocolParser < handle
             if ~isstruct(data.block.conditions) || isempty(data.block.conditions)
                 self.throwValidationError('block.conditions must be a non-empty list');
             end
-
-            if isstruct(data.block.conditions) && ~iscell(data.block.conditions)
-                data.block.conditions = {data.block.conditions};
-            end
-
+  %          data.block.conditions = self.ensure_cell_array(data.block.conditions);
             
             
             % Validate each condition
             for i = 1:length(data.block.conditions)
                 
-                condition = data.block.conditions{i};
+                condition = data.block.conditions(i);
                 
                 if ~isfield(condition, 'id')
                     self.throwValidationError('Block condition %d missing required "id" field', i);
@@ -398,9 +393,8 @@ classdef ProtocolParser < handle
                                              condition.id);
                 end
                 
-                if isstruct(condition.commands) && ~iscell(condition.commands)
-                    condition.commands = {condition.commands};
-                end
+                condition.commands = self.ensure_cell_array(condition.commands);
+
                 if ~iscell(condition.commands)
                     self.throwValidationError('Block condition "%s" commands must be a list', ...
                                              condition.id);
@@ -439,9 +433,8 @@ classdef ProtocolParser < handle
                                              sectionName);
                 end
                 
-                if isstruct(section.commands) && ~iscell(section.commands)
-                    section.commands = {section.commands};
-                end
+                section.commands = self.ensure_cell_array(section.commands);
+
                 if ~iscell(section.commands)
                     self.throwValidationError('%s.commands must be a list', sectionName);
                 end
@@ -546,9 +539,8 @@ classdef ProtocolParser < handle
             % Extract plugins (if present)
             if isfield(data, 'plugins')
                 protocol.plugins = data.plugins;
-                if isstruct(protocol.plugins) && ~iscell(protocol.plugins)
-                    protocol.plugins = {protocol.plugins};
-                end
+                protocol.plugins = self.ensure_cell_array(protocol.plugins);
+
                 if self.verbose
                     fprintf('  Found %d plugin definitions\n', length(protocol.plugins));
                 end
@@ -561,9 +553,8 @@ classdef ProtocolParser < handle
             
             % Extract pretrial commands
             protocol.pretrialCommands = self.extractOptionalSection(data, 'pretrial');
-            if isstruct(protocol.pretrialCommands) && ~iscell(protocol.pretrialCommands)
-                protocol.pretrialCommands = {protocol.pretrialCommands};
-            end
+            protocol.pretrialCommands = self.ensure_cell_array(protocol.pretrialCommands);
+
             if self.verbose
                 if isempty(protocol.pretrialCommands)
                     fprintf('  Pretrial: skipped\n');
@@ -574,14 +565,11 @@ classdef ProtocolParser < handle
             
             % Extract block conditions
             protocol.blockConditions = data.block.conditions;
-            if isstruct(protocol.blockConditions) && ~iscell(protocol.blockConditions)
-                protocol.blockConditions = {protocol.blockConditions};
-            end
+  %          protocol.blockConditions = self.ensure_cell_array(protocol.blockConditions);
+
             for cond = 1:length(protocol.blockConditions)
-                if isstruct(protocol.blockConditions(cond).commands) && ...
-                        ~iscell(protocol.blockConditions(cond).commands)
-                    protocol.blockConditions(cond).commands = {protocol.blockConditions(cond).commands};
-                end
+                protocol.blockConditions(cond).commands = self.ensure_cell_array(protocol.blockConditions(cond).commands);
+   
             end
             if self.verbose
                 fprintf('  Block: %d conditions\n', length(protocol.blockConditions));
@@ -589,9 +577,8 @@ classdef ProtocolParser < handle
             
             % Extract intertrial commands
             protocol.intertrialCommands = self.extractOptionalSection(data, 'intertrial');
-            if isstruct(protocol.intertrialCommands) && ~iscell(protocol.intertrialCommands)
-                protocol.intertrialCommands = {protocol.intertrialCommands};
-            end
+            protocol.intertrialCommands = self.ensure_cell_array(protocol.intertrialCommands);
+
             if self.verbose
                 if isempty(protocol.intertrialCommands)
                     fprintf('  Intertrial: skipped\n');
@@ -602,9 +589,8 @@ classdef ProtocolParser < handle
             
             % Extract posttrial commands
             protocol.posttrialCommands = self.extractOptionalSection(data, 'posttrial');
-            if isstruct(protocol.posttrialCommands) && ~iscell(protocol.posttrialCommands)
-                protocol.posttrialCommands = {protocol.posttrialCommands};
-            end
+            protocol.posttrialCommands = self.ensure_cell_array(protocol.posttrialCommands);
+
             if self.verbose
                 if isempty(protocol.posttrialCommands)
                     fprintf('  Posttrial: skipped\n');
@@ -680,6 +666,17 @@ classdef ProtocolParser < handle
             
             error('ProtocolParser:ValidationError', '%s', fullMsg);
         end
+
+        function cellArray = ensure_cell_array(~, data)
+            if isempty(data)
+                cellArray = [];
+            elseif isstruct(data) && ~iscell(data)
+                cellArray = {data};
+            else
+                cellArray = data;
+            end
+
+        end
     end
     
     methods (Static)
@@ -703,6 +700,8 @@ classdef ProtocolParser < handle
             output = (num_conds*reps) + inter*((num_conds*reps)-1) + pre + post;
             
         end
+
+        
     end
 
 end
