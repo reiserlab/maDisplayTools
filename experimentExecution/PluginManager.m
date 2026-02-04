@@ -14,7 +14,7 @@ classdef PluginManager < handle
     end
     
     methods (Access = public)
-        function self = PluginManager(logger)
+        function self = PluginManager(logger, experimentDir)
             % Constructor
             %
             % Input Arguments:
@@ -22,7 +22,7 @@ classdef PluginManager < handle
             
             self.pluginRegistry = containers.Map();
             self.logger = logger;
-            self.logOutputDir = fileparts(self.logger.logFile); % This is outputDir/logs, same location as experiment.log
+            self.logOutputDir = fullfile(experimentDir, 'logs'); % This is experimentDir/logs, same location as experiment.log
         end
         
         function initializePlugin(self, pluginDef)

@@ -7,10 +7,10 @@ version: 1
 # EXPERIMENT METADATA
 # ============================================================================
 experiment_info:
-  name: "Simple arena-only experiment"
+  name: "Simple experiment"
   date_created: "12-15-2025"
   author: "Lisa F"
-  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12"
+  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12'
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -31,7 +31,15 @@ plugins:
     matlab:
       class: "BiasPlugin"
     config:
-      bias_executable: "C:\Users\rathores\MATLAB\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe"  # UPDATE THIS BEFORE RUNNING IF NEEDED
+      bias_executable: '/Users/lisaferguson/Downloads/LEDControllerPlugin_Documentation.md'  # UPDATE THIS BEFORE RUNNING IF NEEDED
+  
+  # LED Controller (back light) Plugin
+  - name: "backlight"
+    type: "class"
+    matlab:
+      class: "LEDControllerPlugin"
+    config:
+      port: "COM6"
   
   # Script Plugin - Post-trial analysis
   - name: "analysis"

@@ -312,11 +312,15 @@ classdef ProtocolRunner < handle
             end
             
             self.logger.log('INFO', 'Initializing plugins...');
-            self.pluginManager = PluginManager(self.logger);
+            self.pluginManager = PluginManager(self.logger, self.experimentDir);
             
             plugins = self.protocolData.plugins;
             for i = 1:length(plugins)
-                pluginDef = plugins(i);
+                if length(plugins) == 1
+                    pluginDef = plugins(i);
+                else
+                    pluginDef = plugins{i};
+                end
                 
                 try
                     self.pluginManager.initializePlugin(pluginDef);
