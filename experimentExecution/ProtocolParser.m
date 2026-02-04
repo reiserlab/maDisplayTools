@@ -176,9 +176,14 @@ classdef ProtocolParser < handle
             
             % Validate experiment_structure
             self.validateExperimentStructure(data.experiment_structure);
+
+       
             
             % Validate plugins (if present)
             if isfield(data, 'plugins')
+                if isstruct(data.plugins) && ~iscell(data.plugins)
+                    data.plugins = {data.plugins};
+                end
                 self.validatePlugins(data.plugins);
             end
             
@@ -261,9 +266,7 @@ classdef ProtocolParser < handle
         function validatePlugins(self, plugins)
             % Validate plugins section
             
-            if isstruct(plugins) && ~iscell(plugins)
-                plugins = {plugins};
-            end
+            
             
             if ~iscell(plugins)
                 self.throwValidationError('plugins must be a list (cell array)');
@@ -374,10 +377,17 @@ classdef ProtocolParser < handle
             if ~isstruct(data.block.conditions) || isempty(data.block.conditions)
                 self.throwValidationError('block.conditions must be a non-empty list');
             end
+
+            if isstruct(data.block.conditions) && ~iscell(data.block.conditions)
+                data.block.conditions = {data.block.conditions};
+            end
+
+            
             
             % Validate each condition
             for i = 1:length(data.block.conditions)
-                condition = data.block.conditions(i);
+                
+                condition = data.block.conditions{i};
                 
                 if ~isfield(condition, 'id')
                     self.throwValidationError('Block condition %d missing required "id" field', i);
