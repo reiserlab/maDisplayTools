@@ -60,7 +60,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         ExportScriptButton         matlab.ui.control.Button
         StatusLabel                matlab.ui.control.Label
 
-        % Right panel - Options (Starfield, Mask Config)
+        % Right panel - Options (Starfield, Looming, Mask Config)
         StarfieldOptionsPanel      matlab.ui.container.Panel
         DotCountLabel              matlab.ui.control.Label
         DotCountSpinner            matlab.ui.control.Spinner
@@ -73,6 +73,17 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
         DotLevelLabel              matlab.ui.control.Label
         DotLevelDropDown           matlab.ui.control.DropDown
         DotReRandomCheckBox        matlab.ui.control.CheckBox
+
+        % Right panel - Looming Options
+        LoomingOptionsPanel        matlab.ui.container.Panel
+        LoomProfileLabel           matlab.ui.control.Label
+        LoomProfileDropDown        matlab.ui.control.DropDown
+        LoomInitialSizeLabel       matlab.ui.control.Label
+        LoomInitialSizeSpinner     matlab.ui.control.Spinner
+        LoomFinalSizeLabel         matlab.ui.control.Label
+        LoomFinalSizeSpinner       matlab.ui.control.Spinner
+        LoomLVRatioLabel           matlab.ui.control.Label
+        LoomLVRatioSpinner         matlab.ui.control.Spinner
 
         % Right panel - Solid Angle Mask Config
         SAMaskPanel                matlab.ui.container.Panel
@@ -375,6 +386,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                     spatEnabled = false;
                     dutyEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'on';
+                    app.LoomingOptionsPanel.Visible = 'off';
                 case 'Off/On'
                     spatEnabled = false;
                     stepEnabled = false;
@@ -382,17 +394,33 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                     motionEnabled = false;
                     maskEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'off';
                 case 'Edge'
                     dutyEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'off';
                 case 'Sine Grating'
                     dutyEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'off';
                 case 'Reverse-Phi'
-                    % Reverse-phi uses square grating as base, enable duty cycle
+                    % Reverse-phi uses square grating with fixed 50% duty cycle
+                    dutyEnabled = false;
                     app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'off';
+                case 'Looming'
+                    % Looming uses its own parameters, not grating params
+                    spatEnabled = false;
+                    stepEnabled = false;
+                    dutyEnabled = false;
+                    motionEnabled = false;
+                    app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'on';
+                    % Update l/v ratio visibility based on profile
+                    app.updateLoomingParameterStates();
                 otherwise
                     app.StarfieldOptionsPanel.Visible = 'off';
+                    app.LoomingOptionsPanel.Visible = 'off';
             end
 
             % Apply states
@@ -456,6 +484,13 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             end
         end
 
+        function updateLoomingParameterStates(app)
+            % Show/hide l/v ratio based on looming profile
+            isExponential = strcmp(app.LoomProfileDropDown.Value, 'Exponential');
+            app.LoomLVRatioLabel.Visible = isExponential;
+            app.LoomLVRatioSpinner.Visible = isExponential;
+        end
+
         function handles = buildHandlesStruct(app)
             % Build the handles struct expected by Pattern_Generator
             handles = struct();
@@ -469,8 +504,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
 
             % Map dropdown values to Pattern_Generator expected values
             patternTypeMap = containers.Map(...
-                {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi'}, ...
-                {'square grating', 'sine grating', 'edge', 'starfield', 'off_on', 'reverse_phi'});
+                {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi', 'Looming'}, ...
+                {'square grating', 'sine grating', 'edge', 'starfield', 'off_on', 'reverse_phi', 'looming'});
             motionTypeMap = containers.Map(...
                 {'Rotation', 'Translation', 'Expansion-Contraction'}, ...
                 {'rotation', 'translation', 'expansion-contraction'});
@@ -541,6 +576,15 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             param.dot_re_random = double(app.DotReRandomCheckBox.Value);
             param.snap_dots = 0;
 
+            % Looming options
+            loomProfileMap = containers.Map(...
+                {'Constant Velocity', 'Exponential'}, ...
+                {'constant_velocity', 'exponential'});
+            param.loom_profile = loomProfileMap(app.LoomProfileDropDown.Value);
+            param.initial_size = deg2rad(app.LoomInitialSizeSpinner.Value);
+            param.final_size = deg2rad(app.LoomFinalSizeSpinner.Value);
+            param.l_over_v = app.LoomLVRatioSpinner.Value / 1000;  % Convert ms to seconds
+
             % Fixed parameters
             param.aa_samples = 15;
             param.aa_poles = 1;
@@ -573,6 +617,16 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 name = sprintf('%s_%.0fstep', patType, stepSize);
             elseif strcmp(app.PatternTypeDropDown.Value, 'Reverse-Phi')
                 name = sprintf('reverse_phi_%.0fdeg_%.0fstep', spatFreq, stepSize);
+            elseif strcmp(app.PatternTypeDropDown.Value, 'Looming')
+                profile = lower(strrep(app.LoomProfileDropDown.Value, ' ', '_'));
+                initSize = app.LoomInitialSizeSpinner.Value;
+                finalSize = app.LoomFinalSizeSpinner.Value;
+                if strcmp(app.LoomProfileDropDown.Value, 'Exponential')
+                    lvRatio = app.LoomLVRatioSpinner.Value;
+                    name = sprintf('loom_%s_%.0fto%.0fdeg_%dms', profile, initSize, finalSize, lvRatio);
+                else
+                    name = sprintf('loom_%s_%.0fto%.0fdeg', profile, initSize, finalSize);
+                end
             else
                 name = sprintf('%s_%.0fdeg_%.0fstep', patType, spatFreq, stepSize);
             end
@@ -711,6 +765,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 '  Edge - Single contrast edge';
                 '  Starfield - Random dots';
                 '  Off/On - All off, then all on';
+                '  Reverse-Phi - Contrast inverts each frame (motion illusion)';
+                '  Looming - Expanding circle (approach simulation)';
                 '';
                 'MOTION TYPES:';
                 '  Rotation - Pattern rotates around pole';
@@ -733,6 +789,20 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
                 '  Occlusion: Closest/Sum/Mean for overlapping dots';
                 '  Dot Level: Fixed brightness, random spread, or random binary';
                 '  Re-randomize: New positions each frame';
+                '';
+                'LOOMING OPTIONS:';
+                '  Profile: Constant Velocity (linear) or Exponential';
+                '  Initial Size: Starting angular radius in degrees';
+                '  Final Size: Ending angular radius in degrees';
+                '  l/v Ratio: Size/velocity ratio in ms (exponential only)';
+                '    - Smaller l/v = more sudden expansion near collision';
+                '    - Typical values: 10-100 ms';
+                '  Center: Uses Pole coordinates to set loom center';
+                '';
+                'REVERSE-PHI:';
+                '  Uses square grating with fixed 50% duty cycle';
+                '  Contrast inverts on every frame while pattern shifts';
+                '  Creates illusion of motion opposite to physical shift';
                 '';
                 'WORKFLOW:';
                 '  1. Select arena configuration';
@@ -776,6 +846,11 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
 
         function StepSizeSpinnerValueChanged(app)
             app.updateStepSizeInfo();
+            app.parameterChanged();
+        end
+
+        function LoomProfileDropDownValueChanged(app)
+            app.updateLoomingParameterStates();
             app.parameterChanged();
         end
 
@@ -1029,6 +1104,12 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             fprintf(fid, 'param.num_dots = %d;\n', app.DotCountSpinner.Value);
             fprintf(fid, 'param.dot_radius = deg2rad(%.1f);\n', app.DotRadiusSpinner.Value);
 
+            fprintf(fid, '\n%% Looming parameters\n');
+            fprintf(fid, 'param.loom_profile = ''%s'';\n', lower(strrep(app.LoomProfileDropDown.Value, ' ', '_')));
+            fprintf(fid, 'param.initial_size = deg2rad(%.1f);  %% degrees\n', app.LoomInitialSizeSpinner.Value);
+            fprintf(fid, 'param.final_size = deg2rad(%.1f);  %% degrees\n', app.LoomFinalSizeSpinner.Value);
+            fprintf(fid, 'param.l_over_v = %.3f;  %% seconds (l/v ratio)\n', app.LoomLVRatioSpinner.Value / 1000);
+
             fprintf(fid, '\n%% Fixed parameters\n');
             fprintf(fid, 'param.aa_samples = 15;\n');
             fprintf(fid, 'param.aa_poles = 1;\n');
@@ -1218,7 +1299,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.PatternTypeLabel.Layout.Column = 1;
 
             app.PatternTypeDropDown = uidropdown(leftGrid);
-            app.PatternTypeDropDown.Items = {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi'};
+            app.PatternTypeDropDown.Items = {'Square Grating', 'Sine Grating', 'Edge', 'Starfield', 'Off/On', 'Reverse-Phi', 'Looming'};
             app.PatternTypeDropDown.Value = 'Square Grating';
             app.PatternTypeDropDown.ValueChangedFcn = @(~,~) app.PatternTypeDropDownValueChanged();
             app.PatternTypeDropDown.Layout.Row = row;
@@ -1414,8 +1495,8 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.RightPanel.Layout.Column = 2;
             % RightPanel always visible (contains mask controls)
 
-            rightGrid = uigridlayout(app.RightPanel, [3 1]);
-            rightGrid.RowHeight = {'fit', 'fit', 'fit'};
+            rightGrid = uigridlayout(app.RightPanel, [4 1]);
+            rightGrid.RowHeight = {'fit', 'fit', 'fit', 'fit'};
             rightGrid.ColumnWidth = {'1x'};
             rightGrid.Padding = [5 5 5 5];
             rightGrid.RowSpacing = 5;
@@ -1500,10 +1581,74 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             app.DotReRandomCheckBox.Layout.Row = 6;
             app.DotReRandomCheckBox.Layout.Column = [1 2];
 
+            % === Looming Options Panel ===
+            app.LoomingOptionsPanel = uipanel(rightGrid);
+            app.LoomingOptionsPanel.Title = 'Looming';
+            app.LoomingOptionsPanel.Layout.Row = 2;
+            app.LoomingOptionsPanel.Layout.Column = 1;
+            app.LoomingOptionsPanel.Visible = 'off';
+
+            loomGrid = uigridlayout(app.LoomingOptionsPanel, [4 2]);
+            loomGrid.RowHeight = {22, 22, 22, 22};
+            loomGrid.ColumnWidth = {80, '1x'};
+            loomGrid.Padding = [5 5 5 5];
+            loomGrid.RowSpacing = 2;
+
+            app.LoomProfileLabel = uilabel(loomGrid);
+            app.LoomProfileLabel.Text = 'Profile:';
+            app.LoomProfileLabel.Layout.Row = 1;
+            app.LoomProfileLabel.Layout.Column = 1;
+
+            app.LoomProfileDropDown = uidropdown(loomGrid);
+            app.LoomProfileDropDown.Items = {'Constant Velocity', 'Exponential'};
+            app.LoomProfileDropDown.Value = 'Exponential';
+            app.LoomProfileDropDown.ValueChangedFcn = @(~,~) app.LoomProfileDropDownValueChanged();
+            app.LoomProfileDropDown.Layout.Row = 1;
+            app.LoomProfileDropDown.Layout.Column = 2;
+
+            app.LoomInitialSizeLabel = uilabel(loomGrid);
+            app.LoomInitialSizeLabel.Text = 'Initial (deg):';
+            app.LoomInitialSizeLabel.Layout.Row = 2;
+            app.LoomInitialSizeLabel.Layout.Column = 1;
+
+            app.LoomInitialSizeSpinner = uispinner(loomGrid);
+            app.LoomInitialSizeSpinner.Limits = [0.1 90];
+            app.LoomInitialSizeSpinner.Value = 5;
+            app.LoomInitialSizeSpinner.Step = 1;
+            app.LoomInitialSizeSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
+            app.LoomInitialSizeSpinner.Layout.Row = 2;
+            app.LoomInitialSizeSpinner.Layout.Column = 2;
+
+            app.LoomFinalSizeLabel = uilabel(loomGrid);
+            app.LoomFinalSizeLabel.Text = 'Final (deg):';
+            app.LoomFinalSizeLabel.Layout.Row = 3;
+            app.LoomFinalSizeLabel.Layout.Column = 1;
+
+            app.LoomFinalSizeSpinner = uispinner(loomGrid);
+            app.LoomFinalSizeSpinner.Limits = [1 180];
+            app.LoomFinalSizeSpinner.Value = 90;
+            app.LoomFinalSizeSpinner.Step = 5;
+            app.LoomFinalSizeSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
+            app.LoomFinalSizeSpinner.Layout.Row = 3;
+            app.LoomFinalSizeSpinner.Layout.Column = 2;
+
+            app.LoomLVRatioLabel = uilabel(loomGrid);
+            app.LoomLVRatioLabel.Text = 'l/v (ms):';
+            app.LoomLVRatioLabel.Layout.Row = 4;
+            app.LoomLVRatioLabel.Layout.Column = 1;
+
+            app.LoomLVRatioSpinner = uispinner(loomGrid);
+            app.LoomLVRatioSpinner.Limits = [1 500];
+            app.LoomLVRatioSpinner.Value = 40;
+            app.LoomLVRatioSpinner.Step = 5;
+            app.LoomLVRatioSpinner.ValueChangedFcn = @(~,~) app.parameterChanged();
+            app.LoomLVRatioSpinner.Layout.Row = 4;
+            app.LoomLVRatioSpinner.Layout.Column = 2;
+
             % === Solid Angle Mask Panel (with integrated checkbox) ===
             app.SAMaskPanel = uipanel(rightGrid);
             app.SAMaskPanel.Title = '';  % No title - checkbox serves as header
-            app.SAMaskPanel.Layout.Row = 2;
+            app.SAMaskPanel.Layout.Row = 3;
             app.SAMaskPanel.Layout.Column = 1;
 
             saGrid = uigridlayout(app.SAMaskPanel, [6 2]);
@@ -1587,7 +1732,7 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
             % === Lat/Long Mask Panel (with integrated checkbox) ===
             app.LatLongMaskPanel = uipanel(rightGrid);
             app.LatLongMaskPanel.Title = '';  % No title - checkbox serves as header
-            app.LatLongMaskPanel.Layout.Row = 3;
+            app.LatLongMaskPanel.Layout.Row = 4;
             app.LatLongMaskPanel.Layout.Column = 1;
 
             llGrid = uigridlayout(app.LatLongMaskPanel, [6 2]);

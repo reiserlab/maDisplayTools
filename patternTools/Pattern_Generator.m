@@ -20,34 +20,61 @@ function [Pats, true_step_size, rot180] = Pattern_Generator(handles)
         error(['for selected gs_val, all levels must be positive integers ' ...
             'no greater than ' num2str((2^param.gs_val)-1)]);
     end
-    if any(strcmpi(param.motion_type(1), {'r' 't' 'e'}))==0
-        error('invalid choice of motion type')
-    end
-    if any(strcmpi(param.pattern_type(1:2), {'sq' 'si' 'ed' 'st' 'of' 're'}))==0
+    if any(strcmpi(param.pattern_type(1:2), {'sq' 'si' 'ed' 'st' 'of' 're' 'lo'}))==0
         error('invalid choice of pattern type')
     end
     if any(strcmpi(param.pattern_fov(1), {'l' 'f'}))==0
         error('invalid choice of pattern fov')
     end
-    if any(strcmpi(param.dot_size(1), {'s' 'd'}))==0
-        error('invalid choice of dot size')
-    end
-    if any(strcmpi(param.dot_occ(1), {'c' 's' 'm'}))==0
-        error('invalid choice for dot occlusion')
-    end
     if param.aa_samples<1 || mod(param.aa_samples,1)~=0
         error('aa_samples must be a positive integer')
     end
-    if any([param.arena_pitch, param.pole_coord, param.motion_angle, param.spat_freq, ...
-            param.step_size, param.dot_radius, param.sa_mask(1:3), param.long_lat_mask(1:4)]>2*pi)
-        error('some units might be in degrees rather than radians (error catches units > 2*pi)');
+
+    % Pattern-type specific validation
+    is_looming = strncmpi(param.pattern_type, 'lo', 2);
+    is_starfield = strncmpi(param.pattern_type, 'st', 2);
+
+    % Motion type validation (not used by looming)
+    if ~is_looming
+        if any(strcmpi(param.motion_type(1), {'r' 't' 'e'}))==0
+            error('invalid choice of motion type')
+        end
     end
-    if param.duty_cycle<0 || param.duty_cycle > 100
-        error('duty_cycle must be value between 0-100');
+
+    % Starfield-specific validation
+    if is_starfield
+        if any(strcmpi(param.dot_size(1), {'s' 'd'}))==0
+            error('invalid choice of dot size')
+        end
+        if any(strcmpi(param.dot_occ(1), {'c' 's' 'm'}))==0
+            error('invalid choice for dot occlusion')
+        end
+        if tan(param.dot_radius)>0.95
+            error(['actual dot radius (' num2str(tan(param.dot_radius)) ') is too large to ' ...
+                'reliably fit within the view radius and not overlap with the arena center'])
+        end
     end
-    if tan(param.dot_radius)>0.95
-        error(['actual dot radius (' num2str(tan(param.dot_radius)) ') is too large to ' ...
-            'reliably fit within the view radius and not overlap with the arena center'])
+
+    % Looming-specific validation
+    if is_looming
+        if ~isfield(param, 'initial_size') || ~isfield(param, 'final_size')
+            error('looming patterns require initial_size and final_size parameters');
+        end
+        if param.initial_size >= param.final_size
+            error('initial_size must be less than final_size for looming');
+        end
+        if any([param.initial_size, param.final_size] > pi)
+            error('looming sizes should be in radians (values > pi detected)');
+        end
+    else
+        % Non-looming patterns: check angular parameters are in radians
+        if any([param.arena_pitch, param.pole_coord, param.motion_angle, param.spat_freq, ...
+                param.step_size, param.sa_mask(1:3), param.long_lat_mask(1:4)]>2*pi)
+            error('some units might be in degrees rather than radians (error catches units > 2*pi)');
+        end
+        if param.duty_cycle<0 || param.duty_cycle > 100
+            error('duty_cycle must be value between 0-100');
+        end
     end
 
     %% calculate arena coordinates
@@ -76,6 +103,8 @@ function [Pats, true_step_size, rot180] = Pattern_Generator(handles)
             [Pats, num_frames] = make_off_on(param);
         case 're' %reverse-phi (motion illusion with brightness inversion)
             [Pats, num_frames, true_step_size] = make_reverse_phi(param, arena_x, arena_y, arena_z, arena_fullfile);
+        case 'lo' %looming (expanding circle)
+            [Pats, num_frames, true_step_size] = make_looming(param, arena_x, arena_y, arena_z, arena_fullfile);
         otherwise %grating or edge
             [Pats, num_frames, true_step_size] = make_grating_edge(param, arena_x, arena_y, arena_z, arena_fullfile);
     end
