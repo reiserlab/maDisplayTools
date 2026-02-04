@@ -546,6 +546,9 @@ classdef ProtocolParser < handle
             % Extract plugins (if present)
             if isfield(data, 'plugins')
                 protocol.plugins = data.plugins;
+                if isstruct(protocol.plugins) && ~iscell(protocol.plugins)
+                    protocol.plugins = {protocol.plugins};
+                end
                 if self.verbose
                     fprintf('  Found %d plugin definitions\n', length(protocol.plugins));
                 end
@@ -571,6 +574,9 @@ classdef ProtocolParser < handle
             
             % Extract block conditions
             protocol.blockConditions = data.block.conditions;
+            if isstruct(protocol.blockConditions) && ~iscell(protocol.blockConditions)
+                protocol.blockConditions = {protocol.blockConditions};
+            end
             for cond = 1:length(protocol.blockConditions)
                 if isstruct(protocol.blockConditions(cond).commands) && ...
                         ~iscell(protocol.blockConditions(cond).commands)
