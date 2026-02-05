@@ -508,6 +508,52 @@ function [errors, warnings] = validatePluginCommand(cmd, context, index)
     if ~isfield(cmd, 'plugin_name')
         errors{end+1} = sprintf('%s plugin command %d missing plugin_name', ...
             context, index);
+        return;
+    end
+    
+    % Special validation for log command
+    if isfield(cmd, 'command_name') && strcmpi(cmd.command_name, 'log')
+        % Validate params field exists
+        if ~isfield(cmd, 'params')
+            errors{end+1} = sprintf('%s plugin command %d: log command requires params field', ...
+                context, index);
+            return;
+        end
+        
+        % Validate message field exists
+        if ~isfield(cmd.params, 'message')
+            errors{end+1} = sprintf('%s plugin command %d: log command requires params.message', ...
+                context, index);
+            return;
+        end
+        
+        % Validate message is a non-empty string
+        if ~ischar(cmd.params.message) && ~isstring(cmd.params.message)
+            errors{end+1} = sprintf('%s plugin command %d: log message must be a string', ...
+                context, index);
+        elseif isempty(strtrim(char(cmd.params.message)))
+            errors{end+1} = sprintf('%s plugin command %d: log message cannot be empty', ...
+                context, index);
+        else
+            % Check message length (max 2000 characters for safety)
+            msg = char(cmd.params.message);
+            if length(msg) > 2000
+                errors{end+1} = sprintf('%s plugin command %d: log message exceeds 2000 character limit (%d characters)', ...
+                    context, index, length(msg));
+            end
+        end
+        
+        % Validate level parameter if provided
+        if isfield(cmd.params, 'level')
+            valid_levels = {'DEBUG', 'INFO', 'WARNING', 'ERROR'};
+            level = upper(char(cmd.params.level));
+            if ~ismember(level, valid_levels)
+                errors{end+1} = sprintf('%s plugin command %d: invalid log level "%s" (must be DEBUG, INFO, WARNING, or ERROR)', ...
+                    context, index, cmd.params.level);
+            end
+        end
+        
+        return;  % Log command validation complete
     end
     
     % Note: Further plugin command validation (command_name, params) happens at runtime

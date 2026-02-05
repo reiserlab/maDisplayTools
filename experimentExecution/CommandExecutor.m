@@ -210,12 +210,40 @@ classdef CommandExecutor < handle
             %     params - (optional) Parameters struct
             %   For ScriptPlugin:
             %     (no additional fields needed)
+            %   For Log command (all plugin types):
+            %     command_name - 'log'
+            %     params.message - Log message (required)
+            %     params.level - Log level (optional, default: 'INFO')
             
             if ~isfield(command, 'plugin_name')
                 error('Plugin command missing ''plugin_name'' field');
             end
             
             pluginID = command.plugin_name;
+            
+            % Special handling for log command
+            if isfield(command, 'command_name') && strcmpi(command.command_name, 'log')
+                % Validate params and message
+                if isfield(command, 'params') && isfield(command.params, 'message')
+  
+                    message = command.params.message;
+                    
+                    % Get optional level parameter (default: 'INFO')
+                    if isfield(command.params, 'level')
+                        level = upper(command.params.level);
+                    else
+                        level = 'INFO';
+                    end
+                    
+                    % Execute log command via PluginManager
+                    self.pluginManager.logCustomMessage(pluginID, message, level);
+                    
+                    % Log that we executed the log command
+                    self.logger.log('DEBUG', 'Log command completed');
+                    
+                    return;  % Done, no further execution needed
+                end
+            end
             
             % Get plugin to determine type
             plugin = self.pluginManager.getPlugin(pluginID);
