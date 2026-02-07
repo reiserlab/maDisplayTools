@@ -328,6 +328,42 @@ Naming convention: `G6_2x8of10.yaml` = 2 rows, 8 installed columns of 10 total
 - `ccw` = counter-clockwise
 - Column 0 starts at south in both cases
 
+## Arena Registry
+
+The arena registry assigns unique IDs to arena configurations for use in pattern file headers.
+
+### Key Design: Per-Generation Namespaces
+
+Arena IDs are **per-generation**, not global:
+- G4 arena ID 1 ≠ G6 arena ID 1
+- Each generation (G4, G4.1, G6) has its own ID namespace
+- Registry location: `configs/arena_registry/`
+
+### Utility Functions
+
+**Get arena ID from name:**
+```matlab
+arena_id = get_arena_id('G6', 'G6_2x10');  % Returns 1
+```
+
+**Get arena name from ID:**
+```matlab
+arena_name = get_arena_name('G6', 1);  % Returns 'G6_2x10'
+```
+
+**Get generation ID/name:**
+```matlab
+gen_id = get_generation_id('G4.1');  % Returns 3
+gen_name = get_generation_name(3);   % Returns 'G4.1'
+```
+
+### ID Ranges
+
+**G4.1 (8-bit):** 0=unspecified, 1-10=Reiser lab, 11-200=community, 201-254=user, 255=reserved
+**G6 (6-bit):** 0=unspecified, 1-10=Reiser lab, 11-50=community, 51-62=user, 63=reserved
+
+See `configs/arena_registry/README.md` for full documentation.
+
 ## Testing Workflow
 
 1. Make code changes

@@ -2,10 +2,10 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-02-04
-> **Next Review**: ~2026-02-07
+> **Last Updated**: 2026-02-05
+> **Next Review**: ~2026-02-10
 >
-> **TODO**: Consider compressing this roadmap — move completed sprints to archive, consolidate in-flight items, streamline for active development focus.
+> **Note**: Historical details (completed sprints, completed in-flight work) archived in `G4G6_ROADMAP_SESSIONS.md`.
 
 ---
 
@@ -38,229 +38,119 @@
 
 ---
 
-## Completed Work (Jan 15-21)
+## Completed Work (Jan 15 – Feb 4)
 
-### ✅ Web Tools Repository Setup
-- Created `webDisplayTools` as separate public repository
-- Flat directory structure with single HTML files
-- Modern dark theme with green accents (#00e676)
-- Reiser Lab branding and GitHub links
-- JetBrains Mono / IBM Plex Mono fonts
+> **Archived**: Full details in `G4G6_ROADMAP_SESSIONS.md` under "ARCHIVED ROADMAP SECTIONS"
 
-### ✅ G6 Panel Pattern Editor (Single Panel)
-- `g6_panel_editor.html` — fully functional
-- 20×20 pixel pattern editing
-- Multiple modes: GS2, GS16, 4-Char, LED Map Reference
-- Real-time preview and pattern export
-- Version 7 (updated with MATLAB-compatible encoding)
-- CI/CD validation workflow complete (MATLAB reference data → web validation)
-
-### ✅ Arena Layout Editor (Web)
-- `arena_editor.html` — fully functional
-- SVG-based visualization matching MATLAB exactly
-- Panel generation tabs (G3, G4, G4.1, G5, G6, Custom)
-- Click-to-toggle panels for partial arena designs
-- Units toggle (inches/mm)
-- Export PDF and JSON with full geometry
-- Default: G6 with 10 panels
-
-### ✅ Arena Layout (MATLAB)
-- `utils/design_arena.m` — consolidated from legacy scripts
-- Supports G3, G4, G4.1, G5, G6 generations
-- Configurable panels (4-36), partial arena support
-- PDF export, returns computed geometry
-- Key formula: `c_radius = panel_width / (tan(alpha/2)) / 2`
-
-### ✅ CI/CD Validation Framework
-- MATLAB generates `reference_data.json`
-- `js/arena-calculations.js` — standalone calculation module
-- `tests/validate-arena-calculations.js` — Node.js test runner
-- `.github/workflows/validate-calculations.yml` — GitHub Actions
-- All 11 test configurations pass validation
-- Pattern: MATLAB → JSON → Web validates against it
-
-### ✅ 3D Arena Viewer
-- `arena_3d_viewer.html` — Three.js visualization
-- Links from Arena Editor with URL parameters
-- Pattern presets (all-on, grating, sine)
-- Auto-rotate animation
-- Screenshot export with stats overlay
-
-### ✅ SD Card Deployment — FULLY TESTED (Jan 21)
-- `utils/prepare_sd_card.m` — stages patterns for SD card
-  - `'Format', true` — formats SD card for clean FAT32 state (recommended)
-  - `'UsePatternFolder', true/false` — patterns in /patterns or root
-  - `'ValidateDriveName', true` — requires SD card named PATSD
-- Renames to pat0001.pat, pat0002.pat, etc. (lowercase)
-- Creates MANIFEST.bin (for microcontroller) and MANIFEST.txt (human-readable)
-- Saves local log to `logs/`
-- **Tested with 100 patterns end-to-end on hardware!**
-- Frank/Peter's controller update — pattern indexing correct
-
-**Root cause of WSACONNRESET errors identified:**
-- Controller encountering unexpected files it couldn't parse
-- FAT32 delete doesn't clear directory entries — controller saw "ghost" files
-- Fix: Format SD card to fully clear FAT32 directory table
-
-**Note on multiple protocols:**
-Current implementation intentionally avoids deduplication. If an experiment uses multiple protocols referencing the same pattern, that pattern appears multiple times with different unique IDs. Simple approach that provides straightforward path to supporting multiple protocols per experiment.
-
-### ✅ Test Pattern Generation
-- `examples/create_test_patterns.m` — 20 patterns (digits 0-9 + gratings)
-- `examples/create_test_patterns_100.m` — 100 two-digit patterns (00-99)
-- `examples/test_sd_card_copy.m` — copies test patterns to SD
-- `examples/test_sd_card_copy_100.m` — copies 100 patterns in numeric order
-
-### ✅ Documentation
-- `sd_card_deployment_notes.md` — usage guide
-- `tcp_migration_plan.md` — pnet → tcpclient migration
-- `todo_lab_tuesday.md` — hardware debugging checklist (completed!)
-- `CLAUDE.md` in webDisplayTools — AI assistant guidelines
-
-### ✅ PatternPreviewerApp Histogram & Utilities (Jan 30)
-- Graphical histogram with color-coded horizontal bars (black→green gradient)
-- Log/Linear scale toggle for sparse pattern visualization
-- Enable checkbox to disable histogram during playback (clears display when disabled)
-- Performance optimization: persistent graphics objects (no create/destroy per frame)
-- UI controls locked during playback to prevent race conditions
-- New utilities: `open_pattern_apps()`, `save_pattern_app_layout()`, `close_pattern_apps()`
-- FPS options: 1, 5, 10, 20, 30 (removed 60)
-- Bug fix: histogram bars not rendering (was using `XData` instead of `YData` for `barh`)
-
-### ✅ Pattern Tools Quick Start Guide (Jan 30)
-- Created `docs/pattern_tools_quickstart.md` for new lab members
-- Annotated screenshots for PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp
-- Documents arena configs, pattern organization convention, typical workflows
-- Includes app launcher utilities, troubleshooting tips, link to G4 documentation
-- GitHub issues link for reporting problems
-
-### ✅ G6 Pattern Tools & CI/CD (Jan 23-24)
-- Created `g6/` directory with pattern encoding tools
-  - `g6_save_pattern.m` — user-facing pattern creation
-  - `g6_encode_panel.m` — internal 20×20 panel encoding (GS2/GS16)
-  - `generate_g6_encoding_reference.m` — reference data generator
-  - `test_g6_encoding.m` — encoding validation script
-- Agreed encoding convention with Will: row-major order, (0,0) at bottom-left
-- CI/CD validation workflow:
-  - MATLAB generates `g6_encoding_reference.json`
-  - webDisplayTools: `js/g6-encoding.js` (shared module)
-  - webDisplayTools: `tests/validate-g6-encoding.js`
-  - GitHub Actions workflow for automated testing
-- Documentation: `g6_quickstart.md`, `g6_migration_plan.md`
+**Summary of completed milestones:**
+- ✅ Web Tools Repository Setup (webDisplayTools, dark theme, fonts)
+- ✅ G6 Panel Editor with CI/CD validation (v8)
+- ✅ Arena Layout Editor (web + MATLAB)
+- ✅ Arena 3D Viewer with .pat file loading
+- ✅ SD Card Deployment (tested with 100 patterns)
+- ✅ PatternGeneratorApp (App Designer, multi-generation)
+- ✅ PatternPreviewerApp (histogram, playback controls)
+- ✅ PatternCombinerApp (sequential/mask/split modes)
+- ✅ Arena Config YAML system (10 configs, CI/CD sync)
+- ✅ Pattern Tools Quick Start Guide
+- ✅ G6 encoding tools + CI/CD validation
 
 ---
 
-## Sprint 1 (Jan 21-24) — COMPLETED
+## Sprint 1 & 2 (Jan 21 – Jan 31) — COMPLETED
 
-### [P0] TCP Migration Testing ✅ PARTIAL
-- [x] Created parallel implementations on `claude/switchable-tcp-controller-qQRKM`
-  - PanelsController.m (pnet) - unchanged
-  - PanelsControllerNative.m (tcpclient) - new
-- [x] Basic benchmarks run on hardware
-- [x] Performance comparable between backends
-- [x] Test suite updated for G4.1 commands only (allOn, allOff, stopDisplay, streamFrame)
-- [x] 50ms delay between commands for reliability
-- ⚠️ Controller locks up at streaming >10 FPS — need feedback to Peter/Frank
-- 🔄 More careful testing needed with updated procedures
+> **Archived**: Sprint details in `G4G6_ROADMAP_SESSIONS.md`
 
-### [P1] G3 PControl Code Review — NOT STARTED
-- Deferred to later sprint
-- `pcontrol` branch exists but empty
+**Sprint 1** (Jan 21-24): TCP migration testing (partial), experiment workflow fixes, G6 panel CI/CD, Tuesday lab session success.
 
-### [P2] Experiment Workflow Integration ✅ COMPLETE
-- [x] Extensive testing with Lisa (Jan 24)
-- [x] Fixed multiple bugs:
-  - CommandExecutor: switched to trialParams() for trial execution
-  - ProtocolRunner: fixed OutputDir parameter being ignored
-  - ScriptPlugin: added missing close() method
-  - deploy_experiments_to_sd.m: now formats SD card each time
-- [x] Created comprehensive `docs/experiment_pipeline_guide.md`
-- [x] PR open: `claude/bugfix-trialparams-executor-80r3o`
+**Sprint 2** (Jan 27-31): Arena config implementation, webDisplayTools update, PatternGeneratorApp core features.
 
-### [P3] G6 Panel Editor CI/CD ✅ COMPLETE
-- Already marked complete — see Completed Work section
+### Remaining from Sprint 2: Branch Reconciliation
 
-### [P4] G6 Pattern Tools Migration ✅ COMPLETE
-- [x] Created `g6/` directory with pattern tools
-- [x] Agreed encoding convention with Will: row-major, (0,0) bottom-left
-- [x] CI/CD validation infrastructure in place
-- [x] Documentation: `g6_quickstart.md`, `g6_migration_plan.md`
-
-### Tuesday Lab Session (Jan 21) — ALL PASSED ✅
-- [x] Resolved `WSACONNRESET` errors (root cause: unparseable files on SD)
-- [x] Tested SD card deployment with known-good patterns
-- [x] Validated `prepare_sd_card.m` end-to-end
-- [x] Tested with Frank/Peter's controller update
-- [x] Generated and tested 100 patterns successfully
+- **Goal**: Get complete, tested items onto `main` and close branches
+- **Strategy**: Merge everything that doesn't impact others' work
+  - Lisa's code → PR through Lisa
+  - PanelController → PR through Frank
+- [ ] Merge consolidated arena work to main
+- [ ] Port remaining g41-controller-update items to main
+- [ ] Reconcile with Lisa's experiment execution system
+- [ ] Close stale branches
 
 ---
 
-## Current Focus (Sprint 2: Jan 27-31) — WRAPPING UP
+## Near-Term Priorities (Feb 7+)
 
-### 🎯 Primary Goal: Arena Config & Web Tools Update
+### ✅ Recently Completed (Feb 7)
+- **Tier 1 Testing Suite** — 4 test scripts, 28/28 tests pass
+  - GUI launch validation (4 tests)
+  - Pattern round-trip validation (6 tests)
+  - Fixed G4/G4.1 save test skipping (6 tests)
+  - Pattern combiner tests (12 tests)
+- **Arena Registry System** — Per-generation namespaces, 4 utility functions
+  - ID ranges: G4.1 (8-bit 0-255), G6 (6-bit 0-63)
+  - 6 arena configs registered (G4, G41, G6)
+- **GitHub #12 Fixed** — Singleton pattern for all 3 GUI apps
 
-### Tasks
+### 🎯 Primary Focus: Header V2 Implementation (Day 2)
 
-- [x] **[P1] Arena Config Implementation** ✅ COMPLETE
-  - [x] Draft JSON schema (see `arena_config_spec.md` on g41-controller-update) ✅
-  - [x] Switched to YAML for arena/rig/experiment configs ✅
-  - [x] Created `configs/arenas/` with 10 standard arena configs ✅
-  - [x] Created `configs/rigs/` with rig configs (reference arena YAML) ✅
-  - [x] Implement MATLAB `load_arena_config.m`, `load_rig_config.m`, etc. ✅
-  - [x] Update `design_arena.m` with column_order field ✅
-  - [x] Web arena editor redesigned with view/create modes ✅
-  - [x] Web 3D viewer redesigned with config dropdown ✅
-  - [x] CI/CD workflow to sync configs from maDisplayTools to webDisplayTools ✅
-  - ~[ ] **Audit maDisplayTools** for arena-specific details~ → Deferred (arena config propagation is in-flight work below)
-  - [x] **Audit G4 pattern editor** to map how it can use new arena config ✅ → Done via PatternGeneratorApp
-  - [x] Remove G5 from valid arena designs ✅ (errors in load_arena_config.m, get_generation_specs.m, ProtocolParser.m; no G5 tab in web tools)
+1. **G6 Header Extension**
+   - [ ] Implement bit-packed arena_id + observer_id in bytes 5-6
+   - [ ] 4 bits version, 6 bits arena_id, 6 bits observer_id
+   - [ ] Update g6_save_pattern.m, g6_decode_panel.m
 
-- [x] **[P2] Update webDisplayTools** ✅ COMPLETE
-  - [x] Arena editor: Dropdown for 9 standard configs, view/create modes ✅
-  - [x] 3D viewer: Dropdown for configs, removed manual gen/row controls ✅
-  - [x] CI/CD workflow: Auto-sync arena configs from maDisplayTools ✅
-  - [x] Updated LED specs with accurate dimensions (G3: 3mm round, G4: 1.9mm round, G4.1: 0603 SMD, G6: 0402 SMD) ✅
-  - [x] Update landing page to reflect current status ✅
-  - [x] Update tool descriptions and status badges ✅
-  - [x] Add links to documentation / roadmap ✅
-  - [x] Clarify which tools are complete vs placeholder ✅
+2. **G4.1 Header V2**
+   - [ ] Implement generation + arena_id in bytes 2-3
+   - [ ] Update save_pattern.m for G4.1
+   - [ ] Maintain backward compatibility with V1
 
-- [x] **[P3] Pattern Editor Assessment & Implementation** ✅ COMPLETE (core)
-  - [x] Inventory G4_Pattern_Generator_gui.m features (see `docs/g4_pattern_editor_assessment.md`)
-  - [x] Identify generation-specific vs universal features
-  - [x] Plan update strategy for multi-generation support (see plan file)
-  - [x] Created `PatternGeneratorApp.m` — new App Designer GUI
-  - [x] Implemented multi-generation support (G3, G4, G4.1, G6)
-  - [x] Integrated arena YAML configs via dropdown
-  - [x] Added LED-accurate preview with green phosphor colormap
-  - [x] Added playback controls (Play/Stop, FPS selection)
-  - [x] Added arena info display (panels, pixels, deg/px horizontal)
-  - Remaining feature parity work moved to Sprint 3
+3. **Tier 2 Validation Tests** (parameter bounds, UI state sync)
 
-- [ ] **[P4] Branch Reconciliation** (after P1 arena work complete)
-  - **Goal**: Get complete, tested items that don't require substantial further work onto `main` and close branches
-  - **Strategy**: Merge everything to main in one go that doesn't impact others' work
-    - Anything touching Lisa's code → PR through Lisa
-    - Anything touching PanelController → PR through Frank
-  - [ ] Merge consolidated arena work to main
-  - [ ] Port remaining g41-controller-update items (LEDController, docs, test patterns) to main
-  - [ ] Reconcile with Lisa's experiment execution system (already in main)
-  - [ ] Close stale branches (g41-controller-update, old claude/ branches)
+### Deferred / Lower Priority
 
-### Deferred to Later
-- G4.1 Control GUI Development — wait until arena config and pattern editor work is more mature
+1. **Arena Config Loading Verification**
+   - [ ] Test path-based loading (`load_arena_config('configs/arenas/G6_2x10.yaml')`)
+   - [ ] Test filename prefix detection (e.g., `G6_2x10_pattern.pat` → auto-loads config)
+   - [ ] Document any issues found
 
-### Done Criteria
-- [x] Arena config YAML loading/saving works in MATLAB and web ✅
-- [x] webDisplayTools landing page accurately reflects project status ✅
-- [x] Pattern editor requirements documented ✅
-- [x] PatternGeneratorApp functional with multi-generation support ✅
+3. **Test Looming & Reverse-Phi Patterns**
+   - Branch: `claude/` branch in maDisplayTools
+   - [ ] Test looming patterns (expanding disc/square, constant and r/v velocity)
+   - [ ] Test reverse-phi patterns (verify correct implementation per literature)
+   - [ ] If working → migrate to webDisplayTools
+
+4. **🔴 CRITICAL: Round-Trip Pattern Validation**
+   - **Goal**: Ensure MATLAB ↔ Web pattern compatibility at pixel level
+   - **Test Set**: At least 100 patterns exploring:
+     - All generations (G3, G4, G4.1, G6)
+     - Full and partial arenas
+     - GS2 and GS16 grayscale modes
+     - All pattern types (grating, sine, edge, starfield, rotation, expansion, translation)
+     - Various pole positions and arena pitches
+   - **Test A: Load compatibility**
+     - [ ] MATLAB patterns load correctly in web 3D viewer
+     - [ ] Web patterns load correctly in MATLAB PatternPreviewerApp
+     - [ ] Pixel values match exactly (not just visually similar)
+   - **Test B: Generation comparison**
+     - [ ] Generate identical patterns in both tools with same parameters
+     - [ ] Numerically compare output (byte-for-byte if possible)
+     - [ ] Document any discrepancies
+   - [ ] Create `tests/validate_round_trip.m` script
+   - [ ] Create `tests/validate-round-trip.js` for web
+
+5. **maDisplayTools Repo Cleanup & Merge Strategy**
+   - **Strategy**: Merge to main in stages, pattern GUIs first
+   - **Constraint**: Minimize changes to Lisa's code until fully tested
+   - [ ] Phase 1: Pattern tools (PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp)
+   - [ ] Phase 2: Arena config system
+   - [ ] Phase 3: SD card tools
+   - [ ] Phase 4: Experiment workflow (coordinate with Lisa)
+   - [ ] Phase 5: TCP migration (coordinate with Frank)
 
 ---
 
-## Sprint 3 (Feb 2-5)
+## Sprint 3 (Feb 2-5) — WRAPPING UP
 
-### 🎯 Primary Goal: PatternGeneratorApp Feature Parity + TCP Migration Testing
+### 🎯 Original Goal: PatternGeneratorApp Feature Parity + TCP Migration Testing
 
 ### Tasks
 
@@ -378,49 +268,7 @@ Current implementation intentionally avoids deduplication. If an experiment uses
 
 These are started projects that need to be picked up and completed. Each section describes current state, what's left, and how to resume.
 
-### 0. Web Tools Update for Arena Config Changes
-
-**Status**: ✅ COMPLETE (Jan 30)
-
-**Changes Made (Jan 28)**:
-1. **File renames**: `G6_2x10_full.yaml` → `G6_2x10.yaml`, `G6_2x8_walking.yaml` → `G6_2x8of10.yaml`, etc.
-2. **Schema change**: `panels_installed` → `columns_installed`
-3. **New naming convention**: Partial arenas use `{rows}x{installed}of{total}` format
-
-**Completed (Jan 30)**:
-- [x] CI/CD workflow triggered to sync configs
-- [x] `arena_editor.html` updated to use `columns_installed`
-- [x] Config dropdown shows new names
-- [x] 3D viewer loads renamed configs
-- [x] Added `.pat` file loading to 3D viewer (new feature!)
-- [x] Updated `CLAUDE.md` with testing documentation
-
----
-
-### 0a. Web 3D Viewer Pattern Loading
-
-**Status**: ✅ COMPLETE (Jan 30)
-
-**New Feature**: Load `.pat` files directly in the 3D arena viewer.
-
-**Implemented**:
-- `js/pat-parser.js` — G6 and G4 pattern file parser
-- Pattern loading UI in `arena_3d_viewer.html`
-- Multi-frame playback with FPS control (1-30 FPS)
-- FOV control with presets (Normal 60°, Wide 120°, Fly Eye 170°)
-- `window.testLoadPattern(url)` for automated testing
-
-**Open Issues** (GitHub):
-- [#8: UI polish and playback improvements](https://github.com/reiserlab/webDisplayTools/issues/8)
-  - Remove "Rotate Pattern" button (redundant)
-  - Rename "Pattern" → "Test Patterns"
-  - Add negative FPS for CW/CCW playback
-  - Lock controls during playback
-  - Fix cramped statistics panel
-  - Uniform button sizes
-- [#9: True fisheye shader for fly eye simulation](https://github.com/reiserlab/webDisplayTools/issues/9)
-  - Barrel distortion shader
-  - ~270° horizontal × 180° vertical FOV
+> **Archived**: Completed in-flight items (Web Tools Update #0, 3D Viewer Pattern Loading #0a, PatternGeneratorApp #5, Arena Config for Partial Arenas #6, Landing Page #7, Pattern Validation #7, Pattern Save/Load Script #8) moved to `G4G6_ROADMAP_SESSIONS.md`.
 
 ---
 
@@ -548,40 +396,6 @@ end
 
 ---
 
-### 5. PatternGeneratorApp Missing Features
-
-**Status**: ✅ Feature parity achieved! All major G4 GUI features implemented.
-
-**Current State**: See `docs/g4_pattern_editor_assessment.md` for full comparison.
-
-**Completed Features** (2026-01-26/27):
-- ✅ Duty cycle (1-99% spinner)
-- ✅ Brightness levels (High/Low spinners, background in mask dialogs)
-- ✅ Pole coordinates (Longitude/Latitude spinners in Full-field mode)
-- ✅ Motion angle (0-360° spinner in Local mode)
-- ✅ Arena pitch (-90 to 90°)
-- ✅ Pattern FOV (Full-field / Local dropdown)
-- ✅ Mask options (Solid Angle + Lat/Long with Configure dialogs, mutually exclusive)
-- ✅ Starfield options (Conditional panel: dot count, radius, size, occlusion, level, re-randomize)
-- ✅ Mercator view + Mollweide view with adjustable dot size and FOV zoom
-- ✅ Info dialog with coordinate system diagrams and parameter reference
-- ✅ 1:1 aspect ratio for all views
-
-**Remaining Lower Priority Features**:
-
-| Priority | Feature | Notes |
-|----------|---------|-------|
-| ~~Medium~~ | ~~.pat binary export~~ | ✅ Implemented (Jan 29) |
-| Low | Phase shift | Starting phase offset (default 0) |
-| Low | Anti-aliasing control | Fixed at 15 samples (works well) |
-| Low | GIF export | Moved to Future Vision → Pattern Previewer |
-
-**Files**:
-- `patternGenerator/PatternGeneratorApp.m`
-- `docs/g4_pattern_editor_assessment.md` (detailed feature inventory)
-
----
-
 ### 5. Branch Reconciliation
 
 **Status**: Multiple branches with completed work need to be merged to main.
@@ -607,117 +421,6 @@ end
 2. Identify which changes are ready vs need more work
 3. Create PRs for independent pieces
 4. Coordinate with Lisa/Frank for their code
-
----
-
-### 6. Arena Config for Partial Arenas
-
-**Status**: ✅ COMPLETE (Jan 28)
-
-**Problem** (Jan 27):
-The `panels_installed` field was used inconsistently (column indices vs panel indices).
-
-**Solution Implemented**:
-1. Renamed field from `panels_installed` to `columns_installed` for clarity
-2. Standardized on column indices (0-indexed) for all partial arenas
-3. Renamed arena config files for clarity:
-   - `G6_2x10_full.yaml` → `G6_2x10.yaml`
-   - `G6_2x8_walking.yaml` → `G6_2x8of10.yaml`
-   - `G6_3x18_partial.yaml` → `G6_3x12of18.yaml`
-   - Similar for G4 and G3 configs
-4. `load_arena_config.m` updated with new `num_columns_installed` derived property
-5. `total_pixels_x` now based on installed columns (for correct pattern dimensions)
-
-**Schema**:
-```yaml
-arena:
-  num_rows: 2
-  num_cols: 10           # Full grid columns
-  columns_installed: [1, 2, 3, 4, 5, 6, 7, 8]  # 0-indexed, or null for all
-```
-
-**Files Updated**:
-- `configs/arenas/*.yaml` — renamed and updated schema
-- `utils/load_arena_config.m` — field rename + derived calculations
-- `patternGenerator/PatternGeneratorApp.m` — field references
-- `patternGenerator/configure_arena.m` — YAML output
-
----
-
-### 7. Web Tools Landing Page
-
-**Status**: ✅ COMPLETE
-
-**Current State**:
-- Arena Editor: ✅ Complete
-- Arena 3D Viewer: ✅ Complete
-- G6 Panel Editor: ✅ Complete (CI/CD validated)
-- Pattern Editor: ❌ Placeholder (noted on landing page)
-- Experiment Designer: ❌ Placeholder (noted on landing page)
-- Landing page updated with status badges and descriptions
-
----
-
-### 7. Pattern Validation / Regression Testing
-
-**Status**: ✅ COMPLETE (MATLAB) — Web validation pending
-
-**Goal**: Ensure Pattern_Generator.m produces identical output to G4_Pattern_Generator for same inputs.
-
-**Completed** (Jan 26):
-- [x] Baseline patterns generated using G4_Pattern_Generator (5 pattern types)
-- [x] Stored in `validation/pattern_baseline/` (baseline_patterns.mat, baseline_parameters.yaml)
-- [x] Comparison script `validation/compare_patterns.m` — runs and passes
-- [x] All 5 pattern types pass: square grating, sine grating, edge, starfield, off-on
-
-**Future Work**:
-- [ ] Revisit validation when Pattern Editor is migrated to web tools
-- [ ] Create JavaScript-based validation for web pattern editor (similar to G6 panel editor CI/CD)
-
----
-
-### 8. Pattern Save/Load Validation Script
-
-**Status**: ✅ COMPLETE (Jan 29)
-
-**Goal**: Automated testing of pattern save/load for all arena generations and configurations.
-
-**Script**: `tests/validate_pattern_save_load.m`
-
-**Test Coverage**:
-| Arena Config | Rows | Cols | Description |
-|--------------|------|------|-------------|
-| G4_4x12.yaml | 4 | 12 | G4 full arena |
-| G4_3x12of18.yaml | 3 | 12 | G4 partial arena |
-| G41_2x12_cw.yaml | 2 | 12 | G4.1 full arena |
-| G6_2x10.yaml | 2 | 10 | G6 full arena |
-| G6_2x8of10.yaml | 2 | 8 | G6 partial (8 of 10 cols) |
-| G6_3x12of18.yaml | 3 | 12 | G6 partial (12 of 18 cols) |
-
-**Test Process**:
-1. Load arena config from YAML
-2. Generate test grating pattern (2 frames)
-3. Save pattern using save_pattern() / g6_save_pattern()
-4. Load pattern using maDisplayTools.load_pat()
-5. Verify dimensions match expected (rows × cols in pixels)
-6. Verify frame count matches
-
-**Usage**:
-```matlab
-results = validate_pattern_save_load();
-if all([results.passed])
-    disp('All tests passed!');
-end
-```
-
-**Run After**:
-- Any changes to g6_encode_panel.m or g6_decode_panel.m
-- Any changes to save_pattern.m or g6_save_pattern.m
-- Any changes to maDisplayTools.load_pat()
-- Any changes to arena config schema
-
-**Files**:
-- `tests/validate_pattern_save_load.m` — Main validation script
 
 ---
 
@@ -802,124 +505,52 @@ end
 
 ---
 
-## Why PatternGeneratorApp (Not G4 GUI Update)
-
-We created a new `PatternGeneratorApp.m` using App Designer instead of updating the existing `G4_Pattern_Generator_gui.m`. Here's why:
-
-### GUIDE Limitations
-
-The original G4 Pattern Generator uses MATLAB's legacy GUIDE framework:
-- **`.fig` files contain hardcoded callback references** — Callback names like `pushbutton1_Callback` are embedded in the binary `.fig` file and reference specific function names in the `.m` file
-- **No programmatic way to modify `.fig` callbacks** — You can't reliably rename or reorganize callbacks without breaking the GUI
-- **Callback function names are fragile** — Changing `G4_Pattern_Generator_gui.m` to `Pattern_Generator_gui.m` would break all callbacks unless you manually edit the `.fig` file in GUIDE
-- **GUIDE is deprecated** — MathWorks recommends App Designer for new GUIs
-
-### App Designer Advantages
-
-App Designer (`PatternGeneratorApp.m`) provides:
-- **Single file contains both UI and code** — No separate `.fig` file
-- **Callbacks are methods** — Renaming is straightforward
-- **Modern UI components** — Better styling, responsive layouts
-- **Better maintainability** — Code is more readable and testable
-- **Cross-platform consistency** — More reliable appearance across OS
-
-### Our Approach
-
-1. **Reference, don't modify** — Keep G4_Pattern_Generator_gui.m for reference
-2. **Fresh implementation** — Build PatternGeneratorApp.m from scratch using App Designer
-3. **Feature parity goal** — Implement same features, validate output matches
-4. **Single source of truth** — Use `get_generation_specs.m` and YAML arena configs
-
-### Files for Reference
-
-Legacy G4 files (in G4_Display_Tools, kept for reference):
-- `G4_Pattern_Generator_gui.m` + `.fig` — Original GUIDE GUI
-- `configure_arena.m` + `.fig` — Arena setup dialog
-- `mask_options.m` + `.fig` — Mask configuration
-- `more_options.m` + `.fig` — Advanced rendering options
-
----
-
 ## Backlog (Prioritized)
+
+> **Archived**: "Why PatternGeneratorApp (Not G4 GUI Update)" moved to `G4G6_ROADMAP_SESSIONS.md`
 
 ### High Priority
 
-1. ~~**Unified Arena Config Implementation**~~ ✅ COMPLETE
-   - ~~MATLAB struct ↔ JSON bidirectional conversion~~ → YAML configs implemented
-   - ~~Web tools read/write same format~~ → CI/CD syncs configs
-   - ~~Pre-defined standard configs~~ → 10 standard configs in `configs/arenas/`
-
-2. ~~**Update webDisplayTools Landing Page**~~ ✅ COMPLETE
-   - ~~Reflect current roadmap status~~ → Done
-   - ~~Update tool descriptions and status badges~~ → Done
-   - ~~Add links to documentation / roadmap~~ → Done
-   - ~~Clarify which tools are complete vs placeholder~~ → Done
-
-3. ~~**G6 Pattern Format Support**~~ ✅ COMPLETE
-   - ~~Implement G6 .pat file writer (per protocol spec)~~ → `g6_save_pattern.m`
-   - ~~Panel block formatting with parity~~ → `g6_encode_panel.m`
-   - ~~Validate against protocol v1 spec~~ → `validate_pattern_save_load.m`
-   - Note: No G6 hardware available yet for testing
-
-4. ~~**Pattern Index Direction Verification**~~ ✅ COMPLETE
-   - **Convention agreed**: (0,0) at lower left, increasing up and to the right
-   - ~~Keep as verification item to confirm as we move to whole patterns~~ → Verified in MATLAB and Web
-   - ~~Add validation tests to catch any mismatches~~ → `validate_pattern_save_load.m`
-   - ~~Document convention clearly in pattern tools~~ → In CLAUDE.md and g6_decode_panel.m
-
-5. **Cross-Platform SD Card Workflow** (NEW)
+1. **Cross-Platform SD Card Workflow**
    - Test `prepare_sd_card.m` on macOS
    - Research macOS FAT32 formatting tools
    - Enable develop-on-Mac, run-on-Windows workflow
 
 ### Medium Priority
 
-6. **GitHub for Experiment Organization** (NEW - under consideration)
+2. **GitHub for Experiment Organization** (under consideration)
    - Version control for experiment configurations
    - Pattern library management with timestamps
    - Could reduce need for SD card copying across platforms
    - Needs design discussion
 
-7. **Plugin System Foundation**
+3. **Plugin System Foundation**
    - Define plugin interface in YAML experiment files
    - LEDController.m integration (backlight)
    - BIAS camera integration (existing code)
    - NI DAQ temperature logging
 
-8. **Experiment Designer (Web)**
+4. **Experiment Designer (Web)**
    - YAML-based experiment configuration
    - Trial sequence builder
    - Export for MATLAB execution
 
-9. ~~**Pure MATLAB Exploration**~~ → Partially complete
-   - TCP: `tcpclient` migration → In-flight work (PanelsControllerNative.m exists)
-   - Camera: Evaluate Image Acquisition Toolbox vs BIAS → Deferred
-
 ### Low Priority (Future)
 
-10. **3D Arena Visualization Enhancements**
-    - ~~Load custom patterns from file~~ ✅ Done (arena_3d_viewer.html + pat-parser.js)
-    - Angular resolution histogram (per-pixel calculation)
-    - Export 3D models for CAD
-    - **Pole location visualization** — Show 3D representation of arena geometry including pole position and orientation for pitched arenas
+5. **3D Arena Visualization Enhancements**
+   - Angular resolution histogram (per-pixel calculation)
+   - Export 3D models for CAD
+   - Pole location visualization for pitched arenas
 
-11. **Pattern Visualization & Export**
-    - Export patterns as images (PNG), GIFs, or movies (MP4)
-    - Pattern "icon" representations for libraries/catalogs:
-      - Unrolled flat view (full arena unwrapped)
-      - 3D perspective views (above, behind, 3/4 angle)
-      - Static thumbnails for pattern browsers
-      - Dynamic/animated icons with motion blur to indicate temporal patterns
-    - Useful for documentation, papers, pattern selection UIs
+6. **Pattern Visualization & Export**
+   - Export patterns as images (PNG), GIFs, or movies (MP4)
+   - Pattern "icon" representations for libraries/catalogs
+   - Static thumbnails, animated icons with motion blur
 
-12. **G6 Protocol v2+ Features**
-    - PSRAM pattern storage
-    - TSI file generation
-    - Mode 1 support
-
-13. ~~**App Designer Migration**~~ ✅ DONE
-    - ~~Evaluate only after GUIDE version is stable~~ → PatternGeneratorApp uses App Designer
-    - ~~Would enable better cross-platform support~~ → Implemented
+7. **G6 Protocol v2+ Features**
+   - PSRAM pattern storage
+   - TSI file generation
+   - Mode 1 support
 
 ---
 
@@ -1171,6 +802,8 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-07 | **Tier 1 Testing + Arena Registry + Singleton Pattern** — Created comprehensive Tier 1 test suite: validate_gui_launch.m (4 tests), validate_pattern_round_trip.m (6 tests), fixed G4/G4.1 save test skipping. All 28/28 tests pass. Implemented arena registry system with per-generation namespaces (G4, G41, G6), index.yaml, generations.yaml, 6 symlinked configs, 4 utility functions (get_arena_id/name, get_generation_id/name). Fixed GitHub #12: Added singleton pattern to all 3 GUI apps (prevents multiple instances, shows warning dialog). All implementations tested and passing. |
+| 2026-02-05 | **PR Review Session** — Reviewed 3 PRs from colleague: Merged PR #30 (Prettier formatter tooling). Deferred PR #31 (GitHub download fallback) and PR #32 (run formatter) until maDisplayTools branch cleanup. Key issues: PR #31 hardcodes `feature/g6-tools` branch; PR #32 expands minified gif.worker.js from 1 to 885 lines. |
 | 2026-02-04 | **Icon Generator v1.4 + Partial Arena Fixes** — Fixed icon generator angular orientation to match 3D viewer (partial arena gap now centered at South). Fixed "arena is not defined" typo. Changed default inner radius to 0.4 for thicker ring. Flipped vertical orientation (top of arena at center of ring). Fixed gap line drawing to include `angleOffsetRad`. Pattern Editor v0.9.21: Fixed 3D viewer not updating on arena change (added `threeViewer.reinit()` call). Fixed partial arena support in 3D viewer (using `columns_installed.length` for comparison). |
 | 2026-02-03 (night) | **Pattern Editor v0.9.14** — Fixed partial arena dimension calculations (5 locations in pattern_editor.html, 4 in generator.js). G6_3x12of18 now correctly produces 240×60 px patterns (was incorrectly 360×60). G6_2x8of10 correctly produces 160×40 px patterns. Added animated GIF thumbnails for clipboard patterns (cycles through frames on hover at ~6-7 FPS, shows frame count badge). Tested Icon Generator path detection for partial arenas (works correctly). All 73 MATLAB validation tests pass. **BUG DISCOVERED**: Edge patterns generate 201 frames instead of expected 16 frames (validation tests only compare frame 0, not frame count). |
 | 2026-02-03 (PM) | **Pattern Editor v0.9.12** — Fixed frame reference tracking bug when deleting clipboard frames (loadedClipboardFrameId now cleared when loaded frame is deleted, preventing confusion when array indices shift). Added icon thumbnail preview in Frame Shifting panel (64x64 thumbnail shows which frame is loaded for shifting, with Clear button). **Icon Generator v1.3** — Added GIF generation mode (select mode, FPS, generates animated GIF from all pattern frames), progress bar during encoding, proper Download GIF functionality. |
@@ -1184,6 +817,7 @@ webDisplayTools/
 | 2026-01-30 (night) | **Pattern Editor Streams F, G, H complete** — Fixed 3D viewer Three.js module imports (use full CDN URLs, not importmap). Fixed arena positioning (Y=0 center) and camera setup. Created `js/pattern-editor/tools/combiner.js` with sequential/mask/split modes. Integrated combiner into pattern_editor.html with A/B pattern info, swap, mode dropdown. All validation tests pass (6/6 pattern gen, 25/25 G6 encoding). Added CLAUDE.md "Planning Best Practices" section for parallel agents. |
 | 2026-01-30 (evening) | **Web Pattern Editor planning + initial implementation** — Created comprehensive migration plan for Pattern Editor (saved to `~/.claude/plans/linear-fluttering-lerdorf.md`). Built initial `pattern_editor.html` skeleton with two-pane layout (tools left, viewer right), tool tabs (Generate/Frame/Combine), viewer tabs (Grid/3D), frame clipboard, playback controls. Added to landing page with "In Development" status. Split roadmap: moved detailed session logs to `G4G6_ROADMAP_SESSIONS.md` to reduce context usage (~37% / 600 lines archived). |
 | 2026-01-30 (late) | **Roadmap updates: backlog items completed** — Marked High Priority #3 (G6 Pattern Format Support) and #4 (Pattern Index Direction Verification) as COMPLETE. Updated Low Priority #10 (3D Arena Visualization): first task "Load custom patterns from file" done via arena_3d_viewer.html + pat-parser.js. Updated Future Vision section: MATLAB implementation (Generator, Previewer, Combiner) now largely complete; added "Web Tools Port" as next step requiring design vision, layout strategy, and technical architecture planning. |
+| 2026-02-05 | **Documentation compression complete** — Archived completed work to SESSIONS.md. Added Near-Term Priorities section with 5 urgent tasks: arena config verification, close GUIs issue, looming/reverse-phi testing, round-trip validation (100+ patterns), repo cleanup strategy. Added Roadmap Hygiene Rules to webDisplayTools CLAUDE.md. Roadmap reduced from 1,204 to ~817 lines. |
 | 2026-01-30 | **Web Pattern Viewer implementation** — Added .pat file loading to 3D arena viewer (webDisplayTools). Created `js/pat-parser.js` module for G6 and G4 pattern parsing with row flip compensation. Added pattern loading UI: file picker, pattern info display, frame slider, play/pause with FPS control (1-30), FOV slider with presets (60°/120°/170°). Added `testLoadPattern()` for automated testing. Updated CLAUDE.md with testing docs and close session protocol. Created GitHub issues #8 (UI polish) and #9 (fisheye shader). Marked In-Flight Work #0 (Web Tools Update) as COMPLETE. |
 | 2026-01-29 (Night) | **UI layout refinements for stackable apps** — PatternGeneratorApp: moved 3 buttons to full window width below both panels, equal-width ("Generate & Preview", "Save...", "Export Script..."), status line at bottom, height 604px. PatternCombinerApp: aligned radio buttons with Options content, removed spacer from action buttons, reduced row heights, all buttons visible without cutoff, height 464px. Both apps now stack nicely on screen. All validation tests pass. |
 | 2026-01-29 (PM) | **PatternCombinerApp refinements + PatternPreviewerApp fixes** — UI redesign: window 660×640, three aligned info panels with pattern names in bold, all action buttons visible, editable "Save as:" field. Dynamic file naming: names update when changing options (threshold, split, binary op, mask mode); conventions: `_then_` (sequential), `_mask{N}_` (replace), `_blend_` (blend), `_{OP}_` (binary), `_LR{N}_` (split). PatternPreviewerApp fixes: slider initialization (drawnow fixes compressed ticks), projection views for in-memory patterns (new `generateArenaCoordinatesFromConfig()` method), format shows "G6 (in memory)" with generation, window reuse (finds existing Previewer). All 18 validation tests pass. **Next suggested**: Clean rebuild of Pattern Generator as focused tool that sends to Previewer. |

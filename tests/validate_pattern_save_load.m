@@ -157,9 +157,11 @@ end
 % Prepare parameters
 stretch = ones(numFrames, 1) * 192;
 
-% Create unique filename
+% Create unique filename using arena name and timestamp
 timestamp = datestr(now, 'yyyymmdd_HHMMSS');
-filename = sprintf('test_%s_%s', strrep(generation, '.', ''), timestamp);
+arenaName = cfg.name;  % Arena name is at top level, not cfg.arena.name
+arenaName = strrep(arenaName, '.', '_');  % Replace dots with underscores
+filename = sprintf('test_%s_%s', arenaName, timestamp);
 
 % Save pattern
 try
@@ -191,14 +193,16 @@ try
                 genSuffix = 'G41';
         end
 
-        patFile = fullfile(tempDir, sprintf('%s_%s.pat', filename, genSuffix));
+        % Actually save the pattern using save_pattern
+        param.generation = generation;  % Add generation field
+        save_pattern(Pats, param, tempDir, filename);
 
-        % Use Pattern_Generator's internal save mechanism
-        % For now, we'll skip G4 detailed testing if save_pattern has issues
-        % Just verify config loads correctly
-        result.passed = true;
-        result.message = sprintf('Config loaded, dims=%dx%d (G4 save test skipped)', totalRows, totalCols);
-        return;
+        % Determine expected filename (G4.1 uses G4 suffix)
+        if strcmp(generation, 'G4.1')
+            patFile = fullfile(tempDir, [filename '_G4.pat']);
+        else
+            patFile = fullfile(tempDir, [filename '_' genSuffix '.pat']);
+        end
     end
 catch ME
     result.message = sprintf('Save failed: %s', ME.message);

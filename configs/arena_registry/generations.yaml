@@ -1,0 +1,49 @@
+# Panel Generation Definitions
+# Version: 1.0
+# Last Updated: 2026-02-07
+
+version: 1
+
+generations:
+  0:
+    name: unspecified
+    description: "Legacy or unknown generation"
+    panel_size: null
+
+  1:
+    name: G3
+    description: "Generation 3 panels"
+    panel_size: 8
+    led_type: "3mm round"
+    panel_width_mm: 32
+
+  2:
+    name: G4
+    description: "G4 panels (16x16 LEDs)"
+    panel_size: 16
+    led_type: "1.9mm round"
+    panel_width_mm: 40.45
+
+  3:
+    name: G4.1
+    description: "G4.1 panels with SD card support"
+    panel_size: 16
+    led_type: "0603 SMD (45°)"
+    panel_width_mm: 40.0
+
+  4:
+    name: G6
+    description: "G6 panels (20x20 LEDs)"
+    panel_size: 20
+    led_type: "0402 SMD (45°)"
+    panel_width_mm: 45.4
+
+  5:
+    name: G5
+    description: "Generation 5 (deprecated, not supported)"
+    panel_size: null
+    deprecated: true
+
+  6-7:
+    name: reserved
+    description: "Reserved for future generations"
