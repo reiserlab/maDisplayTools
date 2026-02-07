@@ -1412,6 +1412,19 @@ classdef PatternCombinerApp < matlab.apps.AppBase
     methods (Access = public)
 
         function app = PatternCombinerApp
+            % Check if instance already exists BEFORE creating components (singleton pattern - GitHub #12)
+            existingApp = findall(0, 'Type', 'figure', 'Name', 'Pattern Combiner');
+            if ~isempty(existingApp)
+                % Bring existing app to front
+                figure(existingApp(1));
+                uialert(existingApp(1), ...
+                    'Pattern Combiner is already open. Only one instance is allowed.', ...
+                    'Already Open', 'Icon', 'warning');
+                % Throw error to prevent second instance
+                error('PatternCombinerApp:SingletonViolation', ...
+                    'Pattern Combiner is already open. Only one instance is allowed.');
+            end
+
             % Construct app
             createComponents(app);
 

@@ -1059,6 +1059,19 @@ classdef PatternGeneratorApp < matlab.apps.AppBase
     methods (Access = public)
 
         function app = PatternGeneratorApp
+            % Check if instance already exists BEFORE creating components (singleton pattern - GitHub #12)
+            existingApp = findall(0, 'Type', 'figure', 'Name', 'Pattern Generator');
+            if ~isempty(existingApp)
+                % Bring existing app to front
+                figure(existingApp(1));
+                uialert(existingApp(1), ...
+                    'Pattern Generator is already open. Only one instance is allowed.', ...
+                    'Already Open', 'Icon', 'warning');
+                % Throw error to prevent second instance
+                error('PatternGeneratorApp:SingletonViolation', ...
+                    'Pattern Generator is already open. Only one instance is allowed.');
+            end
+
             % Create and configure components
             app.createComponents();
 

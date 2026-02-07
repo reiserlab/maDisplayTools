@@ -84,6 +84,48 @@ disp('All apps launched successfully');
 
 **If any app fails to launch**: Fix the error before marking task complete.
 
+### MANDATORY: Singleton Pattern Test After Constructor Changes
+
+**CRITICAL**: After modifying ANY app constructor (PatternGeneratorApp.m, PatternPreviewerApp.m, PatternCombinerApp.m), you MUST test the singleton pattern:
+
+```matlab
+cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
+results = test_singleton_pattern();
+% All 3 tests should pass
+```
+
+**Expected output:**
+```
+=== Testing Singleton Pattern (GitHub #12) ===
+
+Test 1: PatternGeneratorApp singleton
+  First instance created successfully
+  PASS: Second instance blocked with error
+  Cleaned up
+
+Test 2: PatternPreviewerApp singleton
+  First instance created successfully
+  PASS: Second instance blocked with error
+  Cleaned up
+
+Test 3: PatternCombinerApp singleton
+  First instance created successfully
+  PASS: Second instance blocked with error
+  Cleaned up
+
+=== Summary ===
+Passed: 3 / 3
+All tests PASSED!
+```
+
+**Why this matters**:
+- Only one instance of each app should exist at a time
+- Prevents conflicts in inter-app communication
+- Second instance attempt should throw error with ID `*:SingletonViolation`
+- Existing app is brought to front with alert shown
+
+**If any test fails**: Do not mark the task as complete. Debug and fix the issue first.
+
 ### MATLAB Testing Best Practices
 
 **MATLAB application path**:
