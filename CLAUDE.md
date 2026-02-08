@@ -1,5 +1,37 @@
 # Claude Code Guidelines for maDisplayTools
 
+## Model Preference
+
+**IMPORTANT**: Use **Claude Opus 4** as the default model for this project.
+- Do NOT automatically switch to Sonnet 4.5
+- Opus 4 provides better code quality and architectural reasoning for this codebase
+- Only use Haiku for trivial tasks when explicitly approved
+
+## MATLAB Development Guidelines
+
+When writing MATLAB code, follow these best practices and resources:
+
+### Performance Optimization
+- Reference: [MATLAB Performance Optimizer Skill](https://github.com/matlab/skills/tree/main/skills/matlab-performance-optimizer)
+- Key principles:
+  - Preallocate arrays when size is known
+  - Vectorize operations instead of loops where possible
+  - Use built-in functions (they're optimized)
+  - Profile before optimizing (use `profile on/off/viewer`)
+
+### App Development
+- Reference: [Creating Programmatic Apps](https://github.com/matlab/prompts/blob/main/prompts/app-building/create-programmatic-app.md)
+- Use App Designer for GUI development
+- Follow established patterns in existing apps (PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp)
+- Maintain singleton pattern for main GUI apps
+
+### Coding Standards
+- Reference: [MATLAB Coding Rules](https://github.com/matlab/rules)
+- Write clear, descriptive function headers with examples
+- Use structured comments (Purpose, Inputs, Outputs, Examples)
+- Validate inputs at function entry
+- Use meaningful variable names (no single-letter vars except loop indices)
+
 ## MATLAB Integration
 
 ### MATLAB Connector

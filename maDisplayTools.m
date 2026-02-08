@@ -194,23 +194,30 @@ classdef maDisplayTools < handle
             %   - Pats: 4D array (PatR, PatC, NumPatsX, NumPatsY)
             %   - stretch: 2D array (NumPatsX, NumPatsY)
             %   - gs_val: grayscale value (2 for binary, 16 for grayscale)
+            %   - generation_id: (optional) Generation ID for V2 header
+            %   - arena_id: (optional) Arena config ID for V2 header
             %
             %   Returns:
             %   - pat_vector: 1D uint8 array with header and all encoded frames
-            
+
             Pats = pattern.Pats;  % shape: (PatR, PatC, NumPatsX, NumPatsY)
             stretch = pattern.stretch;
             gs_val = pattern.gs_val;  % Should be 2 or 16
-            
+
             [PatR, PatC, NumPatsX, NumPatsY] = size(Pats);
             RowN = PatR / 16;
             ColN = PatC / 16;
-            
-            % Construct header with little-endian 16-bit values
-            header = [maDisplayTools.pack_uint16_le(NumPatsX), ...
-                      maDisplayTools.pack_uint16_le(NumPatsY), ...
-                      uint8(gs_val), uint8(RowN), uint8(ColN)];
-            
+
+            % Check for V2 header fields
+            if isfield(pattern, 'generation_id') && isfield(pattern, 'arena_id')
+                % Use V2 header with generation and arena metadata
+                header = write_g4_header_v2(NumPatsX, NumPatsY, gs_val, RowN, ColN, ...
+                    pattern.generation_id, pattern.arena_id);
+            else
+                % Use V1 header (legacy format)
+                header = write_g4_header_v2(NumPatsX, NumPatsY, gs_val, RowN, ColN);
+            end
+
             pat_vector = header(:);  % Ensure column vector
             
             for j = 1:NumPatsY
@@ -959,7 +966,7 @@ classdef maDisplayTools < handle
             % LOAD_PAT_G4 Load G4 format .pat file
             %   Internal function for loading G4/G4.1/G3 pattern files.
 
-            [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw] = maDisplayTools.read_header_and_raw(filepath);
+            [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw, header_info] = maDisplayTools.read_header_and_raw(filepath);
             % Debug output removed - info now displayed in GUI
             % fprintf('G4 format: %d %d %d %d %d %d\n', NumPatsX, NumPatsY, gs_val, RowN, ColN, length(raw));
 
@@ -1008,7 +1015,11 @@ classdef maDisplayTools < handle
                           'stretch', stretch_values, ...
                           'format', 'G4', ...
                           'panel_rows', RowN, 'panel_cols', ColN, ...
-                          'gs_val_raw', gs_val);
+                          'gs_val_raw', gs_val, ...
+                          'generation', header_info.generation, ...
+                          'generation_id', header_info.generation_id, ...
+                          'arena_id', header_info.arena_id, ...
+                          'header_version', header_info.version);
         end
 
         function [frames, meta] = load_pat_g6(filepath)
@@ -1048,18 +1059,32 @@ classdef maDisplayTools < handle
                 error('Invalid G6 file: missing G6PT magic (found: %s)', magic);
             end
 
-            % Parse G6 header (17 bytes)
-            version = data(5);
-            if version ~= 1
-                warning('Unknown G6 version: %d (expected 1)', version);
+            % Parse G6 header using read_g6_header (supports V1 and V2)
+            % Determine header size based on file length and rough estimate
+            if length(data) >= 18
+                % Try reading as V2 first
+                header_data = data(1:18);
+            else
+                % Fallback to V1
+                header_data = data(1:17);
             end
 
-            gs_val_g6 = data(6);  % 1 = GS2, 2 = GS16
-            num_frames = data(7) + data(8) * 256;
-            row_count = data(9);
-            col_count = data(10);
-            checksum = data(11);
-            panel_mask = data(12:17);
+            header_info = read_g6_header(header_data);
+
+            version = header_info.version;
+            gs_val_g6 = header_info.gs_val;
+            num_frames = header_info.num_frames;
+            row_count = header_info.row_count;
+            col_count = header_info.col_count;
+            checksum = header_info.checksum;
+            panel_mask = header_info.panel_mask;
+
+            % Determine header size for frame offset
+            if version == 1
+                header_size = 17;
+            else
+                header_size = 18;
+            end
 
             % Determine mode and panel size
             if gs_val_g6 == 1
@@ -1096,8 +1121,8 @@ classdef maDisplayTools < handle
             frames = zeros(1, num_frames, rows, cols, 'uint8');
             stretch_values = zeros(1, num_frames, 'uint8');
 
-            % Frame data starts after 17-byte header
-            frame_data = data(18:end);
+            % Frame data starts after header (17 bytes for V1, 18 bytes for V2)
+            frame_data = data((header_size+1):end);
             offset = 1;
 
             % Each frame has: 4-byte frame header + panel data
@@ -1145,7 +1170,12 @@ classdef maDisplayTools < handle
                           'full_grid_cols', col_count, ...   % Full grid columns from header
                           'gs_val_raw', gs_val_g6, ...
                           'checksum', checksum, ...
-                          'panel_mask', panel_mask');
+                          'panel_mask', panel_mask, ...
+                          'generation', 'G6', ...
+                          'generation_id', 4, ...  % G6 is always generation ID 4
+                          'arena_id', header_info.arena_id, ...
+                          'observer_id', header_info.observer_id, ...
+                          'header_version', header_info.version);
         end
 
         function [frames, meta] = preview_pat(filepath, show_plot)
@@ -1175,7 +1205,7 @@ classdef maDisplayTools < handle
 
         %% Pattern utilities/validation
         
-        function [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw] = read_header_and_raw(path)
+        function [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw, header_info] = read_header_and_raw(path)
 
                     % READ_HEADER_AND_RAW Read pattern file header and raw data
         %
@@ -1189,9 +1219,10 @@ classdef maDisplayTools < handle
         %   RowN     - Number of panel rows
         %   ColN     - Number of panel columns
         %   raw      - Raw data as uint8 array
+        %   header_info - (optional) Full header info struct from read_g4_header
         %
         % EXAMPLE:
-        %   [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw] = maDisplayTools.read_header_and_raw('pattern.pat');
+        %   [NumPatsX, NumPatsY, gs_val, RowN, ColN, raw, info] = maDisplayTools.read_header_and_raw('pattern.pat');
         
             if isstring(path)
                 path = char(path);
@@ -1204,8 +1235,7 @@ classdef maDisplayTools < handle
             end
             
             try
-                % Read header (7 bytes total)
-                % Format: 2 uint16 (NumPatsX, NumPatsY) + 3 uint8 (gs_val, RowN, ColN)
+                % Read header (7 bytes total: supports both V1 and V2 formats)
                 header = fread(fid, 7, 'uint8');
                 
                 if length(header) < 7
@@ -1213,16 +1243,18 @@ classdef maDisplayTools < handle
                     error('maDisplayTools:InvalidFile', 'File too short to contain header.');
                 end
                 
-                % Parse header using little-endian format
-                NumPatsX = typecast(uint8(header(1:2)), 'uint16');
-                NumPatsY = typecast(uint8(header(3:4)), 'uint16');
-                gs_val = header(5);
-                RowN = header(6);
-                ColN = header(7);
-                
+                % Parse header using read_g4_header (handles both V1 and V2 formats)
+                header_info = read_g4_header(header);
+
+                NumPatsX = header_info.NumPatsX;
+                NumPatsY = header_info.NumPatsY;
+                RowN = header_info.RowN;
+                ColN = header_info.ColN;
+                gs_val = header_info.GSLevels;  % 2 or 16
+
                 % Read remaining data
                 raw = fread(fid, inf, 'uint8');
-                
+
                 fclose(fid);
             catch ME
                 fclose(fid);

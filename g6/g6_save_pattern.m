@@ -20,14 +20,14 @@ function g6_save_pattern(Pats, stretch, arena_config, save_dir, filename, vararg
 %
 % G6 v2 Header (18 bytes):
 %   Bytes 1-4:   Magic "G6PT"
-%   Byte 5:      Version (2)
-%   Byte 6:      gs_val (1=GS2, 2=GS16)
+%   Byte 5:      [VVVV][AAAA] - Version (4 bits) + Arena ID upper 4 bits
+%   Byte 6:      [AA][OOOOOO] - Arena ID lower 2 bits + Observer ID (6 bits)
 %   Bytes 7-8:   num_frames (little-endian uint16)
 %   Byte 9:      row_count (panel rows)
 %   Byte 10:     col_count (FULL grid columns)
-%   Byte 11:     checksum (XOR of frame data)
+%   Byte 11:     gs_val (1=GS2, 2=GS16)
 %   Bytes 12-17: panel_mask (6 bytes)
-%   Byte 18:     installed_cols (number of installed columns in file)
+%   Byte 18:     checksum (XOR of frame data)
 %
 % Example:
 %   % Quick usage with [rows, cols]
@@ -238,17 +238,46 @@ else
     installed_cols = 0:(col_count-1);  % All columns
 end
 
-% Create header (17 bytes)
-header = zeros(1, 17, 'uint8');
+% Get arena_id and observer_id (default to 0 if not specified)
+arena_id = 0;
+observer_id = 0;
+
+if isfield(arena_config, 'arena_id')
+    arena_id = arena_config.arena_id;
+elseif isfield(pattern, 'arena_id')
+    arena_id = pattern.arena_id;
+end
+
+if isfield(arena_config, 'observer_id')
+    observer_id = arena_config.observer_id;
+elseif isfield(pattern, 'observer_id')
+    observer_id = pattern.observer_id;
+end
+
+% Validate IDs
+assert(arena_id >= 0 && arena_id <= 63, 'arena_id must be 0-63 (6 bits)');
+assert(observer_id >= 0 && observer_id <= 63, 'observer_id must be 0-63 (6 bits)');
+
+% Create header (18 bytes for V2)
+header = zeros(1, 18, 'uint8');
 header(1:4) = uint8('G6PT');           % Magic
-header(5) = uint8(1);                   % Version
-header(6) = uint8(gs_val);              % GS mode (1=GS2, 2=GS16)
+
+% Byte 5: [VVVV][AAAA] - Version (4 bits) + Arena ID upper 4 bits
+version = 2;  % V2 format
+arena_upper = bitshift(arena_id, -2);  % Upper 4 bits of 6-bit arena_id
+header(5) = bitor(bitshift(version, 4), bitand(arena_upper, 15));
+
+% Byte 6: [AA][OOOOOO] - Arena ID lower 2 bits + Observer ID (6 bits)
+arena_lower = bitand(arena_id, 3);  % Lower 2 bits of arena_id
+header(6) = bitor(bitshift(arena_lower, 6), bitand(observer_id, 63));
+
 header(7) = uint8(mod(num_frames, 256));
 header(8) = uint8(floor(num_frames / 256));
 header(9) = row_count;
-header(10) = length(installed_cols);   % Installed columns (matches pattern data)
-header(11) = 0;                         % Checksum placeholder
+header(10) = col_count;  % Full grid column count
+header(11) = uint8(gs_val);              % GS mode (1=GS2, 2=GS16)
 header(12:17) = panel_mask(1:6);
+header(18) = 0;  % Checksum placeholder
 
 % Generate all frames
 all_frames = [];
@@ -299,7 +328,7 @@ checksum = uint8(0);
 for i = 1:length(all_frames)
     checksum = bitxor(checksum, all_frames(i));
 end
-header(11) = checksum;
+header(18) = checksum;
 
 file_data = [header, all_frames];
 

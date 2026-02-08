@@ -91,19 +91,44 @@
   - 6 arena configs registered (G4, G41, G6)
 - **GitHub #12 Fixed** — Singleton pattern for all 3 GUI apps
 
-### 🎯 Primary Focus: Header V2 Implementation (Day 2)
+### ✅ Completed: Header V2 Implementation (Feb 8)
 
-1. **G6 Header Extension**
-   - [ ] Implement bit-packed arena_id + observer_id in bytes 5-6
-   - [ ] 4 bits version, 6 bits arena_id, 6 bits observer_id
-   - [ ] Update g6_save_pattern.m, g6_decode_panel.m
+1. **G6 Header Extension** ✅ COMPLETE
+   - [x] Implemented bit-packed arena_id + observer_id in bytes 5-6
+   - [x] 4 bits version, 6 bits arena_id, 6 bits observer_id
+   - [x] Updated g6_save_pattern.m, created read_g6_header.m
+   - [x] Extended header from 17 to 18 bytes (V2 format)
 
-2. **G4.1 Header V2**
-   - [ ] Implement generation + arena_id in bytes 2-3
-   - [ ] Update save_pattern.m for G4.1
-   - [ ] Maintain backward compatibility with V1
+2. **G4.1 Header V2** ✅ COMPLETE
+   - [x] Implemented generation + arena_id in bytes 2-3
+   - [x] Updated save_pattern.m and maDisplayTools.make_pattern_vector_g4
+   - [x] Created write_g4_header_v2.m and read_g4_header.m
+   - [x] Maintained full backward compatibility with V1
 
-3. **Tier 2 Validation Tests** (parameter bounds, UI state sync)
+3. **Header V2 Validation** ✅ COMPLETE
+   - [x] Created validate_header_v2.m (8/8 tests passing)
+   - [x] Updated load_pat to return generation metadata
+   - [x] All 30 Tier 1 tests passing (GUI, round-trip, combiner, header)
+
+**Status**: Implementation complete, automated tests passing. Manual testing started but incomplete - deferred to full round-trip testing with webDisplayTools integration (next priority).
+
+### 🎯 Next Priority: webDisplayTools Header V2 Integration
+
+**Goal**: Update web pattern parser to read and validate V2 headers
+
+1. **Update pat-parser.js**
+   - [ ] Add G4 V2 header parsing (generation_id, arena_id from bytes 2-3)
+   - [ ] Add G6 V2 header parsing (arena_id, observer_id from bytes 5-6)
+   - [ ] Maintain backward compatibility with V1 patterns
+
+2. **Round-Trip Validation**
+   - [ ] Test MATLAB → Web: V2 patterns load correctly in arena_3d_viewer
+   - [ ] Verify metadata displayed (generation, arena_id, observer_id)
+   - [ ] Test mixed V1/V2 pattern library
+
+3. **Documentation**
+   - [ ] Update pattern format documentation
+   - [ ] Document V2 header specs in webDisplayTools README
 
 ### Deferred / Lower Priority
 
@@ -802,6 +827,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-08 | **Header V2 Implementation Complete** — Implemented G4.1 and G6 Header V2 formats with generation and arena metadata. G4.1: V2 header uses bytes 2-3 for generation_id (3 bits) + arena_id (8 bits). G6: Extended header to 18 bytes with bytes 5-6 for arena_id (6 bits) + observer_id (6 bits). Created write_g4_header_v2.m, read_g4_header.m, read_g6_header.m, validate_header_v2.m (8/8 tests passing). Updated save_pattern.m, g6_save_pattern.m, maDisplayTools loaders. Full backward compatibility with V1 maintained. All 30 Tier 1 tests passing. Manual testing started but incomplete - deferred to round-trip validation with webDisplayTools (next priority). Updated CLAUDE.md with model preference (Opus 4) and MATLAB development guidelines (performance, app design, coding standards). |
 | 2026-02-07 | **Tier 1 Testing + Arena Registry + Singleton Pattern** — Created comprehensive Tier 1 test suite: validate_gui_launch.m (4 tests), validate_pattern_round_trip.m (6 tests), fixed G4/G4.1 save test skipping. All 28/28 tests pass. Implemented arena registry system with per-generation namespaces (G4, G41, G6), index.yaml, generations.yaml, 6 symlinked configs, 4 utility functions (get_arena_id/name, get_generation_id/name). Fixed GitHub #12: Added singleton pattern to all 3 GUI apps (prevents multiple instances, shows warning dialog). All implementations tested and passing. |
 | 2026-02-05 | **PR Review Session** — Reviewed 3 PRs from colleague: Merged PR #30 (Prettier formatter tooling). Deferred PR #31 (GitHub download fallback) and PR #32 (run formatter) until maDisplayTools branch cleanup. Key issues: PR #31 hardcodes `feature/g6-tools` branch; PR #32 expands minified gif.worker.js from 1 to 885 lines. |
 | 2026-02-04 | **Icon Generator v1.4 + Partial Arena Fixes** — Fixed icon generator angular orientation to match 3D viewer (partial arena gap now centered at South). Fixed "arena is not defined" typo. Changed default inner radius to 0.4 for thicker ring. Flipped vertical orientation (top of arena at center of ring). Fixed gap line drawing to include `angleOffsetRad`. Pattern Editor v0.9.21: Fixed 3D viewer not updating on arena change (added `threeViewer.reinit()` call). Fixed partial arena support in 3D viewer (using `columns_installed.length` for comparison). |

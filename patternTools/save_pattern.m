@@ -123,6 +123,34 @@ end
 pattern.stretch = param.stretch;
 pattern.param = param;
 
+% Add V2 header metadata if available (G4.1 only for now)
+if strcmp(generation, 'G41')
+    % Get generation ID
+    pattern.generation_id = get_generation_id('G4.1');
+
+    % Get arena ID if available
+    if isfield(param, 'arena_config') && isstruct(param.arena_config)
+        % Try to get arena name from config
+        if isfield(param.arena_config, 'name')
+            arena_name = param.arena_config.name;
+        elseif isfield(param.arena_config.arena, 'name')
+            arena_name = param.arena_config.arena.name;
+        else
+            arena_name = '';
+        end
+
+        if ~isempty(arena_name)
+            pattern.arena_id = get_arena_id('G4.1', arena_name);
+        else
+            pattern.arena_id = 0;  % Unspecified
+        end
+    elseif isfield(param, 'arena_id')
+        pattern.arena_id = param.arena_id;
+    else
+        pattern.arena_id = 0;  % Unspecified
+    end
+end
+
 % Get the vector data for each pattern using maDisplayTools
 pattern.data = maDisplayTools.make_pattern_vector_g4(pattern);
 
