@@ -161,11 +161,7 @@ block:
         # Start recording
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "setVideoFile"
+          command_name: "startRecording"
           params:
             filename: "vertical_bars_right.avi"
         
@@ -201,18 +197,14 @@ block:
         
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "stopCapture"
+          command_name: "stopRecording"
     
     # Condition 2: Horizontal bars moving up
     - id: "horizontal_bars_up"
       commands:
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "setVideoFile"
+          command_name: "startRecording"
           params:
             filename: "horizontal_bars_up.avi"
         
@@ -243,18 +235,14 @@ block:
         
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "stopCapture"
+          command_name: "stopRecording"
     
     # Condition 3: Checkerboard pattern (static)
     - id: "checkerboard_static"
       commands:
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "setVideoFile"
+          command_name: "startRecording"
           params:
             filename: "checkerboard.avi"
         
@@ -285,18 +273,14 @@ block:
         
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "stopCapture"
+          command_name: "stopRecording"
     
     # Condition 4: Expanding grating
     - id: "expanding_grating"
       commands:
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "setVideoFile"
+          command_name: "startRecording"
           params:
             filename: "expanding_grating.avi"
         
@@ -327,21 +311,17 @@ block:
         
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "stopCapture"
+          command_name: "stopRecording"
     
     # Condition 5: Dark (no stimulus)
     - id: "dark_control"
       commands:
         - type: "plugin"
           plugin_name: "simple_bias"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "setVideoFile"
+          command_name: "startRecording"
           params:
             filename: "dark_control.avi"
-        
+       
         - type: "plugin"
           plugin_name: "daq_system"
           command_name: "startAcquisition"

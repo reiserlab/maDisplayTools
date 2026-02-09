@@ -44,6 +44,7 @@ classdef ScriptPlugin < handle
         functionName   % Name of function (if function type)
         addedPath      % Path that was added (for cleanup)
         workspace      % Workspace for script execution
+        experimentDir
     end
     
     methods
@@ -62,6 +63,9 @@ classdef ScriptPlugin < handle
             
             % Validate required fields
             self.validateDefinition();
+            
+            % Extract configuration (experiment directory if nothing else)
+            self.extractConfiguration();
             
         end
 
@@ -243,8 +247,17 @@ classdef ScriptPlugin < handle
                     'Plugin "%s" missing required field: script_path', self.name);
             end
         end
-        
-        
+
+        function extractConfiguration(self)
+
+            if isfield(self.definition, 'config') && isfield(self.definition.config, 'experimentDir')
+                self.experimentDir = self.definition.config.experimentDir;
+            else
+                self.experimentDir = pwd;
+            end
+
+        end
+            
         
         function result = executeFunction(self, params)
             % Call function with parameters

@@ -40,6 +40,7 @@ classdef SerialPlugin < handle
         isConnected       % Connection status flag
         serialPort        % MATLAB serialport object
         commands          % containers.Map: command_name -> command_string
+        experimentDir
     end
     
     methods (Access = public)
@@ -272,6 +273,14 @@ classdef SerialPlugin < handle
             else
                 self.isCritical = false;
             end
+
+            if isfield(self.definition.config, 'experimentDir')
+                self.experimentDir = self.definition.config.experimentDir;
+            else
+                self.experimentDir = pwd;
+            end
+
+
         end
         
         function loadCommands(self)
