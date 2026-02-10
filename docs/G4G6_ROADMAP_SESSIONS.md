@@ -1383,3 +1383,42 @@ MATLAB stores pixel_matrix in display order (row 0 = top of visual), while panel
 - `G4G6_ROADMAP.md` (this file)
 - `arena_config_spec.md`
 - `pattern_testing/README.md`
+
+---
+
+## Session: Feb 10, 2026 — webDisplayTools Header V2 + Preview Mode
+
+**Repository**: webDisplayTools only (no maDisplayTools changes)
+
+### Commits
+
+1. `78cba0a` — **feat: Add Header V2 support for G4/G4.1 and G6 pattern files**
+2. `765001f` — **feat: Add preview mode and V2-aware arena dropdown sync**
+3. `30dff40` — **chore: Bump pattern editor version to v0.9.23**
+
+### Changes Detail
+
+**Header V2 Web Integration** (carried over from MATLAB implementation Feb 8):
+- `js/arena-configs.js` — Added `GENERATIONS` object (ID→name), `ARENA_REGISTRY` (per-generation ID→config name), 4 helper functions: `getGenerationName(id)`, `getGenerationId(name)`, `getArenaName(generation, arenaId)`, `getArenaId(generation, arenaName)`. Updated all 3 export blocks (CommonJS, browser global, ES6).
+- `js/pat-parser.js` — G6 parser: detects V1/V2 from byte 4 upper nibble, extracts arena_id (6 bits) and observer_id (6 bits) via bit-packing, reads gs_val from different positions per version, uses dynamic `headerSize` (17 vs 18). G4 parser: detects V2 from byte 2 MSB, extracts generation_id (bits 6-4) and arena_id (byte 3). Both return `headerVersion`, `arena_id`, `generation_id`/`observer_id`.
+- `js/pat-encoder.js` — Always writes V2. G6: 18-byte header with bit-packed bytes 4-5, gs_val at byte 10, XOR checksum at byte 17. G4: MSB flag in byte 2, generation_id in bits 6-4, arena_id in byte 3.
+- `arena_3d_viewer.html` — Shows V2 metadata in pattern info panel (header version, resolved arena name, observer_id).
+- `pattern_editor.html` — Shows V2 metadata in status bar. Save includes generation_id, arena_id, observer_id for V2 encoding.
+- `tests/validate-header-v2.js` — 10 tests, 55 assertions: G4 V1 compat, G4.1 V2 generation/arena, all generation IDs round-trip, G6 V2 basic/specific/boundary, G6 V1 compat, arena registry lookups, encode→parse pixel round-trip.
+
+**Preview Mode + Arena Dropdown Sync** (pattern_editor.html):
+- `handleFileLoad()` now checks V2 header `arena_id` first via `getArenaName()` for authoritative config lookup, falling back to `findMatchingConfig()` (dimension-based) only for V1 or `arena_id=0`. This fixes the CW/CCW mismatch where `G41_2x12_ccw` was incorrectly selected instead of `G41_2x12_cw`.
+- CSS-driven preview mode: `.preview-mode` class on `.tools-panel` and `.generate-column` dims tool contents (`opacity: 0.45`, `pointer-events: none`) and GENERATE button (`opacity: 0.3`). Amber banner: "PREVIEW MODE — Click New to create a pattern". Tab navigation and file ops (Load/Save/New) remain fully functional.
+- `enterPreviewMode()` called on file load, `exitPreviewMode()` called on "New".
+
+### Testing
+- All 218 tests pass across 8 test suites: arena calcs (10), arena geometry (49), comprehensive ref (32), G6 encoding (25), MATLAB ref (6), pattern gen (11), spherical grating (30), header V2 (55).
+- User confirmed MATLAB V2 patterns load correctly in web viewer with proper arena identification.
+
+### Key Technical Detail: Dual Export Pattern
+- `pat-parser.js` uses both CommonJS (`module.exports`) and ES6 (`export default`). In Node.js, `export default` overrides `module.exports`, making require return `{ __esModule: true, default: PatParser }`. Test import adapted: `const PatParser = _patParser.default || _patParser;`.
+
+### Remaining Work
+- Web → MATLAB round-trip testing (generate in web editor, load in MATLAB PatternPreviewerApp)
+- V2 header format documentation in webDisplayTools README
+- Mixed V1/V2 pattern library testing

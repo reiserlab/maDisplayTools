@@ -2,8 +2,8 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-02-05
-> **Next Review**: ~2026-02-10
+> **Last Updated**: 2026-02-10
+> **Next Review**: ~2026-02-14
 >
 > **Note**: Historical details (completed sprints, completed in-flight work) archived in `G4G6_ROADMAP_SESSIONS.md`.
 
@@ -112,21 +112,28 @@
 
 **Status**: Implementation complete, automated tests passing. Manual testing started but incomplete - deferred to full round-trip testing with webDisplayTools integration (next priority).
 
-### 🎯 Next Priority: webDisplayTools Header V2 Integration
+### ✅ Completed: webDisplayTools Header V2 Integration (Feb 10)
 
-**Goal**: Update web pattern parser to read and validate V2 headers
+1. **Update pat-parser.js + pat-encoder.js** ✅ COMPLETE
+   - [x] G4 V2 header parsing (generation_id, arena_id from bytes 2-3)
+   - [x] G6 V2 header parsing (arena_id, observer_id from bytes 5-6)
+   - [x] Backward compatibility with V1 patterns
+   - [x] Encoder always writes V2 headers
+   - [x] Arena registry lookup functions in arena-configs.js
+   - [x] 55 new test assertions (10 tests), all passing
 
-1. **Update pat-parser.js**
-   - [ ] Add G4 V2 header parsing (generation_id, arena_id from bytes 2-3)
-   - [ ] Add G6 V2 header parsing (arena_id, observer_id from bytes 5-6)
-   - [ ] Maintain backward compatibility with V1 patterns
-
-2. **Round-Trip Validation**
-   - [ ] Test MATLAB → Web: V2 patterns load correctly in arena_3d_viewer
-   - [ ] Verify metadata displayed (generation, arena_id, observer_id)
+2. **Round-Trip Validation** (partially complete)
+   - [x] MATLAB → Web: V2 patterns load correctly in arena_3d_viewer and pattern_editor
+   - [x] Metadata displayed (generation, arena_id, observer_id) in both viewers
+   - [ ] Web → MATLAB: Patterns made in web editor load in MATLAB PatternPreviewerApp
    - [ ] Test mixed V1/V2 pattern library
 
-3. **Documentation**
+3. **Pattern Editor UX** ✅ COMPLETE
+   - [x] Arena dropdown syncs from V2 header arena_id (fixes CW/CCW mismatch)
+   - [x] Preview mode: tool panels dim + GENERATE disabled on file load
+   - [x] "New" button exits preview mode
+
+4. **Documentation**
    - [ ] Update pattern format documentation
    - [ ] Document V2 header specs in webDisplayTools README
 
@@ -827,6 +834,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-10 | **webDisplayTools Header V2 + Preview Mode** — Implemented V2 header support in web tools: pat-parser.js auto-detects V1/V2 for G4/G4.1/G6, pat-encoder.js always writes V2, arena-configs.js has registry lookups. Added preview mode to Pattern Editor (dims tools on file load, amber banner, GENERATE disabled). Fixed arena dropdown CW/CCW mismatch using V2 header arena_id for authoritative config lookup. 218 tests across 8 suites, zero regressions. Pattern Editor bumped to v0.9.23. All changes in webDisplayTools repo (3 commits). |
 | 2026-02-08 | **Header V2 Implementation Complete** — Implemented G4.1 and G6 Header V2 formats with generation and arena metadata. G4.1: V2 header uses bytes 2-3 for generation_id (3 bits) + arena_id (8 bits). G6: Extended header to 18 bytes with bytes 5-6 for arena_id (6 bits) + observer_id (6 bits). Created write_g4_header_v2.m, read_g4_header.m, read_g6_header.m, validate_header_v2.m (8/8 tests passing). Updated save_pattern.m, g6_save_pattern.m, maDisplayTools loaders. Full backward compatibility with V1 maintained. All 30 Tier 1 tests passing. Manual testing started but incomplete - deferred to round-trip validation with webDisplayTools (next priority). Updated CLAUDE.md with model preference (Opus 4) and MATLAB development guidelines (performance, app design, coding standards). |
 | 2026-02-07 | **Tier 1 Testing + Arena Registry + Singleton Pattern** — Created comprehensive Tier 1 test suite: validate_gui_launch.m (4 tests), validate_pattern_round_trip.m (6 tests), fixed G4/G4.1 save test skipping. All 28/28 tests pass. Implemented arena registry system with per-generation namespaces (G4, G41, G6), index.yaml, generations.yaml, 6 symlinked configs, 4 utility functions (get_arena_id/name, get_generation_id/name). Fixed GitHub #12: Added singleton pattern to all 3 GUI apps (prevents multiple instances, shows warning dialog). All implementations tested and passing. |
 | 2026-02-05 | **PR Review Session** — Reviewed 3 PRs from colleague: Merged PR #30 (Prettier formatter tooling). Deferred PR #31 (GitHub download fallback) and PR #32 (run formatter) until maDisplayTools branch cleanup. Key issues: PR #31 hardcodes `feature/g6-tools` branch; PR #32 expands minified gif.worker.js from 1 to 885 lines. |
