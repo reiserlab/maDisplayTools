@@ -45,39 +45,67 @@ results = validate_pattern_save_load();
 
 The agent will execute the code and return the results.
 
-### MANDATORY: Pattern Validation After Code Changes
+**MATLAB application path**: `/Applications/MATLAB_R2025b.app/bin/matlab`
 
-**IMPORTANT**: After modifying ANY of the following files, you MUST run the validation script before considering the task complete:
+## Testing Requirements
 
-**Files that require validation:**
+### Standard Test Preamble
+
+**ALL MATLAB test code must start with:**
+```matlab
+cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
+clear classes;    % Clear cached class definitions (REQUIRED for App Designer changes)
+addpath(genpath('.'));  % Add all subdirectories to path
+```
+
+**Why `clear classes` is essential:**
+- MATLAB caches class definitions aggressively
+- Without it, changes to App Designer apps won't take effect
+- Symptoms: "old" behavior persists, properties not found, callbacks don't match
+
+### MANDATORY Testing After Code Changes
+
+Run the appropriate tests based on what files you modified. **Do not mark a task complete until all relevant tests pass.**
+
+#### 1. Pattern Save/Load Validation
+
+**When required:** After modifying ANY of these files:
 - `g6/g6_encode_panel.m` - G6 panel encoding
 - `g6/g6_decode_panel.m` - G6 panel decoding
 - `g6/g6_save_pattern.m` - G6 pattern saving
 - `patternTools/save_pattern.m` - G4/G4.1 pattern saving
 - `patternTools/Pattern_Generator.m` - Core pattern generation
 - `patternTools/PatternPreviewerApp.m` - Pattern loading/display
-- `patternTools/PatternCombinerApp.m` - Pattern combination (also run `validate_pattern_combiner`)
 - `maDisplayTools.m` - Pattern loading (`load_pat`, `load_pat_g4`, `load_pat_g6`)
 - `utils/load_arena_config.m` - Arena config loading
 - `configs/arenas/*.yaml` - Arena configuration files
 
-**How to run validation:**
+**How to run:**
 ```matlab
 cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
 results = validate_pattern_save_load();
 % All 6 tests should pass
 ```
 
+**Test coverage:**
+| Arena Config | Expected Dims | Description |
+|--------------|---------------|-------------|
+| G4_4x12.yaml | 64×192 | G4 full arena |
+| G4_3x12of18.yaml | 48×192 | G4 partial arena |
+| G41_2x12_cw.yaml | 32×192 | G4.1 full arena |
+| G6_2x10.yaml | 40×200 | G6 full arena |
+| G6_2x8of10.yaml | 40×160 | G6 partial (8 of 10 cols) |
+| G6_3x12of18.yaml | 60×240 | G6 partial (12 of 18 cols) |
+
 **Expected output:**
 ```
 === Pattern Save/Load Validation ===
-
 Testing: G4 full 4x12
-  PASS: Config loaded, dims=64x192 (G4 save test skipped)
+  PASS: Config loaded, dims=64x192
 Testing: G4 partial 3x12of18
-  PASS: Config loaded, dims=48x192 (G4 save test skipped)
+  PASS: Config loaded, dims=48x192
 Testing: G4.1 full 2x12
-  PASS: Config loaded, dims=32x192 (G4 save test skipped)
+  PASS: Config loaded, dims=32x192
 Testing: G6 full 2x10
   PASS: OK: 40x200, 2 frames
 Testing: G6 partial 2x8of10
@@ -90,132 +118,107 @@ Passed: 6 / 6
 All tests PASSED!
 ```
 
-**If any test fails**: Do not mark the task as complete. Debug and fix the issue first.
+#### 2. Pattern Combiner Validation
 
-### MANDATORY: App Launch Test After GUI Changes
+**When required:** After modifying `PatternCombinerApp.m`
 
-**CRITICAL**: After modifying ANY App Designer file (PatternGeneratorApp.m, PatternPreviewerApp.m, PatternCombinerApp.m), you MUST test that each modified app launches without errors:
+**How to run:**
+```matlab
+cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
+results = validate_pattern_combiner();
+% All 12 tests should pass
+```
 
+#### 3. App Launch Test
+
+**When required:** After modifying ANY App Designer file (*.m files for apps)
+
+**How to run:**
 ```matlab
 cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
 clear classes;
 addpath(genpath('.'));
 
-% Test each modified app launches without error
+% Test only the apps you modified
 app = PatternGeneratorApp(); pause(1); delete(app);
 app = PatternPreviewerApp(); pause(1); delete(app);
 app = PatternCombinerApp(); pause(1); delete(app);
 disp('All apps launched successfully');
 ```
 
-**Why this is required**:
+**Why this is required:**
 - Property declarations must match all property references
 - UI component creation order matters
 - Callback function signatures must be correct
 - These errors only appear at runtime, not during file editing
 
-**If any app fails to launch**: Fix the error before marking task complete.
+#### 4. Singleton Pattern Test
 
-### MANDATORY: Singleton Pattern Test After Constructor Changes
+**When required:** After modifying ANY app constructor (startupFcn or constructor method)
 
-**CRITICAL**: After modifying ANY app constructor (PatternGeneratorApp.m, PatternPreviewerApp.m, PatternCombinerApp.m), you MUST test the singleton pattern:
-
+**How to run:**
 ```matlab
 cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
 results = test_singleton_pattern();
 % All 3 tests should pass
 ```
 
-**Expected output:**
-```
-=== Testing Singleton Pattern (GitHub #12) ===
-
-Test 1: PatternGeneratorApp singleton
-  First instance created successfully
-  PASS: Second instance blocked with error
-  Cleaned up
-
-Test 2: PatternPreviewerApp singleton
-  First instance created successfully
-  PASS: Second instance blocked with error
-  Cleaned up
-
-Test 3: PatternCombinerApp singleton
-  First instance created successfully
-  PASS: Second instance blocked with error
-  Cleaned up
-
-=== Summary ===
-Passed: 3 / 3
-All tests PASSED!
-```
-
-**Why this matters**:
+**Why this matters:**
 - Only one instance of each app should exist at a time
 - Prevents conflicts in inter-app communication
 - Second instance attempt should throw error with ID `*:SingletonViolation`
 - Existing app is brought to front with alert shown
 
-**If any test fails**: Do not mark the task as complete. Debug and fix the issue first.
+#### 5. GUI Visual Verification
 
-### MATLAB Testing Best Practices
+**When required:** After modifying ANY App Designer UI layout or adding/removing UI components
 
-**MATLAB application path**:
-```
-/Applications/MATLAB_R2025b.app/bin/matlab
-```
-
-**Standard test preamble** - Always start MATLAB test code with:
+**How to run:**
 ```matlab
 cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
-clear classes;    % Clear cached class definitions (REQUIRED for App Designer changes)
-addpath(genpath('.'));  % Add all subdirectories to path
+clear classes;
+addpath(genpath('.'));
+
+% Create screenshots directory if needed
+if ~exist('screenshots', 'dir'), mkdir('screenshots'); end
+
+% Launch app and capture screenshot
+app = PatternPreviewerApp();  % or PatternGeneratorApp(), PatternCombinerApp()
+pause(1);  % Allow UI to render
+drawnow;
+exportapp(app.UIFigure, 'screenshots/test_screenshot.png');
+delete(app);
 ```
 
-**Why `clear classes` is essential**:
-- MATLAB caches class definitions aggressively
-- Without it, changes to App Designer apps won't take effect
-- Symptoms: "old" behavior persists, properties not found, callbacks don't match
+**After capturing, use the Read tool to verify:**
+- All buttons, checkboxes, dropdowns, and labels appear
+- Text is not truncated or cut off
+- New UI elements fit within their containers
+- Layout looks correct (elements don't overlap)
 
-**Closing App Designer apps**:
-- `close all` does NOT close App Designer apps (only traditional `figure()` windows)
-- Use `delete(app)` to close an app when you have the handle
-- To close all UIFigure-based apps without handles:
-  ```matlab
-  delete(findall(0, 'Type', 'figure'));
-  ```
+**Common UI visibility issues:**
+- Container/panel not tall enough to show all rows
+- Column widths too narrow for text
+- Elements placed outside visible area
+- Solution: Check grid layout RowHeight/ColumnWidth settings and element Layout.Row/Layout.Column assignments
 
-**Full cleanup command** - To close all windows and reset state:
+### Testing Utilities
+
+**Close all App Designer apps and reset state:**
 ```matlab
 delete(findall(0, 'Type', 'figure'));  % Close all figures AND App Designer apps
 clear classes;
 ```
 
-**Close only pattern apps** - Use the utility function:
+**Close only pattern apps:**
 ```matlab
-close_pattern_apps();  % Closes only PatternPreviewerApp, PatternGeneratorApp, PatternCombinerApp
+close_pattern_apps();  % Closes PatternPreviewerApp, PatternGeneratorApp, PatternCombinerApp
 ```
-This function is also available via the "Close Pattern Apps" button in PatternPreviewerApp's status bar.
+Also available via "Close Pattern Apps" button in PatternPreviewerApp's status bar.
 
-**Capturing GUI screenshots for visual verification**:
-```matlab
-% Create screenshots directory if needed
-if ~exist('screenshots', 'dir'), mkdir('screenshots'); end
+**Note:** `close all` does NOT close App Designer apps (only traditional `figure()` windows). Use `delete(app)` when you have the handle, or `delete(findall(0, 'Type', 'figure'))` to close all.
 
-% Launch app and capture
-app = PatternPreviewerApp();
-pause(1);  % Allow UI to fully render
-drawnow;   % Force graphics update
-exportapp(app.UIFigure, 'screenshots/test_screenshot.png');
-delete(app);
-```
-
-After capturing, use the Read tool to view the screenshot and verify:
-- All UI elements are visible and not truncated
-- Layout is correct (no overlapping elements)
-- New features appear as expected
-
-**Testing with sample data** - Use `loadPatternFromApp` to test with synthetic patterns:
+**Test with synthetic patterns:**
 ```matlab
 app = PatternPreviewerApp();
 testPats = uint8(zeros(40, 200, 2));  % 2 frames
@@ -396,32 +399,6 @@ gen_name = get_generation_name(3);   % Returns 'G4.1'
 
 See `configs/arena_registry/README.md` for full documentation.
 
-## Testing Workflow
-
-1. Make code changes
-2. **Run validation script** (MANDATORY for pattern-related changes):
-   ```matlab
-   cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
-   results = validate_pattern_save_load();
-   ```
-3. Verify all 6 tests pass
-4. Test in GUI if UI changes (PatternGeneratorApp, PatternPreviewerApp)
-5. Update roadmap if needed
-
-### Validation Script Details
-
-`tests/validate_pattern_save_load.m` tests:
-| Arena Config | Expected Dims | Description |
-|--------------|---------------|-------------|
-| G4_4x12.yaml | 64×192 | G4 full arena |
-| G4_3x12of18.yaml | 48×192 | G4 partial arena |
-| G41_2x12_cw.yaml | 32×192 | G4.1 full arena |
-| G6_2x10.yaml | 40×200 | G6 full arena |
-| G6_2x8of10.yaml | 40×160 | G6 partial (8 of 10 cols) |
-| G6_3x12of18.yaml | 60×240 | G6 partial (12 of 18 cols) |
-
-The G6 tests perform full save/load cycles. G4/G4.1 tests verify config loading and dimensions.
-
 ## App Designer GUIs
 
 The pattern tools use MATLAB App Designer (not GUIDE):
@@ -439,69 +416,11 @@ The pattern tools use MATLAB App Designer (not GUIDE):
 | `PatternCombinerApp.m` | Combine two patterns (sequential, mask, L/R split) | ✅ Complete |
 | `PatternGeneratorApp_v0.m` | Legacy generator with embedded preview (archived) | 📦 Archived |
 
-### Pattern Combiner Validation
-
-After modifying `PatternCombinerApp.m`, also run:
-```matlab
-results = validate_pattern_combiner();
-% All 12 tests should pass
-```
-
-### MANDATORY: GUI Visual Verification
-
-**IMPORTANT**: After modifying ANY GUI file (PatternGeneratorApp.m, PatternPreviewerApp.m, or other App Designer apps), you MUST capture and verify a screenshot.
-
-**How to capture GUI screenshots:**
-```matlab
-cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
-clear classes;
-addpath(genpath('.'));
-
-% Create screenshots directory if needed
-if ~exist('screenshots', 'dir'), mkdir('screenshots'); end
-
-% Launch app and capture screenshot
-app = PatternPreviewerApp();  % or PatternGeneratorApp()
-pause(1);  % Allow UI to render
-drawnow;
-exportapp(app.UIFigure, 'screenshots/previewer_test.png');
-delete(app);
-```
-
-**After capturing, use the Read tool to view the screenshot** at `screenshots/*.png` and verify:
-- All buttons, checkboxes, dropdowns, and labels appear
-- Text is not truncated or cut off
-- New UI elements fit within their containers
-- Layout looks correct (elements don't overlap)
-
-**Why this matters**: MATLAB caches class definitions. You must run `clear classes` before relaunching to see changes. Additionally, UI elements can be created correctly in code but not visible due to:
-- Container/panel not tall enough to show all rows
-- Column widths too narrow for text
-- Elements placed outside visible area
-
-**If UI element not visible**: Check the grid layout RowHeight/ColumnWidth settings and element Layout.Row/Layout.Column assignments.
-
 ### Why Not GUIDE?
 The legacy `G4_Pattern_Generator_gui.m` (in `patternTools/legacy/`) uses GUIDE which has:
 - Hardcoded callbacks in binary `.fig` files
 - Cannot programmatically rename callbacks
 - GUIDE is deprecated by MathWorks
-
-## Common Issues
-
-### Pattern displays upside down
-Check that decoder flips rows to compensate for encoder flip.
-See `g6_decode_panel.m` lines 66 and 99.
-
-### "Index exceeds array elements" on load
-Check panel_mask handling in loader. Partial arenas have fewer panels than full grid.
-
-### MATLAB function caching
-After changing function signatures, run:
-```matlab
-rehash path;
-clear function_name;
-```
 
 ## Inter-App Communication
 
@@ -535,6 +454,22 @@ previewer.loadPatternFromApp(Pats, stretch, gs_val, name, arenaConfig);
 - Guarantees correct panel boundaries and IDs
 - Essential for partial arenas (e.g., G6_2x8of10 vs G6_2x10 have same row count)
 - Enables accurate projection views (Mercator/Mollweide)
+
+## Common Issues
+
+### Pattern displays upside down
+Check that decoder flips rows to compensate for encoder flip.
+See `g6_decode_panel.m` lines 66 and 99.
+
+### "Index exceeds array elements" on load
+Check panel_mask handling in loader. Partial arenas have fewer panels than full grid.
+
+### MATLAB function caching
+After changing function signatures, run:
+```matlab
+rehash path;
+clear function_name;
+```
 
 ## Related Repositories
 

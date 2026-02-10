@@ -1,7 +1,279 @@
-# G4G6 Roadmap - Session Archive
+# G4G6 Roadmap - Archive & Sessions
 
-> **Purpose**: Detailed session logs moved here to keep the main roadmap compact.
-> See `G4G6_ROADMAP.md` for the compact changelog table.
+> **Purpose**: Historical roadmap sections and detailed session logs.
+> See `G4G6_ROADMAP.md` for active work and current priorities.
+
+---
+
+# ARCHIVED ROADMAP SECTIONS
+
+These sections document completed work and are preserved for reference.
+
+---
+
+## Completed Work (Jan 15-21)
+
+### ✅ Web Tools Repository Setup
+- Created `webDisplayTools` as separate public repository
+- Flat directory structure with single HTML files
+- Modern dark theme with green accents (#00e676)
+- Reiser Lab branding and GitHub links
+- JetBrains Mono / IBM Plex Mono fonts
+
+### ✅ G6 Panel Pattern Editor (Single Panel)
+- `g6_panel_editor.html` — fully functional
+- 20×20 pixel pattern editing
+- Multiple modes: GS2, GS16, 4-Char, LED Map Reference
+- Real-time preview and pattern export
+- Version 7 (updated with MATLAB-compatible encoding)
+- CI/CD validation workflow complete (MATLAB reference data → web validation)
+
+### ✅ Arena Layout Editor (Web)
+- `arena_editor.html` — fully functional
+- SVG-based visualization matching MATLAB exactly
+- Panel generation tabs (G3, G4, G4.1, G5, G6, Custom)
+- Click-to-toggle panels for partial arena designs
+- Units toggle (inches/mm)
+- Export PDF and JSON with full geometry
+- Default: G6 with 10 panels
+
+### ✅ Arena Layout (MATLAB)
+- `utils/design_arena.m` — consolidated from legacy scripts
+- Supports G3, G4, G4.1, G5, G6 generations
+- Configurable panels (4-36), partial arena support
+- PDF export, returns computed geometry
+- Key formula: `c_radius = panel_width / (tan(alpha/2)) / 2`
+
+### ✅ CI/CD Validation Framework
+- MATLAB generates `reference_data.json`
+- `js/arena-calculations.js` — standalone calculation module
+- `tests/validate-arena-calculations.js` — Node.js test runner
+- `.github/workflows/validate-calculations.yml` — GitHub Actions
+- All 11 test configurations pass validation
+- Pattern: MATLAB → JSON → Web validates against it
+
+### ✅ 3D Arena Viewer
+- `arena_3d_viewer.html` — Three.js visualization
+- Links from Arena Editor with URL parameters
+- Pattern presets (all-on, grating, sine)
+- Auto-rotate animation
+- Screenshot export with stats overlay
+
+### ✅ SD Card Deployment — FULLY TESTED (Jan 21)
+- `utils/prepare_sd_card.m` — stages patterns for SD card
+  - `'Format', true` — formats SD card for clean FAT32 state (recommended)
+  - `'UsePatternFolder', true/false` — patterns in /patterns or root
+  - `'ValidateDriveName', true` — requires SD card named PATSD
+- Renames to pat0001.pat, pat0002.pat, etc. (lowercase)
+- Creates MANIFEST.bin (for microcontroller) and MANIFEST.txt (human-readable)
+- Saves local log to `logs/`
+- **Tested with 100 patterns end-to-end on hardware!**
+
+**Root cause of WSACONNRESET errors identified:**
+- Controller encountering unexpected files it couldn't parse
+- FAT32 delete doesn't clear directory entries — controller saw "ghost" files
+- Fix: Format SD card to fully clear FAT32 directory table
+
+### ✅ Test Pattern Generation
+- `examples/create_test_patterns.m` — 20 patterns (digits 0-9 + gratings)
+- `examples/create_test_patterns_100.m` — 100 two-digit patterns (00-99)
+- `examples/test_sd_card_copy.m` — copies test patterns to SD
+- `examples/test_sd_card_copy_100.m` — copies 100 patterns in numeric order
+
+### ✅ PatternPreviewerApp Histogram & Utilities (Jan 30)
+- Graphical histogram with color-coded horizontal bars (black→green gradient)
+- Log/Linear scale toggle for sparse pattern visualization
+- Enable checkbox to disable histogram during playback
+- Performance optimization: persistent graphics objects
+- UI controls locked during playback
+- New utilities: `open_pattern_apps()`, `save_pattern_app_layout()`, `close_pattern_apps()`
+
+### ✅ Pattern Tools Quick Start Guide (Jan 30)
+- Created `docs/pattern_tools_quickstart.md` for new lab members
+- Annotated screenshots for PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp
+- Documents arena configs, pattern organization convention, typical workflows
+
+### ✅ G6 Pattern Tools & CI/CD (Jan 23-24)
+- Created `g6/` directory with pattern encoding tools
+- `g6_save_pattern.m`, `g6_encode_panel.m`, `generate_g6_encoding_reference.m`
+- Agreed encoding convention with Will: row-major order, (0,0) at bottom-left
+- CI/CD validation workflow in place
+
+---
+
+## Sprint 1 (Jan 21-24) — COMPLETED
+
+### [P0] TCP Migration Testing ✅ PARTIAL
+- Created parallel implementations: PanelsController.m (pnet), PanelsControllerNative.m (tcpclient)
+- Basic benchmarks run on hardware, performance comparable
+- Test suite updated for G4.1 commands only (allOn, allOff, stopDisplay, streamFrame)
+- ⚠️ Controller locks up at streaming >10 FPS — needs further testing
+
+### [P1] G3 PControl Code Review — NOT STARTED (deferred)
+
+### [P2] Experiment Workflow Integration ✅ COMPLETE
+- Extensive testing with Lisa (Jan 24)
+- Fixed CommandExecutor, ProtocolRunner, ScriptPlugin bugs
+- Created `docs/experiment_pipeline_guide.md`
+- PR open: `claude/bugfix-trialparams-executor-80r3o`
+
+### [P3] G6 Panel Editor CI/CD ✅ COMPLETE
+### [P4] G6 Pattern Tools Migration ✅ COMPLETE
+
+### Tuesday Lab Session (Jan 21) — ALL PASSED ✅
+- Resolved `WSACONNRESET` errors
+- Tested SD card deployment with 100 patterns successfully
+
+---
+
+## Sprint 2 (Jan 27-31) — COMPLETED (except P4)
+
+### [P1] Arena Config Implementation ✅ COMPLETE
+- YAML configs in `configs/arenas/` (10 standard configs)
+- MATLAB load functions: `load_arena_config.m`, `load_rig_config.m`
+- Web tools redesigned with config dropdowns
+- CI/CD workflow to sync configs
+
+### [P2] Update webDisplayTools ✅ COMPLETE
+- Arena editor: Dropdown for 9 standard configs, view/create modes
+- 3D viewer: Dropdown for configs, accurate LED specs
+- CI/CD workflow: Auto-sync arena configs
+- Landing page updated with status badges
+
+### [P3] Pattern Editor Assessment & Implementation ✅ COMPLETE
+- Created `PatternGeneratorApp.m` — new App Designer GUI
+- Multi-generation support (G3, G4, G4.1, G6)
+- Integrated arena YAML configs via dropdown
+- All major features implemented
+
+---
+
+## Completed In-Flight Work
+
+### Web Tools Update for Arena Config Changes ✅ COMPLETE (Jan 30)
+- File renames: `G6_2x10_full.yaml` → `G6_2x10.yaml`, etc.
+- Schema change: `panels_installed` → `columns_installed`
+- CI/CD workflow triggered
+- Arena editor and 3D viewer updated
+
+### Web 3D Viewer Pattern Loading ✅ COMPLETE (Jan 30)
+- `js/pat-parser.js` — G6 and G4 pattern file parser
+- Pattern loading UI with multi-frame playback (1-30 FPS)
+- FOV control with presets (60°/120°/170°)
+- `window.testLoadPattern(url)` for automated testing
+
+### PatternGeneratorApp Missing Features ✅ COMPLETE
+All major G4 GUI features implemented:
+- Duty cycle, brightness levels, pole coordinates, motion angle
+- Arena pitch, pattern FOV, mask options, starfield options
+- Mercator view, Mollweide view, info dialog
+- .pat binary export
+
+### Arena Config for Partial Arenas ✅ COMPLETE (Jan 28)
+- Renamed field `panels_installed` → `columns_installed`
+- Standardized on column indices (0-indexed)
+- Renamed arena config files for clarity
+- `load_arena_config.m` updated with derived calculations
+
+### Web Tools Landing Page ✅ COMPLETE
+- Arena Editor, Arena 3D Viewer, G6 Panel Editor: Complete
+- Pattern Editor, Experiment Designer: Placeholder (noted)
+
+### Pattern Validation / Regression Testing ✅ COMPLETE (MATLAB)
+- Baseline patterns generated (5 pattern types)
+- Comparison script `validation/compare_patterns.m` passes
+
+### Pattern Save/Load Validation Script ✅ COMPLETE (Jan 29)
+- `tests/validate_pattern_save_load.m` — automated testing
+- Coverage: G4, G4.1, G6 with full and partial arenas
+
+---
+
+## Why PatternGeneratorApp (Not G4 GUI Update)
+
+We created a new `PatternGeneratorApp.m` using App Designer instead of updating the existing `G4_Pattern_Generator_gui.m`.
+
+### GUIDE Limitations
+- `.fig` files contain hardcoded callback references
+- No programmatic way to modify `.fig` callbacks
+- Callback function names are fragile
+- GUIDE is deprecated
+
+### App Designer Advantages
+- Single file contains both UI and code
+- Callbacks are methods — renaming is straightforward
+- Modern UI components, better maintainability
+- Cross-platform consistency
+
+### Our Approach
+1. Reference, don't modify — Keep G4_Pattern_Generator_gui.m for reference
+2. Fresh implementation — Build PatternGeneratorApp.m from scratch
+3. Feature parity goal — Implement same features, validate output matches
+4. Single source of truth — Use `get_generation_specs.m` and YAML arena configs
+
+---
+
+# SESSION LOGS
+
+Detailed session logs below, newest first.
+
+---
+
+## 2026-02-05 (PM): Documentation Compression Session
+
+**Focus**: Compress roadmap documentation while preserving all active work
+
+**Completed**:
+- Archived completed work (Jan 15 – Feb 4) to SESSIONS.md
+- Archived Sprint 1 & 2 completed items to SESSIONS.md
+- Archived completed In-Flight items (#0, #0a, #5, #6, #7, #8) to SESSIONS.md
+- Added Near-Term Priorities section with 5 urgent tasks:
+  1. Arena Config Loading Verification
+  2. Close GUIs Issue
+  3. Test Looming & Reverse-Phi Patterns
+  4. 🔴 CRITICAL: Round-Trip Pattern Validation (100+ patterns)
+  5. maDisplayTools Repo Cleanup & Merge Strategy
+- Added Roadmap Hygiene Rules to webDisplayTools/CLAUDE.md
+- Compressed Planning Best Practices in CLAUDE.md
+
+**Results**:
+- G4G6_ROADMAP.md: 1,204 → ~818 lines (-32%)
+- CLAUDE.md: 483 → ~508 lines (hygiene rules added)
+- G4G6_ROADMAP_SESSIONS.md: 1,145 → ~1,360 lines (absorbed archives)
+
+**Key Principle**: All unchecked/active items preserved. Only ✅ COMPLETE items archived.
+
+---
+
+## 2026-02-05: PR Review Session
+
+**Focus**: Code review of 3 open PRs from Frank Loesche
+
+**PRs Reviewed**:
+
+1. **PR #30: Add Prettier** ✅ MERGED
+   - Adds Prettier code formatter with `.prettierrc` config
+   - Style: single quotes, 4-space indent, no trailing commas, 100 char width
+   - npm scripts: `format`, `format:check`
+   - Safe, low risk
+
+2. **PR #31: GitHub Download Fallback** — DEFERRED
+   - Adds automatic download of arena configs from GitHub when local not found
+   - Issues:
+     - Hardcoded `feature/g6-tools` branch name (will break when merged)
+     - No rate limiting handling for GitHub API
+     - Adds ES6 export to arena-configs.js (may break `<script>` loaders)
+   - Deferring until maDisplayTools repo cleanup
+
+3. **PR #32: Run Formatter** — DEFERRED
+   - Applies Prettier to all JS files (20+ files, 2000+ line diff)
+   - Issues:
+     - `gif.worker.js` expanded from 1 → 885 lines (minified code unminified)
+     - Large diff makes functional review difficult
+     - Should exclude vendored/minified files
+   - Deferring until PR #31 branch issue resolved
+
+**Outcome**: Merged PR #30. PRs #31 and #32 deferred pending maDisplayTools branch merge to main.
 
 ---
 
