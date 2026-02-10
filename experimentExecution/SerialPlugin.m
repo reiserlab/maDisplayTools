@@ -271,7 +271,7 @@ classdef SerialPlugin < handle
             if isfield(self.definition, 'critical')
                 self.isCritical = self.definition.critical;
             else
-                self.isCritical = false;
+                self.isCritical = true;
             end
 
             if isfield(self.definition.config, 'experimentDir')

@@ -145,6 +145,7 @@ classdef BiasPlugin < handle
         biasExecutable    % Path to BIAS executable
         biasLogFile       % Path to BIAS timestamp log file (optional)
         experimentDir     % Path to experiment folder for saving videos
+        isCritical        % A failure of the camera halts the experiment if true. Default: true
         isConnected       % Connection status flag
         isRecording       % Recording status flag
         isCapturing       % Capture status flag
@@ -176,6 +177,7 @@ classdef BiasPlugin < handle
             % Launch BIAS executable if provided
             if ~isempty(self.biasExecutable)
                 self.launchBiasExecutable();
+                
             end
             
             self.logger.log('INFO', sprintf('[%s] BiasPlugin created', self.name));
@@ -249,9 +251,16 @@ classdef BiasPlugin < handle
                     self.name, command));
                 
             catch ME
-                self.logger.log('ERROR', sprintf('[%s] Command failed: %s - %s', ...
+
+                if self.isCritical
+                    self.logger.log('ERROR', sprintf('[%s] Command failed: %s - %s', ...
                     self.name, command, ME.message));
-                rethrow(ME);
+                    rethrow(ME);
+                else
+                    self.logger.log('WARNING', sprintf('[%s] Non-critical plugin error, continuing experiment...', ...
+                        self.name));
+                end
+                
             end
         end
         
@@ -297,6 +306,7 @@ classdef BiasPlugin < handle
             
             status = struct();
             status.name = self.name;
+            status.isCritical = self.isCritical;
             status.isConnected = self.isConnected;
             status.isRecording = self.isRecording;
             status.isCapturing = self.isCapturing;
@@ -354,6 +364,13 @@ classdef BiasPlugin < handle
                 end
                 self.videoExtension = ext;
             end
+
+             % Optional: critical flag (default true)
+            if isfield(self.config, 'critical')
+                self.isCritical = self.config.critical;
+            else
+                self.isCritical = true;
+            end
         end
         
         function launchBiasExecutable(self)
@@ -383,8 +400,16 @@ classdef BiasPlugin < handle
                     self.name));
                 
             catch ME
-                self.logger.log('WARNING', sprintf('[%s] Failed to launch BIAS: %s', ...
+                
+                if self.isCritical
+                    self.logger.log('ERROR', sprintf('Aborting. [%s] executable failed: %s', ...
                     self.name, ME.message));
+                    rethrow(ME);
+                else
+                    self.logger.log('WARNING', sprintf('[%s] Failed to launch BIAS: %s', ...
+                    self.name, ME.message));
+                end
+                
             end
         end
         

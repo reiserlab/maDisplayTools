@@ -286,7 +286,7 @@ classdef LEDControllerPlugin < handle
             end
             self.port = self.config.port;
             
-            % Optional: critical flag (default false)
+            % Optional: critical flag (default true)
             if isfield(self.config, 'critical')
                 self.isCritical = self.config.critical;
             else

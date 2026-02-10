@@ -25,7 +25,7 @@ arena_info:
 # ============================================================================
 plugins:
   # Serial Device Plugin - Background illumination control
-  - name: "background_light"
+  - name: "simple serial device"
     type: "serial_device"
     port_windows: "COM4"
     port_posix: "/dev/ttyUSB0"
@@ -34,17 +34,6 @@ plugins:
       activate: "RED 50\nGREEN 0\nBLUE 0\nON 0,0"
       reset: "RESET"
       off: "OFF"
-
-  # Serial Device Plugin - LED controller
-  - name: "led_controller"
-    type: "serial_device"
-    port_windows: "COM5"
-    port_posix: "/dev/ttyUSB1"
-    baudrate: 9600
-    commands:
-      on: "LED ON"
-      off: "LED OFF"
-      pulse: "PULSE 100"
 
   # Class Plugin - Camera/video capture system
   - name: "simple_bias"
@@ -129,7 +118,7 @@ pretrial:
     
     # Wait for systems to stabilize
     - type: "wait"
-      duration: 1000  # 1 second
+      duration: 1  # 1 second
     
     # Run preprocessing script
     - type: "plugin"
@@ -137,17 +126,17 @@ pretrial:
     
     # Display a test pattern to verify arena
     - type: "controller"
-      command_name: "startG41Trial"
+      command_name: "trialParams"
       pattern: 'pat0094_num93_2x12.pat'
       pattern_ID: 94
-      duration: 2000  # 2 seconds
+      duration: 2  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
       frame_rate: 60
       gain: 0
     
     - type: "wait"
-      duration: 500  # 0.5 second pause
+      duration: 0.5  # 0.5 second pause
 
 # ============================================================================
 # BLOCK - Main experimental conditions
@@ -175,16 +164,16 @@ block:
           plugin_name: "led_controller"
           command_name: "pulse"
         
-        # Wait 50ms
+        # Wait 100ms
         - type: "wait"
-          duration: 50
+          duration: 0.1
         
         # Display pattern
         - type: "controller"
-          command_name: "startG41Trial"
+          command_name: "trialParams"
           pattern: 'pat0071_num70_2x12.pat'
           pattern_ID: 71
-          duration: 5000  # 5 seconds
+          duration: 5  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
           frame_rate: 60
@@ -217,13 +206,13 @@ block:
           command_name: "pulse"
         
         - type: "wait"
-          duration: 50
+          duration: 0.1
         
         - type: "controller"
-          command_name: "startG41Trial"
+          command_name: "trialParams"
           pattern: 'pat0002_num01_2x12.pat'
           pattern_ID: 3
-          duration: 5000
+          duration: 5
           mode: 2
           frame_index: 1
           frame_rate: 60
@@ -255,13 +244,13 @@ block:
           command_name: "pulse"
         
         - type: "wait"
-          duration: 50
+          duration: 0.1
         
         - type: "controller"
-          command_name: "startG41Trial"
+          command_name: "trialParams"
           pattern: 'pat0007_num06_2x12.pat'
           pattern_ID: 4
-          duration: 3000  # 3 seconds
+          duration: 3  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
           frame_rate: 60
@@ -293,13 +282,13 @@ block:
           command_name: "pulse"
         
         - type: "wait"
-          duration: 50
+          duration: 0.1
         
         - type: "controller"
-          command_name: "startG41Trial"
+          command_name: "trialParams"
           pattern: 'pat0012_num11_2x12.pat'
           pattern_ID: 12
-          duration: 4000  # 4 seconds
+          duration: 4  # 4 seconds
           mode: 2
           frame_index: 1
           frame_rate: 60
@@ -337,7 +326,7 @@ block:
         
         # Wait in darkness
         - type: "wait"
-          duration: 3000  # 3 seconds
+          duration: 3  # 3 seconds
         
         # Turn background back on
         - type: "plugin"
@@ -361,10 +350,10 @@ intertrial:
   commands:
     # Reset to baseline pattern
     - type: "controller"
-      command_name: "startG41Trial"
+      command_name: "trialParams"
       pattern: 'pat0014_num13_2x12.pat'
       pattern_ID: 6
-      duration: 2000  # 2 second inter-trial interval
+      duration: 2  # 2 second inter-trial interval
       mode: 2
       frame_index: 1
       frame_rate: 60
@@ -376,7 +365,7 @@ intertrial:
     
     # Brief pause
     - type: "wait"
-      duration: 500  # 0.5 second
+      duration: 0.5  # 0.5 second
 
 # ============================================================================
 # POSTTRIAL - Execute once after all trials complete
@@ -405,10 +394,10 @@ posttrial:
     
     # Display completion message pattern
     - type: "controller"
-      command_name: "startG41Trial"
+      command_name: "trialParams"
       pattern: 'pat0031_num30_2x12.pat'
       pattern_ID: 7
-      duration: 2000
+      duration: 2
       mode: 2
       frame_index: 1
       frame_rate: 60
@@ -416,7 +405,7 @@ posttrial:
     
     # Final wait before shutdown
     - type: "wait"
-      duration: 1000  # 1 second
+      duration: 1  # 1 second
 
 # ============================================================================
 # CONTROLLER COMMANDS REFERENCE
@@ -438,7 +427,7 @@ posttrial:
 # setColorDepth - change the arena's accepted grayscale value 
 #   Parameters: gs_val: 2 or 16
 #
-# startG41Trial - start displaying a trial on the G4.1 system
+# trialParams - start displaying a trial on the G4.1 system
 #   Parameters: mode: integer 2-4 
 #               patID: integer from 1 - number of patterns available  
 #               posX: integer, starting frame number  
