@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file every few days as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-02-10
+> **Last Updated**: 2026-02-11
 > **Next Review**: ~2026-02-14
 >
 > **Note**: Historical details (completed sprints, completed in-flight work) archived in `G4G6_ROADMAP_SESSIONS.md`.
@@ -78,7 +78,31 @@
 
 ---
 
-## Near-Term Priorities (Feb 7+)
+## Near-Term Priorities (Feb 11+)
+
+### 🔜 Next Session: Roadmap Review + Issue Triage + Testing
+
+**Priority 1: Roadmap Review & Issue Creation**
+- Comprehensive review of all planned features and future enhancements
+- Create GitHub issues (in maDisplayTools or webDisplayTools as appropriate) for every major feature that won't be completed this week
+- Ensure nothing is lost in roadmap text that should be a trackable issue
+- Clean up completed/obsolete items from this roadmap
+
+**Priority 2: Pattern Compatibility Testing**
+- Generate patterns in web Pattern Editor, confirm they play correctly on arena hardware
+- Generate patterns in MATLAB PatternGeneratorApp, confirm web tools load them correctly
+- Test across the full matrix: G4/G4.1/G6 × GS2/GS16 × full/partial arenas
+- Document any failures as issues
+
+**Priority 3: maDisplayTools Repo Cleanup & Merge to Main**
+- Plan and execute staged merge of `feature/g6-tools` → `main`
+- Phase 1: Pattern tools (PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp)
+- Phase 2: Arena config system
+- Phase 3: SD card tools
+- Coordinate with Lisa/Frank for their code areas
+- Close stale branches
+
+---
 
 ### ✅ Recently Completed (Feb 7)
 - **Tier 1 Testing Suite** — 4 test scripts, 28/28 tests pass
@@ -873,6 +897,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-11 | **Pattern Editor v0.9.26 — UI Polish + Issue Cleanup** — Fixed 3D viewer bugs (stale geometry on arena change, camera reset on panel toggle, failed init detection). Added 3D viewer controls (Zoom labels, Screenshot button label). Implemented vertical filmstrip layout for animate sequence builder (rows with index, 64×64 thumbnail, name, remove button). Added animated combiner thumbnails (hover to cycle through frames at ~7 FPS). Expanded hover animation trigger area to full row in both combiner and clipboard pattern items. Closed issues #28 (5 known bugs) and #29 (3D viewer features). Next session: comprehensive roadmap review, issue triage, pattern compatibility testing on hardware, and maDisplayTools branch cleanup/merge to main. |
 | 2026-02-10 (PM) | **Web → MATLAB Roundtrip Validation** — Created cross-platform roundtrip test infrastructure: generate-roundtrip-patterns.js (Node.js, generates 8 deterministic .pat files with self-verification) + validate_web_roundtrip.m (MATLAB, pixel-exact comparison). Test matrix: G4/G4.1/G6 × GS2/GS16 × full/partial arenas × 4 pattern types × 16-20 frames each. All 8/8 tests pass. Documented CI/CD analysis (MATLAB license prevents GitHub Actions; web-side CI covers encoder regressions; manual trigger table for re-runs). Added experiment YAML improvement notes to roadmap (simpler test files, complete test suite, reduce complexity). |
 | 2026-02-10 | **webDisplayTools Header V2 + Preview Mode** — Implemented V2 header support in web tools: pat-parser.js auto-detects V1/V2 for G4/G4.1/G6, pat-encoder.js always writes V2, arena-configs.js has registry lookups. Added preview mode to Pattern Editor (dims tools on file load, amber banner, GENERATE disabled). Fixed arena dropdown CW/CCW mismatch using V2 header arena_id for authoritative config lookup. 218 tests across 8 suites, zero regressions. Pattern Editor bumped to v0.9.23. All changes in webDisplayTools repo (3 commits). |
 | 2026-02-08 | **Header V2 Implementation Complete** — Implemented G4.1 and G6 Header V2 formats with generation and arena metadata. G4.1: V2 header uses bytes 2-3 for generation_id (3 bits) + arena_id (8 bits). G6: Extended header to 18 bytes with bytes 5-6 for arena_id (6 bits) + observer_id (6 bits). Created write_g4_header_v2.m, read_g4_header.m, read_g6_header.m, validate_header_v2.m (8/8 tests passing). Updated save_pattern.m, g6_save_pattern.m, maDisplayTools loaders. Full backward compatibility with V1 maintained. All 30 Tier 1 tests passing. Manual testing started but incomplete - deferred to round-trip validation with webDisplayTools (next priority). Updated CLAUDE.md with model preference (Opus 4) and MATLAB development guidelines (performance, app design, coding standards). |

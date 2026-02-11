@@ -219,6 +219,50 @@ Detailed session logs below, newest first.
 
 ---
 
+## 2026-02-11: Pattern Editor UI Polish + Issue Cleanup
+
+**Focus**: Fix remaining bugs, UI improvements, close open issues
+
+**Completed (webDisplayTools)**:
+- Fixed 3 bugs in Pattern Editor 3D viewer (#29):
+  - Stale geometry when arena config changes (tracks `threeViewerArenaConfig`)
+  - Controls not working after failed init (destroy and retry pattern)
+  - Camera reset on panel toggle (extracted `_resetCameraToTopDown()`, only called from `init()`)
+- Added labels to 3D viewer controls (Zoom: +/-, 📷 Screenshot)
+- Implemented vertical filmstrip layout for animate sequence builder (#28 item 4):
+  - Rows with index number, 64×64 thumbnail, frame name, remove button
+  - Scrollable container, drag-to-reorder preserved
+- Implemented animated combiner thumbnails (#28 item 5):
+  - Pattern A/B thumbnails cycle through frames on mouseover (~7 FPS)
+  - Up to 10 frames sampled evenly, middle frame as static preview
+  - Fixed `updateCombinerUI()` → `updateCombineInfo()` typo
+- Expanded hover animation trigger to full row (both combiner and clipboard pattern items)
+- Closed issues #28 (5 known bugs) and #29 (3D viewer features)
+- Bumped Pattern Editor to v0.9.26
+
+**Files Modified**: `pattern_editor.html`, `CLAUDE.md`, `docs/ROADMAP.md`
+
+**Commits**: 5 commits pushed to main (bug fixes, labels, filmstrip, animated thumbnails, hover expansion)
+
+**Next Session Plan**:
+1. Comprehensive roadmap review — document all future features as GitHub issues
+2. Pattern compatibility testing on lab hardware
+3. maDisplayTools repo cleanup — staged merge to main
+
+---
+
+## 2026-02-10 (PM): Web → MATLAB Roundtrip Validation
+
+(see G4G6_ROADMAP.md changelog for details)
+
+---
+
+## 2026-02-10: webDisplayTools Header V2 + Preview Mode
+
+(see G4G6_ROADMAP.md changelog for details)
+
+---
+
 ## 2026-02-05 (PM): Documentation Compression Session
 
 **Focus**: Compress roadmap documentation while preserving all active work
