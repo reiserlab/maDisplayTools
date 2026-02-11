@@ -10,7 +10,7 @@ experiment_info:
   name: "Multi-Plugin Visual Stimulus Experiment"
   date_created: "2024-01-15"
   author: "Research Lab"
-  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12"
+  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12'
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -24,11 +24,10 @@ arena_info:
 # PLUGIN DEFINITIONS
 # ============================================================================
 plugins:
-  # Serial Device Plugin - Background illumination control
+  # Example of a serial device plugin (not tied to any real device right now)
   - name: "simple serial device"
     type: "serial_device"
-    port_windows: "COM4"
-    port_posix: "/dev/ttyUSB0"
+    port: "COM4"
     baudrate: 115200
     commands:
       activate: "RED 50\nGREEN 0\nBLUE 0\nON 0,0"
@@ -36,30 +35,25 @@ plugins:
       off: "OFF"
 
   # Class Plugin - Camera/video capture system
-  - name: "simple_bias"
+    # will automatically be initialized and connected and config file loaded 
+    # IF config_path, ip, and port are provided. If they are not provided, 
+    # user will have to define these commands in the trials below.
+  - name: "bias_camera"
     type: "class"
     matlab:
-      class: "maDisplayTools.plugins.SimpleBias"
-    python:
-      module: "pyDisplayTools.plugins.SimpleBias"
-      class: "SimpleBias"
+      class: "BiasPlugin"
     config:
-      ip: "127.0.0.1"
-      port: 5020
-      config_path: './config/simple_bias_config.json'
+      bias_executable: '/path/to/BIAS/executable.exe' 
+      config_path: './config/simple_bias_config.json'  # UPDATE THESE BEFORE RUNNING
+      ip: "127.0.0.1" # UPDATE THESE BEFORE RUNNING IF NEED BE
+      port: 5010 # will connect and load configuration automatically 
 
-  # Class Plugin - Data acquisition system
-  - name: "daq_system"
+  - name: "backlight"
     type: "class"
     matlab:
-      class: "maDisplayTools.plugins.DAQController"
-    python:
-      module: "pyDisplayTools.plugins.DAQController"
-      class: "DAQController"
+      class: "LEDControllerPlugin"
     config:
-      sample_rate: 1000
-      channels: ["ai0", "ai1", "ai2"]
-      device: "Dev1"
+      port: "COM6"
 
   # Script Plugin - Custom preprocessing
   - name: "preprocessing"
@@ -88,32 +82,10 @@ experiment_structure:
 pretrial:
   include: true
   commands:
-    # Initialize camera system
-    - type: "plugin"
-      plugin_name: "simple_bias"
-      command_name: "connect"
-    
-    - type: "plugin"
-      plugin_name: "simple_bias"
-      command_name: "initialize"
-      params:
-        resolution: [1920, 1080]
-        fps: 30
-    
-    # Initialize DAQ system
-    - type: "plugin"
-      plugin_name: "daq_system"
-      command_name: "connect"
-    
-    - type: "plugin"
-      plugin_name: "daq_system"
-      command_name: "configure"
-      params:
-        buffer_size: 10000
     
     # Initialize background lighting
     - type: "plugin"
-      plugin_name: "background_light"
+      plugin_name: "backlight"
       command_name: "activate"
     
     # Wait for systems to stabilize
@@ -149,19 +121,15 @@ block:
       commands:
         # Start recording
         - type: "plugin"
-          plugin_name: "simple_bias"
-          command_name: "startRecording"
+          plugin_name: "bias_camera"
+          command_name: "startRecording" #startRecording sets video file, starts capture, and starts logging.
           params:
             filename: "vertical_bars_right.avi"
-        
-        # Start DAQ
-        - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "startAcquisition"
+       
         
         # Pulse LED to mark trial start
         - type: "plugin"
-          plugin_name: "led_controller"
+          plugin_name: "backlight"
           command_name: "pulse"
         
         # Wait 100ms
@@ -178,31 +146,23 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: -90  # degrees per second
-        
-        # Stop recording
+
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "stopRecording"
     
     # Condition 2: Horizontal bars moving up
     - id: "horizontal_bars_up"
       commands:
         - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "startRecording"
           params:
             filename: "horizontal_bars_up.avi"
+
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "startAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "led_controller"
+          plugin_name: "backlight"
           command_name: "pulse"
         
         - type: "wait"
@@ -219,28 +179,20 @@ block:
           gain: -90
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "stopRecording"
     
     # Condition 3: Checkerboard pattern (static)
     - id: "checkerboard_static"
       commands:
         - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "startRecording"
           params:
             filename: "checkerboard.avi"
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "startAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "led_controller"
+          plugin_name: "backlight"
           command_name: "pulse"
         
         - type: "wait"
@@ -257,28 +209,20 @@ block:
           gain: 0
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "stopRecording"
     
     # Condition 4: Expanding grating
     - id: "expanding_grating"
       commands:
         - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "startRecording"
           params:
             filename: "expanding_grating.avi"
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "startAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "led_controller"
+          plugin_name: "backlight"
           command_name: "pulse"
         
         - type: "wait"
@@ -293,35 +237,27 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: -45
-
-        - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "stopAcquisition"
         
         - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "stopRecording"
     
     # Condition 5: Dark (no stimulus)
     - id: "dark_control"
       commands:
         - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "startRecording"
           params:
             filename: "dark_control.avi"
-       
-        - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "startAcquisition"
         
         - type: "plugin"
-          plugin_name: "led_controller"
+          plugin_name: "backlight"
           command_name: "pulse"
         
         # Turn off arena
         - type: "plugin"
-          plugin_name: "background_light"
+          plugin_name: "backlight"
           command_name: "off"
         
         # Wait in darkness
@@ -330,15 +266,11 @@ block:
         
         # Turn background back on
         - type: "plugin"
-          plugin_name: "background_light"
+          plugin_name: "backlight"
           command_name: "activate"
         
         - type: "plugin"
-          plugin_name: "daq_system"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "simple_bias"
+          plugin_name: "bias_camera"
           command_name: "stopCapture"
 
 # ============================================================================
@@ -376,20 +308,12 @@ posttrial:
   commands:
     # Stop all recording systems
     - type: "plugin"
-      plugin_name: "simple_bias"
-      command_name: "disconnect"
-    
-    - type: "plugin"
-      plugin_name: "daq_system"
+      plugin_name: "bias_camera"
       command_name: "disconnect"
     
     # Turn off hardware
     - type: "plugin"
-      plugin_name: "background_light"
-      command_name: "off"
-    
-    - type: "plugin"
-      plugin_name: "led_controller"
+      plugin_name: "backlight"
       command_name: "off"
     
     # Display completion message pattern

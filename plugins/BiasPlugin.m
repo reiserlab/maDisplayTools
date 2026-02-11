@@ -188,6 +188,20 @@ classdef BiasPlugin < handle
             %
             % Note: Actual connection happens via the 'connect' command
             % since it requires runtime parameters (ip, port)
+             % Auto-load configuration if specified in plugin config
+            if isfield(self.config, 'config_path')
+                % First need to connect
+                if isfield(self.config, 'ip') && isfield(self.config, 'port')
+                    params = struct('ip', self.config.ip, 'port', self.config.port);
+                    self.cmdConnect(params);
+                    
+                    % Then load config
+                    params = struct('config_path', self.config.config_path);
+                    self.cmdLoadConfiguration(params);
+                else
+                    self.logger.log('WARNING', sprintf('[%s] config_path specified but missing ip/port for connection', self.name));
+                end
+            end
             
             self.logger.log('INFO', sprintf('[%s] BiasPlugin initialized', self.name));
         end

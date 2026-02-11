@@ -175,11 +175,19 @@ function cleanup(obj)                         % Cleanup/disconnection
   matlab:
     class: "BiasPlugin"
   config:
-    bias_executable: "C:/path/to/BIAS/test_gui.exe" # Required
+    bias_executable: 'C:/path/to/BIAS/test_gui.exe' # Required
+    config_path: './config/simple_bias_config.json' # Optional. Auto-loads during initialization
+    ip: "127.0.0.1"                            # Required if config_path is set (for auto-initialization)
+    port: 5010                                 # Required if config_path is set (for auto-initialization)
     log_file: "./logs/bias_timestamps.log"     # Optional - default is experiment_folder/logs/<plugin>_<timestamp>.log
     video_extension: ".avi"                    # Optional, default: .avi
     critical: true                             # Optional, default: true
 ```
+**Note on auto-initialization behavior**
+
+ - If config_path, ip, and port are all provided: Camera will connect and load configuration file automatically before the pretrial
+ - If any are missing: User must manually call 'connect' and 'loadConfiguration' commands
+
 
 **BiasPlugin High-Level Commands** (Recommended):
 - `startPreview` - Start camera preview without recording
