@@ -242,6 +242,9 @@ classdef CommandExecutor < handle
                     self.logger.log('DEBUG', 'Log command completed');
                     
                     return;  % Done, no further execution needed
+                else
+                    self.logger.log('ERROR', 'Log command missing required params.message field');
+                    error('Log command requires params.message field');
                 end
             end
             

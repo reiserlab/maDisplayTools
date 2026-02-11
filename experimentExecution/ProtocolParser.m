@@ -316,8 +316,8 @@ classdef ProtocolParser < handle
             end
             
             % Must have at least one port defined
-            if ~isfield(plugin, 'port_windows') && ~isfield(plugin, 'port_posix')
-                self.throwValidationError('Serial plugin "%s" must define port_windows and/or port_posix', ...
+            if ~isfield(plugin, 'port')
+                self.throwValidationError('Serial plugin "%s" must define a port', ...
                                          plugin.name);
             end
         end
