@@ -125,7 +125,7 @@
 2. **Round-Trip Validation** (partially complete)
    - [x] MATLAB → Web: V2 patterns load correctly in arena_3d_viewer and pattern_editor
    - [x] Metadata displayed (generation, arena_id, observer_id) in both viewers
-   - [ ] Web → MATLAB: Patterns made in web editor load in MATLAB PatternPreviewerApp
+   - [x] Web → MATLAB: 8 web-generated patterns load correctly in MATLAB (validate_web_roundtrip.m, 8/8 pass)
    - [ ] Test mixed V1/V2 pattern library
 
 3. **Pattern Editor UX** ✅ COMPLETE
@@ -150,24 +150,54 @@
    - [ ] Test reverse-phi patterns (verify correct implementation per literature)
    - [ ] If working → migrate to webDisplayTools
 
-4. **🔴 CRITICAL: Round-Trip Pattern Validation**
+4. **Round-Trip Pattern Validation** (partially complete)
    - **Goal**: Ensure MATLAB ↔ Web pattern compatibility at pixel level
-   - **Test Set**: At least 100 patterns exploring:
-     - All generations (G3, G4, G4.1, G6)
-     - Full and partial arenas
-     - GS2 and GS16 grayscale modes
-     - All pattern types (grating, sine, edge, starfield, rotation, expansion, translation)
-     - Various pole positions and arena pitches
+   - **Current coverage** (8 patterns, all passing):
+     - [x] G4, G4.1, G6 generations
+     - [x] GS2 and GS16 grayscale modes
+     - [x] Full and partial arenas (6 arena configs)
+     - [x] 4 pattern types (square grating, sine grating, horizontal grating, checkerboard)
+     - [x] 16-20 frames per pattern (full-cycle periodic motion)
+     - [x] V2 header metadata round-trip (generation, arena_id, dimensions)
    - **Test A: Load compatibility**
-     - [ ] MATLAB patterns load correctly in web 3D viewer
-     - [ ] Web patterns load correctly in MATLAB PatternPreviewerApp
-     - [ ] Pixel values match exactly (not just visually similar)
-   - **Test B: Generation comparison**
+     - [x] MATLAB patterns load correctly in web 3D viewer (manual, Feb 10)
+     - [x] Web patterns load correctly in MATLAB (`validate_web_roundtrip.m`, 8/8 pass)
+     - [x] Pixel values match exactly (deterministic patterns, pixel-by-pixel)
+   - **Test B: Generation comparison** (future — requires spherical geometry port)
      - [ ] Generate identical patterns in both tools with same parameters
      - [ ] Numerically compare output (byte-for-byte if possible)
      - [ ] Document any discrepancies
-   - [ ] Create `tests/validate_round_trip.m` script
-   - [ ] Create `tests/validate-round-trip.js` for web
+   - **Remaining**:
+     - [ ] Expand to 100+ patterns with all pattern types (edge, starfield, rotation, expansion, translation)
+     - [ ] Test mixed V1/V2 pattern library
+   - **Scripts**:
+     - [x] `maDisplayTools/tests/validate_web_roundtrip.m` — MATLAB validator (8 tests)
+     - [x] `webDisplayTools/tests/generate-roundtrip-patterns.js` — Reference pattern generator
+     - [ ] `webDisplayTools/tests/validate-roundtrip-patterns.js` — Web-side self-check (optional)
+
+   **CI/CD Analysis: Why this is a manual validation step**
+
+   The roundtrip test cannot run in GitHub Actions CI/CD because:
+   - The MATLAB side requires a MATLAB license + runtime (not available in GitHub-hosted runners)
+   - MATLAB GitHub Actions exist but require MathWorks license server access
+   - The test spans two repositories (maDisplayTools + webDisplayTools)
+
+   **What IS in CI/CD** (webDisplayTools):
+   - `validate-header-v2.js` — V2 header encode/decode self-test (10 tests, 55 assertions)
+   - `validate-g6-encoding.js` — G6 panel encoding validation (25 tests)
+   - `validate-pattern-generation.js` — Pattern generation reference comparison (11 tests)
+   - The generator script self-verifies (encode → parse → pixel compare) — any encoder regression would fail here
+
+   **When to re-run manually:**
+   | Trigger | What changed | Run what |
+   |---------|-------------|----------|
+   | Modified `pat-encoder.js` | Encoding logic | Regenerate patterns + MATLAB validation |
+   | Modified `pat-parser.js` | Parsing logic | Regenerate patterns + MATLAB validation |
+   | Modified `maDisplayTools.m` load functions | MATLAB decoder | MATLAB validation only (existing .pat files) |
+   | Modified `g6_decode_panel.m` | G6 panel decoding | MATLAB validation only |
+   | Modified `read_g4_header.m` or `read_g6_header.m` | Header parsing | MATLAB validation only |
+   | New arena config added | Arena registry | Add test case to generator, regenerate + validate |
+   | Before major release/merge | Catch any regressions | Full regenerate + MATLAB validation |
 
 5. **maDisplayTools Repo Cleanup & Merge Strategy**
    - **Strategy**: Merge to main in stages, pattern GUIs first
@@ -357,9 +387,18 @@ These are started projects that need to be picked up and completed. Each section
 >
 > Need to think about this more before deciding.
 
+**Testing Notes** (2026-02-10):
+> Tested experiment workflow on `claude/bugfix-trialparams-executor-80r3o` branch. The fixes work but the test infrastructure needs significant improvement. The YAML test files are overly complex and don't reflect realistic experiment configurations. Before doing further development, the test suite needs to be rebuilt with simpler, more practical test data.
+
 **To Pick Up**:
 1. Get PR merged (needs Lisa's review)
 2. Later: Design arena config integration with experiment system
+3. **Simpler, practical test YAML files** — Current test data is overly complex. Need minimal, realistic YAML configs that reflect actual behavioral experiment workflows. Focus on "what would a real experiment look like?" rather than exhaustive edge cases.
+4. **Complete test suite** — Build proper unit tests for the experiment YAML system with:
+   - Clear, relevant test patterns based on real experiment workflows
+   - Defined testing protocol (what to test, how to validate, pass/fail criteria)
+   - Coverage of edge cases discovered during hands-on testing
+5. **Reduce YAML configuration complexity** — Simplify the YAML configuration structure to be more practical and easier for lab members to write and maintain. Consider flattening nested structures and providing well-documented templates.
 
 **Files to Review**:
 - `docs/experiment_pipeline_guide.md`
@@ -834,6 +873,7 @@ webDisplayTools/
 
 | Date | Change |
 |------|--------|
+| 2026-02-10 (PM) | **Web → MATLAB Roundtrip Validation** — Created cross-platform roundtrip test infrastructure: generate-roundtrip-patterns.js (Node.js, generates 8 deterministic .pat files with self-verification) + validate_web_roundtrip.m (MATLAB, pixel-exact comparison). Test matrix: G4/G4.1/G6 × GS2/GS16 × full/partial arenas × 4 pattern types × 16-20 frames each. All 8/8 tests pass. Documented CI/CD analysis (MATLAB license prevents GitHub Actions; web-side CI covers encoder regressions; manual trigger table for re-runs). Added experiment YAML improvement notes to roadmap (simpler test files, complete test suite, reduce complexity). |
 | 2026-02-10 | **webDisplayTools Header V2 + Preview Mode** — Implemented V2 header support in web tools: pat-parser.js auto-detects V1/V2 for G4/G4.1/G6, pat-encoder.js always writes V2, arena-configs.js has registry lookups. Added preview mode to Pattern Editor (dims tools on file load, amber banner, GENERATE disabled). Fixed arena dropdown CW/CCW mismatch using V2 header arena_id for authoritative config lookup. 218 tests across 8 suites, zero regressions. Pattern Editor bumped to v0.9.23. All changes in webDisplayTools repo (3 commits). |
 | 2026-02-08 | **Header V2 Implementation Complete** — Implemented G4.1 and G6 Header V2 formats with generation and arena metadata. G4.1: V2 header uses bytes 2-3 for generation_id (3 bits) + arena_id (8 bits). G6: Extended header to 18 bytes with bytes 5-6 for arena_id (6 bits) + observer_id (6 bits). Created write_g4_header_v2.m, read_g4_header.m, read_g6_header.m, validate_header_v2.m (8/8 tests passing). Updated save_pattern.m, g6_save_pattern.m, maDisplayTools loaders. Full backward compatibility with V1 maintained. All 30 Tier 1 tests passing. Manual testing started but incomplete - deferred to round-trip validation with webDisplayTools (next priority). Updated CLAUDE.md with model preference (Opus 4) and MATLAB development guidelines (performance, app design, coding standards). |
 | 2026-02-07 | **Tier 1 Testing + Arena Registry + Singleton Pattern** — Created comprehensive Tier 1 test suite: validate_gui_launch.m (4 tests), validate_pattern_round_trip.m (6 tests), fixed G4/G4.1 save test skipping. All 28/28 tests pass. Implemented arena registry system with per-generation namespaces (G4, G41, G6), index.yaml, generations.yaml, 6 symlinked configs, 4 utility functions (get_arena_id/name, get_generation_id/name). Fixed GitHub #12: Added singleton pattern to all 3 GUI apps (prevents multiple instances, shows warning dialog). All implementations tested and passing. |
