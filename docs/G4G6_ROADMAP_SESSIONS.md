@@ -11,6 +11,112 @@ These sections document completed work and are preserved for reference.
 
 ---
 
+## Archived from Roadmap Cleanup — Feb 11, 2026
+
+The following sections were removed from `G4G6_ROADMAP.md` during a comprehensive cleanup to reduce the roadmap from ~937 lines to ~450 lines. Active items were preserved in the roadmap or converted to GitHub issues.
+
+### Completed Work Summary (Jan 15 – Feb 4)
+
+- Web Tools Repository Setup (webDisplayTools, dark theme, fonts)
+- G6 Panel Editor with CI/CD validation (v8)
+- Arena Layout Editor (web + MATLAB)
+- Arena 3D Viewer with .pat file loading
+- SD Card Deployment (tested with 100 patterns)
+- PatternGeneratorApp (App Designer, multi-generation)
+- PatternPreviewerApp (histogram, playback controls)
+- PatternCombinerApp (sequential/mask/split modes)
+- Arena Config YAML system (10 configs, CI/CD sync)
+- Pattern Tools Quick Start Guide
+- G6 encoding tools + CI/CD validation
+
+### Sprint 1 & 2 (Jan 21 – Jan 31) — COMPLETED
+
+**Sprint 1** (Jan 21-24): TCP migration testing (partial), experiment workflow fixes, G6 panel CI/CD, Tuesday lab session success.
+
+**Sprint 2** (Jan 27-31): Arena config implementation, webDisplayTools update, PatternGeneratorApp core features.
+
+Branch Reconciliation remaining items were consolidated into In-Flight Work #5.
+
+### Recently Completed (Feb 7)
+
+- **Tier 1 Testing Suite** — 4 test scripts, 28/28 tests pass (GUI launch, pattern round-trip, G4/G4.1 save, pattern combiner)
+- **Arena Registry System** — Per-generation namespaces, 4 utility functions, ID ranges: G4.1 (8-bit 0-255), G6 (6-bit 0-63), 6 arena configs registered
+- **GitHub #12 Fixed** — Singleton pattern for all 3 GUI apps
+
+### Header V2 Implementation (Feb 8)
+
+- G6 Header Extension: bit-packed arena_id + observer_id in bytes 5-6, 4 bits version, 6 bits arena_id, 6 bits observer_id, extended header from 17 to 18 bytes
+- G4.1 Header V2: generation + arena_id in bytes 2-3, full backward compatibility
+- Files created: write_g4_header_v2.m, read_g4_header.m, read_g6_header.m, validate_header_v2.m (8/8 tests)
+- All 30 Tier 1 tests passing
+
+### webDisplayTools Header V2 Integration (Feb 10)
+
+- pat-parser.js auto-detects V1/V2 for G4/G4.1/G6, pat-encoder.js always writes V2
+- Arena registry lookup functions in arena-configs.js
+- 55 new test assertions (10 tests), all passing
+- Preview mode added to Pattern Editor (dims tools on file load, GENERATE disabled)
+- Arena dropdown syncs from V2 header arena_id
+
+### Sprint 3 (Feb 2-5) — COMPLETED
+
+**P1: PatternGeneratorApp Feature Parity** — Complete. All generations (G3, G4, G4.1, G6), all pattern types, masks, projections, .pat export.
+
+**P2: TCP Migration Testing** — Deferred to lab session. Tracked in In-Flight Work #1.
+
+**P3: Web Pattern Editor** — Substantial progress on pattern_editor.html. Tracked in Known Issues and Future Vision.
+
+### Planned Sessions (archived)
+
+**Pattern Compatibility Testing** — Test matrix preserved in Current Priorities section of roadmap.
+
+**Web 3D Viewer Feature Review** — Converted to consideration for future work.
+
+**Observer Perspective Controls** — Broadened into GitHub issue (observer position & arena pitch, cross-repo).
+
+### Future Vision: Generator/Previewer Separation (COMPLETE, Jan 29)
+
+PatternGeneratorApp rebuilt as focused generation-only tool (380×700 px). "Generate & Preview" sends to PatternPreviewerApp. Original archived as PatternGeneratorApp_v0.m.
+
+Previewer features implemented: per-frame stretch display, per-frame intensity histogram (black→green gradient, log/linear toggle), GIF/video export, UI controls disabled during playback, app layout utilities.
+
+### Archived Changelog Entries (Jan 18 – Feb 4)
+
+| Date | Change |
+|------|--------|
+| 2026-02-04 | Icon Generator v1.4 + Partial Arena Fixes |
+| 2026-02-03 (night) | Pattern Editor v0.9.14 — partial arena fixes, GIF thumbnails |
+| 2026-02-03 (PM) | Pattern Editor v0.9.12 — frame reference tracking, icon thumbnails |
+| 2026-02-03 | Pattern Editor v0.9.7 — falsy-value bug fix (poleElevation=0) |
+| 2026-02-02 (PM) | Pattern Editor v0.9.4 — icon thumbnails, bug fixes |
+| 2026-02-02 (late AM) | Icon Generator v0.9 — folder upload, manual arena override |
+| 2026-02-02 (PM) | Pattern Editor v0.9 + Icon Generator v0.8 — UI improvements |
+| 2026-02-02 | Session review + Pattern Editor v0.6 — spherical geometry, clipboard redesign |
+| 2026-01-31 (PM) | Validation + documentation — pattern reference data, 11 tests pass |
+| 2026-01-31 | Pattern Editor UI fixes — panel label cleanup, combined pattern names |
+| 2026-01-30 (night) | Pattern Editor Streams F, G, H — 3D viewer, combiner.js |
+| 2026-01-30 (evening) | Web Pattern Editor planning + initial implementation |
+| 2026-01-30 (late) | Roadmap updates — backlog items completed |
+| 2026-01-30 | Web Pattern Viewer — .pat file loading in 3D viewer |
+| 2026-01-29 (Night) | UI layout refinements for stackable apps |
+| 2026-01-29 (PM) | PatternCombinerApp refinements + PatternPreviewerApp fixes |
+| 2026-01-29 | PatternCombinerApp implemented — 3 modes, 12 tests |
+| 2026-01-29 | Directory reorganization — patternTools consolidation |
+| 2026-01-29 | G6 pattern fixes + validation infrastructure |
+| 2026-01-29 | Future Vision section added |
+| 2026-01-28 | Arena config schema update — columns_installed rename |
+| 2026-01-27 | PatternGeneratorApp refinements — partial arena fixes |
+| 2026-01-26 (PM) | Comprehensive roadmap update |
+| 2026-01-26 | PatternGeneratorApp created |
+| 2026-01-25 | Column numbering convention fixed (Issue #4) |
+| 2026-01-24 (PM) | Web tools UI redesign, arena configs single source of truth |
+| 2026-01-24 | Sprint 1 COMPLETE |
+| 2026-01-23 | G6 Panel Editor CI/CD COMPLETE |
+| 2026-01-21 | SD card workflow COMPLETE |
+| 2026-01-18 | Initial roadmap created |
+
+---
+
 ## Completed Work (Jan 15-21)
 
 ### ✅ Web Tools Repository Setup
