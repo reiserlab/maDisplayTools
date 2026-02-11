@@ -31,20 +31,6 @@ addpath(fullfile(repo_root, 'experimentExecution'));
 logFile = fullfile(test_root, 'logs', 'script_plugin_test.log');
 logger = ExperimentLogger(logFile, false, 'DEBUG');
 
-%% Helper: create a dummy function file
-function create_dummy_function(filepath, funcName, hasOutput)
-    fid = fopen(filepath, 'w');
-    if hasOutput
-        fprintf(fid, 'function result = %s(params)\n', funcName);
-        fprintf(fid, '    result = struct(''success'', true, ''input'', params);\n');
-    else
-        fprintf(fid, 'function %s(params)\n', funcName);
-        fprintf(fid, '    % No output\n');
-    end
-    fprintf(fid, 'end\n');
-    fclose(fid);
-end
-
 %% TEST 1: Initialize ScriptPlugin with valid dummy function
 numTests = numTests + 1;
 fprintf('TEST 1: Initialize ScriptPlugin with valid dummy function...\n');
@@ -224,3 +210,17 @@ else
 end
 
 fprintf('\nTo clean up: rmdir(''%s'', ''s'')\n', test_root);
+
+%% Helper function (must be at end of script file)
+function create_dummy_function(filepath, funcName, hasOutput)
+    fid = fopen(filepath, 'w');
+    if hasOutput
+        fprintf(fid, 'function result = %s(params)\n', funcName);
+        fprintf(fid, '    result = struct(''success'', true, ''input'', params);\n');
+    else
+        fprintf(fid, 'function %s(params)\n', funcName);
+        fprintf(fid, '    %% No output\n');
+    end
+    fprintf(fid, 'end\n');
+    fclose(fid);
+end
