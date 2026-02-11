@@ -1,0 +1,72 @@
+# Minimal G4.1 Controller-Only Test Protocol
+# No plugins - pure controller commands for hardware testing
+# Short durations for quick test runs
+
+version: 1
+
+experiment_info:
+  name: "G4.1 Controller-Only Test"
+  date_created: "2026-02-11"
+  author: "Test Suite"
+
+arena_info:
+  num_rows: 2
+  num_cols: 12
+  generation: "G4.1"
+
+experiment_structure:
+  repetitions: 2
+  randomization:
+    enabled: true
+    seed: 42
+    method: "block"
+
+pretrial:
+  include: true
+  commands:
+    - type: "controller"
+      command_name: "allOn"
+
+    - type: "wait"
+      duration: 1
+
+block:
+  conditions:
+    - id: "pattern_A"
+      commands:
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: 'pat0001_test.pat'
+          pattern_ID: 1
+          duration: 2
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+
+    - id: "pattern_B"
+      commands:
+        - type: "controller"
+          command_name: "startG41Trial"
+          pattern: 'pat0002_test.pat'
+          pattern_ID: 2
+          duration: 1
+          mode: 2
+          frame_index: 1
+          frame_rate: 60
+          gain: 0
+
+intertrial:
+  include: true
+  commands:
+    - type: "wait"
+      duration: 0.5
+
+posttrial:
+  include: true
+  commands:
+    - type: "controller"
+      command_name: "allOff"
+
+    - type: "wait"
+      duration: 0.5
