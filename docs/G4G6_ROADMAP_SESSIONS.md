@@ -1631,3 +1631,90 @@ Full roundtrip testing cannot run in GitHub Actions because MATLAB requires a li
 - Expand roundtrip suite to 100+ patterns (blocked on spherical geometry port for edge/starfield/rotation/expansion types)
 - Test mixed V1/V2 pattern library
 - V2 header format documentation in webDisplayTools README
+
+---
+
+## Session: Feb 14, 2026 — Row Header Bug Fix + Lab Test Prep
+
+### Context
+
+Web-generated G4.1 patterns (GS16, CCW config) displayed incorrectly on the physical arena. Previously MATLAB-generated patterns (GS2) played perfectly. Goal: diagnose root cause, fix it, and prepare comprehensive lab test scripts for pattern validation and Mode 3 testing.
+
+### Root Cause: Web Encoder Row Header Bug
+
+The web `pat-encoder.js` wrote `0x00` for all row header bytes, while the MATLAB encoder correctly writes the 1-based panel row index (`i + 1`). The G4.1 controller firmware uses the row header byte to address which panel row receives the subpanel data — so all web-encoded data was sent to row 0.
+
+**Why it wasn't caught by roundtrip testing**: The MATLAB decoder **skips** the row header byte (`maDisplayTools.m:838: n = n + 1`), so pixel values round-trip correctly regardless of the row header value. The bug only manifests on actual hardware.
+
+**Why CW/CCW wasn't the issue**: The binary encoding has zero references to `column_order`. CW and CCW configs produce identical .pat files. The actual issue was the row header byte being 0x00 in all web-encoded patterns.
+
+### Work Completed
+
+**1. Bug fix: Web encoder row header** (`webDisplayTools/js/pat-encoder.js:408`)
+- Changed `frameData[n++] = 0x00` to `frameData[n++] = i + 1`
+- Affects both GS16 and GS2 encoding paths
+
+**2. Arena registry: G41_2x12_ccw**
+- Added to `maDisplayTools/configs/arena_registry/index.yaml` (ID 2 under G41)
+- Added to `webDisplayTools/js/arena-configs.js` ARENA_REGISTRY
+
+**3. Rewrote `examples/G41_Modes_Demo.m`**
+- Original had 3 bugs: variable name mismatch (`patIDS`/`patIDs`), erroneous `self`, empty `gain`
+- Rewritten to use `trialParams` with `waitForEnd=true` (controller handles timing)
+- Mode 3 section uses `waitForEnd=false` for position streaming
+
+**4. Created `tests/diagnose_web_patterns.m`**
+- Byte-level .pat comparison tool for pre-lab diagnosis
+- Checks row header bytes, header format (V1/V2), frame pixel data, file sizes
+- Can run single-file (check row headers) or two-file comparison mode
+
+**5. Created `examples/test_mode3.m`**
+- Self-contained Mode 3 lab test suite with 7 tests:
+  - Basic frame display, manual stepping, non-sequential jumps
+  - GS2 stepping, timing at 10/20/50 Hz, rapid back-and-forth stress test
+- Uses pattern IDs 6, 7, 8 from `create_lab_test_patterns.m`
+
+**6. Created `tests/create_lab_test_patterns.m`**
+- Generates 8-pattern test suite: 4 MATLAB-native + 4 web-generated
+- Pattern matrix covers: GS2/GS16, CW/CCW, MATLAB/web sources, single/multi-frame
+- Generates Node.js helper script for web patterns, deploys all to SD card
+
+**7. Roundtrip re-validation**
+- Regenerated all 8 reference patterns with the row header fix
+- MATLAB validation: 8/8 tests still pass (pixel-exact match)
+
+**8. CLAUDE.md updates**
+- Added "Controller API" section documenting `trialParams` usage patterns
+- Deprecated `startG41Trial` — marked for removal in future cleanup
+- Added lab test scripts reference table
+
+**9. Roadmap updates**
+- Updated Priority 2 with row header fix status and lab test prep checklist
+- Added post-merge cleanup task for deprecated controller functions
+- Added changelog entry
+
+### Key Decision: Deprecate `startG41Trial`
+
+All new code should use `trialParams` instead of `startG41Trial`. Both send the same TCP command (`0x0C 0x08`), but `trialParams` has a cleaner interface and supports all modes 0-7. `startG41Trial` is scheduled for removal in a post-merge cleanup pass.
+
+### Files Created
+- `maDisplayTools/tests/diagnose_web_patterns.m`
+- `maDisplayTools/tests/create_lab_test_patterns.m`
+- `maDisplayTools/examples/test_mode3.m`
+
+### Files Modified
+- `webDisplayTools/js/pat-encoder.js` (row header fix)
+- `webDisplayTools/js/arena-configs.js` (CCW registry)
+- `maDisplayTools/configs/arena_registry/index.yaml` (CCW registration)
+- `maDisplayTools/examples/G41_Modes_Demo.m` (rewritten with trialParams)
+- `maDisplayTools/tests/web_generated_patterns/` (regenerated 8 .pat files)
+- `maDisplayTools/CLAUDE.md` (controller API section)
+- `maDisplayTools/docs/G4G6_ROADMAP.md` (priorities + changelog)
+
+### Next Steps (Lab Session)
+1. Run `create_lab_test_patterns.m` to generate patterns and deploy to SD card
+2. Run `diagnose_web_patterns.m` for pre-lab byte-level verification
+3. In lab: Verify patterns 1-5 play correctly (Priority 2-3 from test plan)
+4. In lab: Run Mode 3 test suite (`test_mode3.m`)
+5. Document max reliable Mode 3 streaming rate
+6. If all pass: merge row header fix, commit updated roundtrip patterns

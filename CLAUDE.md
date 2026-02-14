@@ -501,6 +501,55 @@ previewer.loadPatternFromApp(Pats, stretch, gs_val, name, arenaConfig);
 - Essential for partial arenas (e.g., G6_2x8of10 vs G6_2x10 have same row count)
 - Enables accurate projection views (Mercator/Mollweide)
 
+## Controller API (PanelsController)
+
+### Preferred: `trialParams`
+
+Use `trialParams` for all controller commands in scripts and examples:
+
+```matlab
+pc.trialParams(controlMode, patternID, fps, initPos, gain, deciSeconds, waitForEnd)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `controlMode` | 0-7 | Mode (2=constant rate, 3=stream position, 4=closed-loop, etc.) |
+| `patternID` | uint16 | Pattern slot on SD card |
+| `fps` | int16 | Frame rate (signed; negative = reverse) |
+| `initPos` | int16 | Initial frame position (signed) |
+| `gain` | uint16 | Gain value (for closed-loop modes) |
+| `deciSeconds` | uint16 | Duration in 0.1s units (e.g., 50 = 5 sec) |
+| `waitForEnd` | bool | Wait for controller to signal completion (default: `true`) |
+
+**Usage patterns:**
+```matlab
+% Mode 2 (constant rate): let controller handle timing
+pc.trialParams(2, patID, 10, 1, 0, 50, true);  % 10fps, 5 sec, blocks until done
+
+% Mode 3 (stream position): non-blocking so MATLAB can send updates
+pc.trialParams(3, patID, 0, 1, 0, 600, false);  % 60 sec timeout
+pc.setPositionX(frameIndex);  % Send position updates
+pc.stopDisplay();              % Stop when done
+
+% Mode 4 (closed-loop): let controller handle timing
+pc.trialParams(4, patID, 0, 1, gain, 100, true);  % 10 sec
+```
+
+### Deprecated: `startG41Trial`
+
+**Do NOT use `startG41Trial` in new code.** Use `trialParams` instead — it sends the same TCP command (`0x0C 0x08`) with a cleaner interface and supports all modes 0-7.
+
+`startG41Trial` is scheduled for removal in a future cleanup pass.
+
+### Lab Test Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `tests/create_lab_test_patterns.m` | Generate curated patterns for lab validation |
+| `tests/diagnose_web_patterns.m` | Byte-level .pat file comparison (row headers, frames) |
+| `examples/test_mode3.m` | Mode 3 (stream position) lab test suite |
+| `examples/G41_Modes_Demo.m` | Modes 2/3/4 demo using `trialParams` |
+
 ## Common Issues
 
 ### Pattern displays upside down

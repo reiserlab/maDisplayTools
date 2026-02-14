@@ -34,6 +34,7 @@ G4:
 # G4.1 Arena Configurations
 G41:
   1: G41_2x12_cw
+  2: G41_2x12_ccw
 
 # G6 Arena Configurations
 G6:

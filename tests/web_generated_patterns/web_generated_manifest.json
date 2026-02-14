@@ -1,5 +1,5 @@
 {
-  "generated": "2026-02-11T01:36:24.818Z",
+  "generated": "2026-02-14T15:47:06.695Z",
   "generator": "webDisplayTools/tests/generate-roundtrip-patterns.js",
   "description": "Deterministic reference patterns for Web → MATLAB roundtrip validation",
   "patterns": [

@@ -2,7 +2,7 @@
 
 > **Living Document** — Update this file as work progresses and priorities shift.
 >
-> **Last Updated**: 2026-02-11
+> **Last Updated**: 2026-02-14
 >
 > **Note**: Completed work and detailed session logs archived in `G4G6_ROADMAP_SESSIONS.md`.
 
@@ -37,26 +37,30 @@
 
 ---
 
-## Current Priorities (Feb 11+)
+## Current Priorities (Feb 14+)
 
-### Priority 1: Roadmap Cleanup & Issue Triage (this session)
+### Priority 1: Roadmap Cleanup & Issue Triage
 - [x] Archive completed sections to SESSIONS.md
 - [x] Create GitHub issues for features buried in roadmap text
 - [x] Restructure roadmap for clarity
 
-### Priority 2: Pattern Compatibility Testing (next lab session)
-- [ ] Generate patterns in web Pattern Editor, confirm they play correctly on arena hardware
-- [ ] Generate patterns in MATLAB PatternGeneratorApp, confirm web tools load them correctly
-- [ ] Test matrix: G4/G4.1/G6 × GS2/GS16 × full/partial arenas
-- [ ] Document any failures as issues
+### Priority 2: Pattern Compatibility & Mode 3 Testing (next lab session)
+- [x] **Root cause found**: Web encoder row header bug (`pat-encoder.js:408` wrote `0x00` instead of `i+1`)
+- [x] Fix applied, roundtrip re-validated (8/8 pass)
+- [x] Lab test scripts created (`create_lab_test_patterns.m`, `diagnose_web_patterns.m`, `test_mode3.m`)
+- [x] Registered `G41_2x12_ccw` in arena registry (both repos)
+- [ ] **Lab validation**: Run 8-pattern test suite (MATLAB vs web, GS2 vs GS16, CW vs CCW)
+- [ ] **Mode 3 testing**: Frame stepping, timing (10/20/50 Hz), non-sequential jumps
+- [ ] Document max reliable Mode 3 streaming rate
 
-### Priority 3: Repo Cleanup & Merge to Main (next 2 days)
+### Priority 3: Repo Cleanup & Merge to Main
 - [ ] Phase 1: Pattern tools (PatternGeneratorApp, PatternPreviewerApp, PatternCombinerApp)
 - [ ] Phase 2: Arena config system
 - [ ] Phase 3: SD card tools
 - [ ] Phase 4: Experiment workflow (coordinate with Lisa)
 - [ ] Phase 5: TCP migration (coordinate with Frank)
 - [ ] Close stale branches
+- [ ] Post-merge: Remove deprecated controller functions (`startG41Trial`, other unused legacy methods)
 
 ---
 
@@ -292,6 +296,7 @@ SD card named "PATSD", FAT32. Patterns written BEFORE manifest files (FAT32 dirI
 
 | Date | Change |
 |------|--------|
+| 2026-02-14 | **Row Header Bug Fix + Lab Test Prep** — Fixed web encoder row header bug (root cause of arena display issue). Created lab test scripts (8-pattern suite, Mode 3 tests, byte-level diagnostics). Deprecated `startG41Trial` in favor of `trialParams`. |
 | 2026-02-13 | **Pattern Editor v0.9.29 — Button Hierarchy & Discoverability** — Relocated LOAD/NEW to viewer toolbar per user feedback. Established 3-tier visual hierarchy: solid green (GENERATE/LOAD/SAVE), green-outlined (NEW/viewer tabs/frame nav), status indicators (clipboard tabs). |
 | 2026-02-11 | **Roadmap Cleanup & Issue Triage** — Archived completed sections to SESSIONS.md, created GitHub issues for tracked features, restructured roadmap (937 → ~450 lines). Marked spherical geometry as complete. Broadened arena pitch to full observer position feature. |
 | 2026-02-11 | **Pattern Editor v0.9.26 — UI Polish + Issue Cleanup** — Fixed 3D viewer bugs, vertical filmstrip layout, animated combiner thumbnails. Closed webDisplayTools issues #28, #29. |
