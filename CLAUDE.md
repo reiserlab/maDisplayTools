@@ -34,18 +34,39 @@ When writing MATLAB code, follow these best practices and resources:
 
 ## MATLAB Integration
 
-### MATLAB Connector
-Claude Code can run MATLAB commands via the MATLAB Connector MCP server. To execute MATLAB code, use the general-purpose Task agent with a prompt like:
+### MATLAB MCP Server
 
+Claude Code runs MATLAB commands via the `matlab-mcp-core-server` MCP server. Available tools:
+- `evaluate_matlab_code` — Run arbitrary MATLAB code with a project directory context
+- `run_matlab_file` — Execute a .m script
+- `run_matlab_test_file` — Run unit tests via `runtests`
+- `check_matlab_code` — Static analysis via `checkcode`
+- `detect_matlab_toolboxes` — List installed toolboxes
+
+Can also delegate to a Task agent:
 ```
 Run this MATLAB code:
 cd('/Users/reiserm/Documents/GitHub/maDisplayTools');
 results = validate_pattern_save_load();
 ```
 
-The agent will execute the code and return the results.
-
 **MATLAB application path**: `/Applications/MATLAB_R2025b.app/bin/matlab`
+
+### MCP Session Behavior (verified Feb 14, 2026)
+
+The MCP server launches **one persistent headless MATLAB process** per Claude Code session:
+
+- **State persists**: Variables, `addpath`, and working directory carry over between calls
+- **Task agents share the session**: Sub-agents (Task tool) use the same MATLAB PID — variables set by an agent are visible to the main context and vice versa
+- **No process accumulation**: Multiple calls and agents all reuse one MATLAB instance
+- **Separate from user's MATLAB**: The MCP MATLAB is independent of any GUI MATLAB the user has open — no way to connect to an existing session (yet)
+- **Headless**: No plot windows or App Designer GUIs appear on screen. Use `exportapp()`, `saveas()`, or `print()` to capture visual output as image files
+
+**Implications for testing:**
+- The `clear classes` preamble is essential because class definitions persist across calls
+- `addpath(genpath('.'))` only needs to run once per session, but including it in the preamble is safe
+- Be mindful that leftover variables from earlier calls can interfere — use `clear` when needed
+- Multiple Claude Code windows may each spawn their own MCP MATLAB instance
 
 ## Testing Requirements
 
