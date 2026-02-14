@@ -1718,3 +1718,32 @@ All new code should use `trialParams` instead of `startG41Trial`. Both send the 
 4. In lab: Run Mode 3 test suite (`test_mode3.m`)
 5. Document max reliable Mode 3 streaming rate
 6. If all pass: merge row header fix, commit updated roundtrip patterns
+
+---
+
+## Session: Feb 14, 2026 (cont.) — MATLAB MCP Session Behavior Investigation
+
+### Context
+
+Colleague asked whether the MATLAB MCP server solves the "new MATLAB session every time" problem. Ran a 6-test empirical investigation to document how the MCP server manages sessions.
+
+### Test Results
+
+| Test | Result |
+|------|--------|
+| 1. Variable persistence (direct calls) | ✅ Same PID, variable survives |
+| 2. Working directory persistence | ✅ CWD persists between calls |
+| 3. Task agent session isolation | ✅ **Shared** — agents use same MATLAB PID, variables visible both ways |
+| 4. Path persistence | ✅ `addpath` persists (2320 entries) |
+| 5. Process count | 2 MATLABs: user's GUI + MCP's headless. Stable, no accumulation. |
+| 6. Shared engine connectivity | ⚠️ MCP can `shareEngine` but `findSharedEngines` is Python-only API. No `--connect-to` flag in MCP server. |
+
+### Key Finding
+
+The MCP server (`matlab-mcp-core-server` binary in `~/Downloads/`) launches **one persistent headless MATLAB process**. All calls — including from Task agents — share this single session. The user's GUI MATLAB is completely separate; no mechanism exists to connect them (would need MathWorks feature request).
+
+### Files Modified
+- `maDisplayTools/CLAUDE.md` — Expanded "MATLAB Integration" section with MCP server tool inventory, session behavior documentation, and testing implications
+
+### Deliverables
+- Full test results saved to `~/Downloads/MATLAB_MCP_Server_Session_Test_Results.md` for colleague

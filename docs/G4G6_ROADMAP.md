@@ -296,6 +296,7 @@ SD card named "PATSD", FAT32. Patterns written BEFORE manifest files (FAT32 dirI
 
 | Date | Change |
 |------|--------|
+| 2026-02-14 | **MATLAB MCP Session Testing** — Empirically verified MCP server behavior (6 tests): persistent session, shared state across Task agents, no process accumulation. Documented findings in CLAUDE.md. |
 | 2026-02-14 | **Row Header Bug Fix + Lab Test Prep** — Fixed web encoder row header bug (root cause of arena display issue). Created lab test scripts (8-pattern suite, Mode 3 tests, byte-level diagnostics). Deprecated `startG41Trial` in favor of `trialParams`. |
 | 2026-02-13 | **Pattern Editor v0.9.29 — Button Hierarchy & Discoverability** — Relocated LOAD/NEW to viewer toolbar per user feedback. Established 3-tier visual hierarchy: solid green (GENERATE/LOAD/SAVE), green-outlined (NEW/viewer tabs/frame nav), status indicators (clipboard tabs). |
 | 2026-02-11 | **Roadmap Cleanup & Issue Triage** — Archived completed sections to SESSIONS.md, created GitHub issues for tracked features, restructured roadmap (937 → ~450 lines). Marked spherical geometry as complete. Broadened arena pitch to full observer position feature. |
