@@ -1,0 +1,20 @@
+# Test Rig 3 (3rd floor)
+# MAC: 02:E8:61:0C:D4:D7
+
+format_version: "1.0"
+name: "Test Rig 3"
+description: "Test rig at 10.103.40.74 (3rd floor)"
+
+arena: "../arenas/G41_2x12_cw.yaml"
+
+controller:
+  host: "10.103.40.74"
+  port: 62222
+
+plugins:
+  backlight:
+    enabled: false
+  camera:
+    enabled: false
+  temperature:
+    enabled: false

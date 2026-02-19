@@ -44,7 +44,6 @@ classdef ScriptPlugin < handle
         functionName   % Name of function (if function type)
         addedPath      % Path that was added (for cleanup)
         workspace      % Workspace for script execution
-        experimentDir
     end
     
     methods
@@ -64,70 +63,14 @@ classdef ScriptPlugin < handle
             % Validate required fields
             self.validateDefinition();
             
-            % Extract configuration (experiment directory if nothing else)
-            self.extractConfiguration();
-            
-        end
-
-        function initialize(self)
-            % Make sure the script_path field and the script provided exist
-            
-            if ~isfield(self.definition, 'script_path')
-                self.logger.log('ERROR', sprintf('%s is missing the path to the script.', ...
-                    self.name));
-                error('Missing script path.');
-                
-            elseif exist(self.definition.script_path, 'file') ~= 2
-                self.logger.log('ERROR', sprintf(['file provided for the %s ...' ...
-                    'plugin does not exist.'], self.name));
-                error('ScriptPlugin:FileNotFound', ...
-                    'Script file not found: %s', self.scriptPath);
-
-            else
-            
-                self.scriptPath = self.definition.script_path;
-
+            % Initialize the script/function
+            try
+                self.initialize();
+            catch ME
+                self.logger.log('ERROR', sprintf('[%s] Failed to initialize: %s', ...
+                    self.name, ME.message));
+                rethrow(ME);
             end
-            
-            % Determine script type
-            if isfield(self.definition, 'script_type')
-                self.scriptType = self.definition.script_type;
-            else
-                self.scriptType = 'function'; % Default to function
-            end
-            
-            % Validate script type
-            if ~ismember(self.scriptType, {'function'})
-                error('ScriptPlugin:InvalidType', ...
-                    'script_type must be "function" for now, got: %s', ...
-                    self.scriptType);
-            end
-            
-            
-            % Set workspace
-            if isfield(self.definition, 'workspace')
-                self.workspace = self.definition.workspace;
-            else
-                self.workspace = 'caller'; % Default
-            end
-            
-            % Add path 
-            [scriptDir, ~] = fileparts(self.scriptPath);
-            addpath(scriptDir);
-            self.addedPath = scriptDir;
-            self.logger.log('DEBUG', sprintf('[%s] added to path', self.name));
-
-            if strcmp(self.scriptType, 'function')
-                [~, self.functionName, ~] = fileparts(self.scriptPath);
-            else
-                self.logger.log('ERROR', sprintf('for right now script plugins must be functions'));
-                error('Your script plugin must be a function');
-            end
-            
-           
-            
-            self.logger.log('INFO', sprintf('[%s] Initialized %s: %s', ...
-                self.name, self.scriptType, self.scriptPath));
         end
         
         function result = execute(self, params)
@@ -162,11 +105,6 @@ classdef ScriptPlugin < handle
             end
         end
         
-        function close(self)
-            % Close plugin (called by PluginManager.closeAll)
-            self.cleanup();
-        end
-
         function cleanup(self)
             % Remove added paths
             
@@ -247,17 +185,67 @@ classdef ScriptPlugin < handle
                     'Plugin "%s" missing required field: script_path', self.name);
             end
         end
-
-        function extractConfiguration(self)
-
-            if isfield(self.definition, 'config') && isfield(self.definition.config, 'experimentDir')
-                self.experimentDir = self.definition.config.experimentDir;
-            else
-                self.experimentDir = pwd;
-            end
-
-        end
+        
+        function initialize(self)
+            % Make sure the script_path field and the script provided exist
             
+            if ~isfield(self.definition, 'script_path')
+                self.logger.log('ERROR', sprintf('%s is missing the path to the script.', ...
+                    self.name));
+                error('Missing script path.');
+                
+            elseif exist(self.definition.script_path, 'file') ~= 2
+                self.logger.log('ERROR', sprintf(['file provided for the %s ...' ...
+                    'plugin does not exist.'], self.name));
+                error('ScriptPlugin:FileNotFound', ...
+                    'Script file not found: %s', self.scriptPath);
+
+            else
+            
+                self.scriptPath = self.definition.script_path;
+
+            end
+            
+            % Determine script type
+            if isfield(self.definition, 'script_type')
+                self.scriptType = self.definition.script_type;
+            else
+                self.scriptType = 'function'; % Default to function
+            end
+            
+            % Validate script type
+            if ~ismember(self.scriptType, {'function'})
+                error('ScriptPlugin:InvalidType', ...
+                    'script_type must be "function" for now, got: %s', ...
+                    self.scriptType);
+            end
+            
+            
+            % Set workspace
+            if isfield(self.definition, 'workspace')
+                self.workspace = self.definition.workspace;
+            else
+                self.workspace = 'caller'; % Default
+            end
+            
+            % Add path 
+            [scriptDir, ~] = fileparts(self.scriptPath);
+            addpath(scriptDir);
+            self.addedPath = scriptDir;
+            self.logger.log('DEBUG', sprintf('[%s] added to path', self.name));
+
+            if strcmp(self.scriptType, 'function')
+                [~, self.functionName, ~] = fileparts(self.scriptPath);
+            else
+                self.logger.log('ERROR', sprintf('for right now script plugins must be functions'));
+                error('Your script plugin must be a function');
+            end
+            
+           
+            
+            self.logger.log('INFO', sprintf('[%s] Initialized %s: %s', ...
+                self.name, self.scriptType, self.scriptPath));
+        end
         
         function result = executeFunction(self, params)
             % Call function with parameters

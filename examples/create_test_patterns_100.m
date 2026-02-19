@@ -182,3 +182,4 @@ fprintf('\n=== Done! ===\n');
 fprintf('Created 100 patterns in: %s\n', save_dir);
 fprintf('  - pat0001_num00_2x12.pat through pat0100_num99_2x12.pat\n');
 fprintf('  - Each pattern: %dx%d pixels, %d frames\n', rows, cols, frames);
+end

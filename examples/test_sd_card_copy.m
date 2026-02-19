@@ -6,7 +6,7 @@
 %   2. Insert SD card named PATSD and note drive letter
 %
 % Usage:
-%   test_sd_card_copy        % Uses default drive 'E'
+%   test_sd_card_copy        % Uses default drive 'D'
 %   test_sd_card_copy('F')   % Specify different drive
 
 function test_sd_card_copy(drive_letter)

@@ -1,0 +1,15 @@
+# Arena configuration for G6 display
+# Standard full arena: 2 rows x 10 columns, 360 degree coverage
+
+format_version: "1.0"
+name: "G6_2x10"
+description: "Full G6 arena, 2 rows x 10 columns, 360 degree coverage"
+
+arena:
+  generation: "G6"
+  num_rows: 2
+  num_cols: 10
+  columns_installed: null    # null = all columns installed
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: 0

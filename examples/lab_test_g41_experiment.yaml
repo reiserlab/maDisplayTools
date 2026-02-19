@@ -1,0 +1,69 @@
+# Lab Test: G4.1 Experiment Patterns — Mode 2 Playback
+#
+# Run with: run_lab_test('lab_test_g41_experiment.yaml')
+# Subset:   run_lab_test('lab_test_g41_experiment.yaml', 'PatIDs', [1 2 5 6])
+# Dry run:  run_lab_test('lab_test_g41_experiment.yaml', 'DryRun', true)
+
+lab_test:
+  version: 1
+  name: "G4.1 Experiment Patterns - Mode 2 Playback"
+
+connection:
+  ip: "10.102.40.209"
+
+playback:
+  mode: 2
+  fps: 10
+  duration_sec: 10
+  pause_sec: 2
+  sanity_check: true
+
+patterns:
+  - sd_slot: 1
+    name: "sq_grating_30deg_gs2"
+    description: "Square grating 30 deg, GS2, 16 frames"
+  - sd_slot: 2
+    name: "sq_grating_30deg_gs16"
+    description: "Square grating 30 deg, GS16, 16 frames"
+  - sd_slot: 3
+    name: "sq_grating_60deg_gs2"
+    description: "Square grating 60 deg, GS2, 32 frames"
+  - sd_slot: 4
+    name: "sq_grating_60deg_gs16"
+    description: "Square grating 60 deg, GS16, 32 frames"
+  - sd_slot: 5
+    name: "sine_grating_30deg_gs16"
+    description: "Sine grating 30 deg, GS16, 16 frames"
+  - sd_slot: 6
+    name: "sine_grating_60deg_gs16"
+    description: "Sine grating 60 deg, GS16, 32 frames"
+  - sd_slot: 7
+    name: "sine_grating_30deg_fine_gs16"
+    description: "Sine grating 30 deg fine, GS16, 64 frames"
+  - sd_slot: 8
+    name: "sine_grating_60deg_fine_gs16"
+    description: "Sine grating 60 deg fine, GS16, 128 frames"
+  - sd_slot: 9
+    name: "counter_0000_1000_gs2"
+    description: "Counter 0-1000, GS2, 1001 frames"
+  - sd_slot: 10
+    name: "counter_0000_1000_gs16"
+    description: "Counter 0-1000, GS16, 1001 frames"
+  - sd_slot: 11
+    name: "luminance_levels_gs2"
+    description: "Luminance levels, GS2, 2 frames"
+  - sd_slot: 12
+    name: "luminance_levels_gs16"
+    description: "Luminance levels, GS16, 16 frames"
+
+checklist:
+  - "Gratings: Bars move smoothly left-to-right?"
+  - "30 deg vs 60 deg: Wider bars for 60 deg?"
+  - "GS2 vs GS16: GS16 gratings have visible ON/OFF only (no gray)?"
+  - "Sine vs square: Sine has smooth brightness transitions?"
+  - "Fine sine: Smoother motion than regular sine?"
+  - "Counter GS2: Numbers visible, polarity alternates?"
+  - "Counter GS16: Numbers visible, brightness ramps up/down?"
+  - "Luminance GS2: One frame off, one frame on?"
+  - "Luminance GS16: Brightness steps from black to full bright?"
+  - "All panels active? No dead panels?"
