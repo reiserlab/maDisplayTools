@@ -7,7 +7,7 @@ experiment_info:
   name: "Test Bias Plugin"
   date_created: "2024-01-27"
   author: "Lisa"
-  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo"
+  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo'
 
 arena_info:
   num_rows: 2
@@ -24,7 +24,7 @@ plugins:
     matlab:
       class: "BiasPlugin"
     config:
-      bias_executable: "C:\Users\rathores\MATLAB\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe"  # UPDATE THIS BEFORE RUNNING IF NEEDED
+      bias_executable: 'C:\Users\rathores\MATLAB\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe'  # UPDATE THIS BEFORE RUNNING IF NEEDED
 
 # ============================================================================
 # EXPERIMENT STRUCTURE
@@ -58,7 +58,7 @@ pretrial:
       plugin_name: "bias_camera"
       command_name: "loadConfiguration"
       params:
-        config_path: "C:\Users\rathores\MATLAB\FlyBowl1Rig\bias_config_default5.json"  # UPDATE THIS IF NEED BE BEFORE RUNNING
+        config_path: 'C:\Users\rathores\MATLAB\FlyBowl1Rig\bias_config_default5.json'  # UPDATE THIS IF NEED BE BEFORE RUNNING
     
     - type: "wait"
       duration: 1
@@ -68,7 +68,8 @@ pretrial:
 # ============================================================================
 block:
   conditions:
-    -id: "Only Shubham's commands"
+    - id: "Only Shubham's commands"
+      commands:
         # Test disable logging
         - type: "plugin"
           plugin_name: "bias_camera"
