@@ -1,0 +1,20 @@
+# Test Rig 5
+# MAC: 02:0C:5B:FE:EE:D7
+
+format_version: "1.0"
+name: "Test Rig 5"
+description: "Test rig at 10.103.40.25"
+
+arena: "../arenas/G41_2x12_cw.yaml"
+
+controller:
+  host: "10.103.40.25"
+  port: 62222
+
+plugins:
+  backlight:
+    enabled: false
+  camera:
+    enabled: false
+  temperature:
+    enabled: false

@@ -1,7 +1,7 @@
 %% Demo of all implemented PanelsController commands aside from modes. 
 
 %% Initialize Panels Controller
-ip_add = '10.102.40.61'; % may vary by arena
+ip_add = '10.102.40.209'; % may vary by arena
 panelsController = PanelsController(ip_add);
 panelsController.open(false);
 

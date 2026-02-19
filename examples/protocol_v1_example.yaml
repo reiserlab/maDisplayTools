@@ -10,13 +10,13 @@ experiment_info:
   name: "Multi-Plugin Visual Stimulus Experiment"
   date_created: "2024-01-15"
   author: "Research Lab"
-  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12'
+  pattern_library:
 
 # ============================================================================
 # ARENA CONFIGURATION
 # ============================================================================
 arena_info:
-  num_rows: 2
+  num_rows: 4
   num_cols: 12
   generation: "G4.1"
 
@@ -24,46 +24,63 @@ arena_info:
 # PLUGIN DEFINITIONS
 # ============================================================================
 plugins:
-  # Example of a serial device plugin (not tied to any real device right now)
-  - name: "simple serial device"
+  # Serial Device Plugin - Background illumination control
+  - name: "background_light"
     type: "serial_device"
-    port: "COM4"
+    port_windows: "COM4"
+    port_posix: "/dev/ttyUSB0"
     baudrate: 115200
     commands:
       activate: "RED 50\nGREEN 0\nBLUE 0\nON 0,0"
       reset: "RESET"
       off: "OFF"
 
-  # Class Plugin - Camera/video capture system
-    # will automatically be initialized and connected and config file loaded 
-    # IF config_path, ip, and port are provided. If they are not provided, 
-    # user will have to define these commands in the trials below.
-  - name: "bias_camera"
-    type: "class"
-    matlab:
-      class: "BiasPlugin"
-    config:
-      bias_executable: '/path/to/BIAS/executable.exe' 
-      config_path: './config/simple_bias_config.json'  # UPDATE THESE BEFORE RUNNING
-      ip: "127.0.0.1" # UPDATE THESE BEFORE RUNNING IF NEED BE
-      port: 5010 # will connect and load configuration automatically 
+  # Serial Device Plugin - LED controller
+  - name: "led_controller"
+    type: "serial_device"
+    port_windows: "COM5"
+    port_posix: "/dev/ttyUSB1"
+    baudrate: 9600
+    commands:
+      on: "LED ON"
+      off: "LED OFF"
+      pulse: "PULSE 100"
 
-  - name: "backlight"
+  # Class Plugin - Camera/video capture system
+  - name: "simple_bias"
     type: "class"
     matlab:
-      class: "LEDControllerPlugin"
+      class: "maDisplayTools.plugins.SimpleBias"
+    python:
+      module: "pyDisplayTools.plugins.SimpleBias"
+      class: "SimpleBias"
     config:
-      port: "COM6"
+      ip: "127.0.0.1"
+      port: 5020
+      config_path: './config/simple_bias_config.json'
+
+  # Class Plugin - Data acquisition system
+  - name: "daq_system"
+    type: "class"
+    matlab:
+      class: "maDisplayTools.plugins.DAQController"
+    python:
+      module: "pyDisplayTools.plugins.DAQController"
+      class: "DAQController"
+    config:
+      sample_rate: 1000
+      channels: ["ai0", "ai1", "ai2"]
+      device: "Dev1"
 
   # Script Plugin - Custom preprocessing
   - name: "preprocessing"
     type: "script"
-    script_path: './user_functions/preprocess_data'
+    script: './user_functions/preprocess_data'
 
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
-    script_path: './user_functions/analyze_trial'
+    script: './user_functions/analyze_trial'
 
 # ============================================================================
 # EXPERIMENT STRUCTURE
@@ -82,15 +99,37 @@ experiment_structure:
 pretrial:
   include: true
   commands:
+    # Initialize camera system
+    - type: "plugin"
+      plugin_name: "simple_bias"
+      command_name: "connect"
+    
+    - type: "plugin"
+      plugin_name: "simple_bias"
+      command_name: "initialize"
+      params:
+        resolution: [1920, 1080]
+        fps: 30
+    
+    # Initialize DAQ system
+    - type: "plugin"
+      plugin_name: "daq_system"
+      command_name: "connect"
+    
+    - type: "plugin"
+      plugin_name: "daq_system"
+      command_name: "configure"
+      params:
+        buffer_size: 10000
     
     # Initialize background lighting
     - type: "plugin"
-      plugin_name: "backlight"
+      plugin_name: "background_light"
       command_name: "activate"
     
     # Wait for systems to stabilize
     - type: "wait"
-      duration: 1  # 1 second
+      duration: 1000  # 1 second
     
     # Run preprocessing script
     - type: "plugin"
@@ -98,17 +137,17 @@ pretrial:
     
     # Display a test pattern to verify arena
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0094_num93_2x12.pat'
-      pattern_ID: 94
-      duration: 2  # 2 seconds
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0001_test_grid.pat'
+      pattern_ID: 1
+      duration: 2000  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
       frame_rate: 60
       gain: 0
     
     - type: "wait"
-      duration: 0.5  # 0.5 second pause
+      duration: 500  # 0.5 second pause
 
 # ============================================================================
 # BLOCK - Main experimental conditions
@@ -121,156 +160,216 @@ block:
       commands:
         # Start recording
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "startRecording" #startRecording sets video file, starts capture, and starts logging.
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "vertical_bars_right.avi"
-       
+        
+        # Start DAQ
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
         
         # Pulse LED to mark trial start
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "led_controller"
           command_name: "pulse"
         
-        # Wait 100ms
+        # Wait 50ms
         - type: "wait"
-          duration: 0.1
+          duration: 50
         
         # Display pattern
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0071_num70_2x12.pat'
-          pattern_ID: 71
-          duration: 5  # 5 seconds
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0002_vertical_bars.pat'
+          pattern_ID: 2
+          duration: 5000  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
           frame_rate: 60
           gain: -90  # degrees per second
-
+        
+        # Stop recording
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "stopRecording"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 2: Horizontal bars moving up
     - id: "horizontal_bars_up"
       commands:
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "startRecording"
-          params:
-            filename: "horizontal_bars_up.avi"
-
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
         
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
+          params:
+            filename: "horizontal_bars_up.avi"
+        
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "led_controller"
           command_name: "pulse"
         
         - type: "wait"
-          duration: 0.1
+          duration: 50
         
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0002_num01_2x12.pat'
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0003_horizontal_bars.pat'
           pattern_ID: 3
-          duration: 5
+          duration: 5000
           mode: 2
           frame_index: 1
           frame_rate: 60
           gain: -90
         
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "stopRecording"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 3: Checkerboard pattern (static)
     - id: "checkerboard_static"
       commands:
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "startRecording"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "checkerboard.avi"
         
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "led_controller"
           command_name: "pulse"
         
         - type: "wait"
-          duration: 0.1
+          duration: 50
         
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0007_num06_2x12.pat'
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0004_checkerboard.pat'
           pattern_ID: 4
-          duration: 3  # 3 seconds
+          duration: 3000  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
           frame_rate: 60
           gain: 0
         
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "stopRecording"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 4: Expanding grating
     - id: "expanding_grating"
       commands:
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "startRecording"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "expanding_grating.avi"
         
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "led_controller"
           command_name: "pulse"
         
         - type: "wait"
-          duration: 0.1
+          duration: 50
         
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0012_num11_2x12.pat'
-          pattern_ID: 12
-          duration: 4  # 4 seconds
+          command_name: "startG41Trial"
+          pattern: './patterns/pat0005_expanding_grating.pat'
+          pattern_ID: 5
+          duration: 4000  # 4 seconds
           mode: 2
           frame_index: 1
           frame_rate: 60
           gain: -45
+
+        - type: "plugin"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
         
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "stopRecording"
+          plugin_name: "simple_bias"
+          command_name: "stopCapture"
     
     # Condition 5: Dark (no stimulus)
     - id: "dark_control"
       commands:
         - type: "plugin"
-          plugin_name: "bias_camera"
-          command_name: "startRecording"
+          plugin_name: "simple_bias"
+          command_name: "startCapture"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
+          command_name: "setVideoFile"
           params:
             filename: "dark_control.avi"
         
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "daq_system"
+          command_name: "startAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "led_controller"
           command_name: "pulse"
         
         # Turn off arena
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "background_light"
           command_name: "off"
         
         # Wait in darkness
         - type: "wait"
-          duration: 3  # 3 seconds
+          duration: 3000  # 3 seconds
         
         # Turn background back on
         - type: "plugin"
-          plugin_name: "backlight"
+          plugin_name: "background_light"
           command_name: "activate"
         
         - type: "plugin"
-          plugin_name: "bias_camera"
+          plugin_name: "daq_system"
+          command_name: "stopAcquisition"
+        
+        - type: "plugin"
+          plugin_name: "simple_bias"
           command_name: "stopCapture"
 
 # ============================================================================
@@ -282,10 +381,10 @@ intertrial:
   commands:
     # Reset to baseline pattern
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0014_num13_2x12.pat'
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0006_uniform_gray.pat'
       pattern_ID: 6
-      duration: 2  # 2 second inter-trial interval
+      duration: 2000  # 2 second inter-trial interval
       mode: 2
       frame_index: 1
       frame_rate: 60
@@ -297,7 +396,7 @@ intertrial:
     
     # Brief pause
     - type: "wait"
-      duration: 0.5  # 0.5 second
+      duration: 500  # 0.5 second
 
 # ============================================================================
 # POSTTRIAL - Execute once after all trials complete
@@ -308,20 +407,28 @@ posttrial:
   commands:
     # Stop all recording systems
     - type: "plugin"
-      plugin_name: "bias_camera"
+      plugin_name: "simple_bias"
+      command_name: "disconnect"
+    
+    - type: "plugin"
+      plugin_name: "daq_system"
       command_name: "disconnect"
     
     # Turn off hardware
     - type: "plugin"
-      plugin_name: "backlight"
+      plugin_name: "background_light"
+      command_name: "off"
+    
+    - type: "plugin"
+      plugin_name: "led_controller"
       command_name: "off"
     
     # Display completion message pattern
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0031_num30_2x12.pat'
+      command_name: "startG41Trial"
+      pattern: './patterns/pat0007_complete.pat'
       pattern_ID: 7
-      duration: 2
+      duration: 2000
       mode: 2
       frame_index: 1
       frame_rate: 60
@@ -329,7 +436,7 @@ posttrial:
     
     # Final wait before shutdown
     - type: "wait"
-      duration: 1  # 1 second
+      duration: 1000  # 1 second
 
 # ============================================================================
 # CONTROLLER COMMANDS REFERENCE
@@ -351,7 +458,7 @@ posttrial:
 # setColorDepth - change the arena's accepted grayscale value 
 #   Parameters: gs_val: 2 or 16
 #
-# trialParams - start displaying a trial on the G4.1 system
+# startG41Trial - start displaying a trial on the G4.1 system
 #   Parameters: mode: integer 2-4 
 #               patID: integer from 1 - number of patterns available  
 #               posX: integer, starting frame number  

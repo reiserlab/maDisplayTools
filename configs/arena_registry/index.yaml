@@ -1,0 +1,42 @@
+# Arena Registry Index
+# Version: 1.0
+# Last Updated: 2026-02-07
+#
+# This registry assigns unique IDs to arena configurations for use in pattern
+# file headers (G4.1 V2 and G6 V1 formats).
+#
+# IMPORTANT: Arena IDs are per-generation (not global)
+# - G4 arena ID 1 is independent of G6 arena ID 1
+# - Each generation has its own ID namespace
+#
+# ID Ranges:
+#   G4.1: 8-bit arena_id (0-255)
+#     0: Unspecified/unknown
+#     1-10: Reiser lab official
+#     11-200: Community registered
+#     201-254: User-defined/experimental
+#     255: Reserved
+#
+#   G6: 6-bit arena_id (0-63)
+#     0: Unspecified/unknown
+#     1-10: Reiser lab official
+#     11-50: Community registered
+#     51-62: User-defined/experimental
+#     63: Reserved
+
+version: 1
+
+# G4 Arena Configurations
+G4:
+  1: G4_4x12
+  2: G4_3x12of18
+
+# G4.1 Arena Configurations
+G41:
+  1: G41_2x12_cw
+
+# G6 Arena Configurations
+G6:
+  1: G6_2x10
+  2: G6_2x8of10
+  3: G6_3x12of18

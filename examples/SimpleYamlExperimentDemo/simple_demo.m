@@ -13,7 +13,7 @@ function simple_demo()
 
     %% Next you must set up the sd card to contain the patterns for the demo.
     
-    sd_drive = 'E'; % Set the drive letter for the sd card when it's plugged into the PC
+    sd_drive = 'D'; % Set the drive letter for the sd card when it's plugged into the PC
     deploy_experiments_to_sd(yamlPath, sd_drive);
 
     %% next you call run_protocol.m with the following inputs: 

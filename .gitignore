@@ -1,3 +1,16 @@
 .DS_Store
 
 *.asv
+
+# Generated patterns (except reference/ and web_generated/)
+patterns/*
+!patterns/reference/
+!patterns/web_generated/
+!patterns/README.md
+
+# Screenshots (development artifacts)
+screenshots/
+
+# Runtime artifacts
+configs/arenas/arena_parameters.mat
+configs/arenas/startfield_dots.mat

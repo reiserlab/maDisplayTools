@@ -72,106 +72,100 @@ classdef CommandExecutor < handle
 
             self.logger.log('INFO', sprintf('Controller command: %s', commandName));
             
-            % Execute based on specific command, with error handling
-            try
-                switch commandName
-                        
-                    case 'allOn'
-                        suc = self.arenaController.allOn();
-                        if ~suc
-                            self.logger.log('ERROR', 'allOn command failed - controller returned false');
-                            error('Controller command failed: allOn');
-                        end
-                        self.logger.log('INFO', 'allOn command succeeded');
-                        
-                    case 'allOff'
-                        suc = self.arenaController.allOff();
-                        if ~suc
-                            self.logger.log('ERROR', 'allOff command failed - controller returned false');
-                            error('Controller command failed: allOff');
-                        end
-                        self.logger.log('INFO', 'allOff command succeeded');
-                        
-                    case 'stopDisplay'
-                        suc = self.arenaController.stopDisplay();
-                        if ~suc
-                            self.logger.log('ERROR', 'stopDisplay command failed - controller returned false');
-                            error('Controller command failed: stopDisplay');
-                        end
-                        self.logger.log('INFO', 'stopDisplay command succeeded');
+                % Execute based on specific command
+            switch commandName
+                    
+                case 'allOn'
+                    suc = self.arenaController.allOn();
+                    self.logger.log('INFO', sprintf('all on success: %d', suc));
+                    
+                case 'allOff'
+                    suc = self.arenaController.allOff();
+                    self.logger.log('INFO', sprintf('all off success: %d', suc));
+                    
+                case 'stopDisplay'
+                    suc = self.arenaController.stopDisplay(); 
+                    self.logger.log('INFO', sprintf('stop display success: %d', suc));
 
-                    case 'setPositionX'
-                        if ~isfield(command, 'posX')
-                            self.logger.log('ERROR', sprintf('setPositionX failed due to missing parameter.'));
-                            error('posX parameter missing, cannot execute setPositionX');
-                        end
+                case 'setPositionX'
+                    if ~isfield(command, 'posX')
+                        self.logger.log('ERROR', sprintf('setPositionX failed due to missing parameter.'));
+                        error('posX parameter missing, cannot execute setPositionX');
+                    else
                         posX = command.posX;
-                        % setPositionX does not return a value, so we just call it
-                        self.arenaController.setPositionX(posX);
-                        self.logger.log('INFO', sprintf('setPositionX command sent: posX=%d', posX));
+                        suc = self.arenaController.setPositionX(posX);
+                        self.logger.log('INFO', sprintf('set position x succes: %d', suc));
+                    end
 
-                    case 'setColorDepth'
-                        if ~isfield(command, 'gs_val')
-                            self.logger.log('ERROR', sprintf('set color depth failed due to missing parameter'));
-                            error('gs_val parameter missing, cannot execute setColorDepth');
-                        end
+                case 'setColorDepth'
+                    if ~isfield(command, 'gs_val')
+                        self.logger.log('ERROR', sprintf('set color depth failed due to missing parameter'));
+                        error('gs_val parameter missing, cannot execute setColorDepth');
+                        
+                    else
                         gs_val = command.gs_val;
                         suc = self.arenaController.setColorDepth(gs_val);
-                        if ~suc
-                            self.logger.log('ERROR', sprintf('setColorDepth command failed - controller returned false'));
-                            error('Controller command failed: setColorDepth');
-                        end
-                        self.logger.log('INFO', sprintf('setColorDepth command succeeded: gs_val=%d', gs_val));
+                        self.logger.log('INFO', sprintf('set color depth success: %d', suc));
+                    end
 
-                    case {'startG41Trial', 'trialParams'}
-                        % Unified trial execution using trialParams()
-                        % Supports both 'startG41Trial' and 'trialParams' command names
-
-                        % All fields required for unified interface
-                        required_fields = {'mode', 'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate', 'gain'};
-                        self.check_required_fields(command, required_fields);
-
+                case 'startG41Trial'
+                    if ~isfield(command, 'mode') 
+                        self.logger.log('ERROR', sprintf('start G41 Trial failed due to missing mode'));
+                        error('mode parameter missing, cannot execute startG41Trial');
+                    else
                         mode = command.mode;
-                        if mode < 2 || mode > 4
-                            self.logger.log('ERROR', sprintf('Trial failed: mode must be 2, 3, or 4 (got %d)', mode));
-                            error('Trial failed: mode must be 2, 3, or 4');
-                        end
+                        if mode > 1 && mode < 5
+                            switch mode
+                                case 2
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration', 'frame_rate'};
+                                    self.check_required_fields(command, required_fields);
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
+                                    posX = command.frame_index;
+                                    dur = command.duration;
+                                    frameRate = command.frame_rate;
 
-                        % Extract parameters
-                        patID = command.pattern_ID;
-                        posX = command.frame_index;
-                        dur = command.duration;
-                        frameRate = command.frame_rate;
-                        gain = command.gain;
+                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate);
+                                    pause(dur);
+                                    
+        
+                                case 3
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_index', 'duration'};
+                                    self.check_required_fields(command, required_fields);
+                                    
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
+                                    posX = command.frame_index;
+                                    dur = command.duration;
 
-                        % Execute using trialParams which waits for "Sequence completed"
-                        self.logger.log('INFO', sprintf('Trial: mode=%d, patID=%d, pos=%d, dur=%.1fs, fps=%d, gain=%d', ...
-                            mode, patID, posX, dur, frameRate, gain));
-                        suc = self.arenaController.trialParams(mode, patID, frameRate, posX, gain, dur*10, true);
-                        if ~suc
-                            self.logger.log('ERROR', 'trialParams command failed - controller returned false or timeout');
-                            error('Controller command failed: trialParams');
+                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10);
+                                    pause(dur);
+
+                                case 4
+                                    required_fields = {'pattern', 'pattern_ID', 'frame_position', 'duration', 'gain'};
+                                    self.check_required_fields(command, required_fields);
+                                    [~, pattern_name] = fileparts(command.pattern);
+                                    %patID = CommandExecutor.getPatternID(pattern_name);
+                                    patID = command.pattern_ID;
+                                    posX = command.frame_index;
+                                    dur = command.duration;
+                                    frameRate = 1; %Not used but need filler to pass in to controller
+                                    gain = command.gain; 
+
+                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate, gain);
+                                    pause(dur);
+                            end
+                        else
+                            self.logger.log('ERROR', sprintf('start G4.1 trial failed due to unrecognized mode %d', mode));
+                            error('start G4.1 trial failed due to unrecognized mode');
                         end
-                        self.logger.log('INFO', 'trialParams command succeeded');
-     
-                    otherwise
-                        self.logger.log('ERROR', sprintf('command failed due to unknown controller command %s',commandName));
-                        error('Unknown controller command: %s', commandName);
-                end
-                
-            catch ME
-                % Log the exception details
-                self.logger.log('ERROR', sprintf('Controller command %s threw exception: %s', ...
-                    commandName, ME.message));
-                
-                % Log stack trace if available
-                if ~isempty(ME.stack)
-                    self.logger.log('ERROR', sprintf('  at %s (line %d)', ...
-                        ME.stack(1).name, ME.stack(1).line));
-                end
-                
-                % Re-throw to halt experiment
-                rethrow(ME);
+                    end
+ 
+                otherwise
+                    self.logger.log('ERROR', sprintf('command failed due to unknown controller command %s',commandName));
+                    error('Unknown controller command: %s', commandName);
             end
 
             self.logger.log('INFO', sprintf('%s command completed', commandName));
@@ -182,7 +176,7 @@ classdef CommandExecutor < handle
             % Pause execution
             %
             % Command fields:
-            %   duration - Wait duration in seconds
+            %   duration - Wait duration in milliseconds
             
             if ~isfield(command, 'duration')
                 error('Wait command missing ''duration'' field');
@@ -192,7 +186,7 @@ classdef CommandExecutor < handle
             
             self.logger.log('INFO', sprintf('Wait command: %d ms', duration));
             
-            % pause
+            % Convert milliseconds to seconds and pause
             pause(duration);
             
             self.logger.log('DEBUG', 'Wait command completed');
@@ -210,43 +204,12 @@ classdef CommandExecutor < handle
             %     params - (optional) Parameters struct
             %   For ScriptPlugin:
             %     (no additional fields needed)
-            %   For Log command (all plugin types):
-            %     command_name - 'log'
-            %     params.message - Log message (required)
-            %     params.level - Log level (optional, default: 'INFO')
             
             if ~isfield(command, 'plugin_name')
                 error('Plugin command missing ''plugin_name'' field');
             end
             
             pluginID = command.plugin_name;
-            
-            % Special handling for log command
-            if isfield(command, 'command_name') && strcmpi(command.command_name, 'log')
-                % Validate params and message
-                if isfield(command, 'params') && isfield(command.params, 'message')
-  
-                    message = command.params.message;
-                    
-                    % Get optional level parameter (default: 'INFO')
-                    if isfield(command.params, 'level')
-                        level = upper(command.params.level);
-                    else
-                        level = 'INFO';
-                    end
-                    
-                    % Execute log command via PluginManager
-                    self.pluginManager.logCustomMessage(pluginID, message, level);
-                    
-                    % Log that we executed the log command
-                    self.logger.log('DEBUG', 'Log command completed');
-                    
-                    return;  % Done, no further execution needed
-                else
-                    self.logger.log('ERROR', 'Log command missing required params.message field');
-                    error('Log command requires params.message field');
-                end
-            end
             
             % Get plugin to determine type
             plugin = self.pluginManager.getPlugin(pluginID);
@@ -265,7 +228,8 @@ classdef CommandExecutor < handle
                     commandName = command.command_name;
                     self.logger.log('DEBUG', sprintf('  Serial command: %s', commandName));
                     
-                    self.pluginManager.executePluginCommand(pluginID, commandName);
+                    self.pluginManager.executePluginCommand(pluginID, ...
+                                                          'command', commandName);
                     
                 case 'class'
                     if ~isfield(command, 'command_name')
@@ -277,9 +241,12 @@ classdef CommandExecutor < handle
                     
                     if isfield(command, 'params')
                         params = command.params;
-                        self.pluginManager.executePluginCommand(pluginID, methodName, params);
+                        self.pluginManager.executePluginCommand(pluginID, ...
+                                                              'method', methodName, ...
+                                                              'params', params);
                     else
-                        self.pluginManager.executePluginCommand(pluginID, methodName);
+                        self.pluginManager.executePluginCommand(pluginID, ...
+                                                              'method', methodName);
                     end
                     
                 case 'script'

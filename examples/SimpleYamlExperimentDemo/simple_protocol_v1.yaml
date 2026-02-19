@@ -7,10 +7,10 @@ version: 1
 # EXPERIMENT METADATA
 # ============================================================================
 experiment_info:
-  name: "Simple experiment"
+  name: "Simple arena-only experiment"
   date_created: "12-15-2025"
   author: "Lisa F"
-  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/test_patternsBin_100_2x12'
+  pattern_library: "/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/examples/SimpleYamlExperimentDemo"
 
 # ============================================================================
 # ARENA CONFIGURATION
@@ -25,25 +25,6 @@ arena_info:
 # ============================================================================
 plugins:
 
-  # BIAS Camera Plugin
-  - name: "bias_camera"
-    type: "class"
-    matlab:
-      class: "BiasPlugin"
-    config:
-      bias_executable: '/path/to/Bias/executable.exe' 
-      config_path: './config/simple_bias_config.json'  # UPDATE THESE BEFORE RUNNING
-      ip: "127.0.0.1" # UPDATE THESE BEFORE RUNNING IF NEED BE
-      port: 5010
-  
-  # LED Controller (back light) Plugin
-  - name: "backlight"
-    type: "class"
-    matlab:
-      class: "LEDControllerPlugin"
-    config:
-      port: "COM6"
-  
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
@@ -66,19 +47,12 @@ experiment_structure:
 pretrial:
   include: true
   commands:
-
-    # Start recording
-    - type: "plugin"
-      plugin_name: "bias_camera"
-      command_name: "startRecording"
-      params:
-        filename: "pretrial.avi"
-    
+   
     # Display a test pattern to verify arena
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0003_num02_2x12.pat'
-      pattern_ID: 3
+      command_name: "startG41Trial"
+      pattern: 'pat0001_2row_gs2_sqGrate.pat'
+      pattern_ID: 1
       duration: 2  # 2 seconds
       mode: 2  # position mode
       frame_index: 1
@@ -87,10 +61,6 @@ pretrial:
     
     - type: "wait"
       duration: .5  # 0.5 second pause
-
-    - type: "plugin"
-      plugin_name: "bias_camera"
-      command_name: "stopRecording"
 
 # ============================================================================
 # BLOCK - Main experimental conditions
@@ -104,9 +74,9 @@ block:
        
         # Display pattern
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0006_num05_2x12.pat'
-          pattern_ID: 6
+          command_name: "startG41Trial"
+          pattern: 'pat0001_2row_gs2_sqGrate.pat'
+          pattern_ID: 1
           duration: 5  # 5 seconds
           mode: 2  # closed-loop mode
           frame_index: 1
@@ -119,9 +89,9 @@ block:
       commands:
         
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0010_num09_2x12.pat'
-          pattern_ID: 10
+          command_name: "startG41Trial"
+          pattern: 'pat0002.pat'
+          pattern_ID: 2
           duration: 5 # 5 seconds
           mode: 2
           frame_index: 1
@@ -133,9 +103,9 @@ block:
       commands:
         
         - type: "controller"
-          command_name: "trialParams"
-          pattern: 'pat0002_num01_2x12.pat'
-          pattern_ID: 2
+          command_name: "startG41Trial"
+          pattern: 'pat0003.pat'
+          pattern_ID: 3
           duration: 3  # 3 seconds
           mode: 2  # position mode (static)
           frame_index: 1
@@ -163,8 +133,8 @@ intertrial:
   commands:
     # Reset to baseline pattern
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0001_num00_2x12.pat'
+      command_name: "startG41Trial"
+      pattern: 'pat0001_2row_gs2_sqGrate.pat'
       pattern_ID: 1
       duration: 2  # 2 second inter-trial interval
       mode: 2
@@ -182,22 +152,14 @@ posttrial:
    
     # Display posttrial pattern
     - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat0023_num22_2x12.pat'
-      pattern_ID: 23
+      command_name: "startG41Trial"
+      pattern: 'pat0004.pat'
+      pattern_ID: 4
       duration: 2
       mode: 2
       frame_index: 1
       frame_rate: 60
       gain: 0
-   
-    - type: "plugin"
-      plugin_name: "bias_camera"
-      command_name: "stopCapture"
-
-    - type: "plugin" 
-      plugin_name: "bias_camera"
-      command_name: "disconnect"
 
       # Run test script plugin
     - type: "plugin"
@@ -227,7 +189,7 @@ posttrial:
 # setColorDepth - change the arena's accepted grayscale value 
 #   Parameters: gs_val: 2 or 16
 #
-# trialParams - start displaying a trial on the G4.1 system
+# startG41Trial - start displaying a trial on the G4.1 system
 #   Parameters: mode: integer 2-4 
 #               patID: integer from 1 - number of patterns available  
 #               posX: integer, starting frame number  

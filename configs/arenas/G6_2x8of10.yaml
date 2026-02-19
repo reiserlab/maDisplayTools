@@ -1,0 +1,16 @@
+# Arena configuration for G6 display
+# Walking arena with rear gap (columns 0 and 9 removed)
+# 288 degree coverage for fly walking experiments
+
+format_version: "1.0"
+name: "G6_2x8of10"
+description: "G6 walking arena, 2 rows, 8 of 10 columns installed (288 degree coverage)"
+
+arena:
+  generation: "G6"
+  num_rows: 2
+  num_cols: 10
+  columns_installed: [1, 2, 3, 4, 5, 6, 7, 8]  # 0-indexed column indices (columns 0 and 9 missing)
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: 0  # Gap (c0+c9) straddles south with standard baseline

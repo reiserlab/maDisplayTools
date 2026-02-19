@@ -1,0 +1,15 @@
+# Arena configuration for G3 display
+# Legacy G3 arena (reference configuration)
+
+format_version: "1.0"
+name: "G3_4x12"
+description: "Legacy G3 arena, 4 rows x 12 columns, 360 degree coverage"
+
+arena:
+  generation: "G3"
+  num_rows: 4
+  num_cols: 12
+  columns_installed: null    # null = all columns installed
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: 0

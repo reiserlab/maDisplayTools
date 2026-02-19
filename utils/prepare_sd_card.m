@@ -11,7 +11,7 @@ function mapping = prepare_sd_card(pattern_paths, sd_drive, options)
 %
 %   INPUTS:
 %       pattern_paths - Cell array of full paths to pattern files (in desired order)
-%       sd_drive      - Drive letter for SD card (e.g., 'E' or 'E:')
+%       sd_drive      - Drive letter for SD card (e.g., 'D' or 'D:')
 %       options       - Name-value pairs:
 %           'Format' (false)          - Format SD card before copying (recommended)
 %           'UsePatternFolder' (true) - Copy patterns to /patterns subfolder
@@ -57,7 +57,7 @@ function mapping = prepare_sd_card(pattern_paths, sd_drive, options)
 %           'C:\experiments\exp1\vertical_stripes.pat'
 %           'C:\experiments\exp2\checkerboard.pat'
 %       };
-%       mapping = prepare_sd_card(patterns, 'E', 'Format', true);
+%       mapping = prepare_sd_card(patterns, 'D', 'Format', true);
 %       if ~mapping.success
 %           fprintf('Error: %s\n', mapping.error);
 %       end
@@ -97,7 +97,7 @@ function mapping = prepare_sd_card(pattern_paths, sd_drive, options)
     %% Normalize drive letter
     sd_drive = upper(strrep(sd_drive, ':', ''));
     if length(sd_drive) ~= 1 || ~isletter(sd_drive)
-        mapping.error = 'sd_drive must be a single letter (e.g., ''E'')';
+        mapping.error = 'sd_drive must be a single letter (e.g., ''D'')';
         return;
     end
     mapping.sd_drive = sd_drive;
