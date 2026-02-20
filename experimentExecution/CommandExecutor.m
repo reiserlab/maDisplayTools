@@ -126,7 +126,7 @@ classdef CommandExecutor < handle
                                     dur = command.duration;
                                     frameRate = command.frame_rate;
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate);
+                                    self.arenaController.trialParams(2, patID, frameRate, posX, 0, dur*10, false);
                                     pause(dur);
                                     
         
@@ -140,7 +140,7 @@ classdef CommandExecutor < handle
                                     posX = command.frame_index;
                                     dur = command.duration;
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10);
+                                    self.arenaController.trialParams(3, patID, 0, posX, 0, dur*10, false);
                                     pause(dur);
 
                                 case 4
@@ -151,10 +151,9 @@ classdef CommandExecutor < handle
                                     patID = command.pattern_ID;
                                     posX = command.frame_index;
                                     dur = command.duration;
-                                    frameRate = 1; %Not used but need filler to pass in to controller
-                                    gain = command.gain; 
+                                    gain = command.gain;
 
-                                    self.arenaController.startG41Trial(mode, patID, posX, dur*10, frameRate, gain);
+                                    self.arenaController.trialParams(4, patID, 0, posX, gain, dur*10, false);
                                     pause(dur);
                             end
                         else

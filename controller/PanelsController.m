@@ -845,6 +845,9 @@ classdef PanelsController < handle
             end                                    
         end
 
+        % DEPRECATED: Use trialParams() instead. startG41Trial has a
+        % parameter order bug (frameRate/posX swapped on the wire) and
+        % will be removed in a future release.
         function rtn = startG41Trial(self, mode, patID, posX, dur, frameRate, gain)
             arguments
                 self (1,1) PanelsController
