@@ -671,7 +671,10 @@ classdef ProtocolParser < handle
             if isempty(data)
                 cellArray = [];
             elseif isstruct(data) && ~iscell(data)
-                cellArray = {data};
+                % Convert struct array to cell array (one element per struct)
+                % This handles yamlread returning struct arrays for YAML
+                % sequences where all items have the same fields.
+                cellArray = arrayfun(@(s) s, data, 'UniformOutput', false);
             else
                 cellArray = data;
             end

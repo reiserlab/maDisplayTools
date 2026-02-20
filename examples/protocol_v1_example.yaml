@@ -27,6 +27,7 @@ plugins:
   # Serial Device Plugin - Background illumination control
   - name: "background_light"
     type: "serial_device"
+    port: "/dev/ttyUSB0"
     port_windows: "COM4"
     port_posix: "/dev/ttyUSB0"
     baudrate: 115200
@@ -38,6 +39,7 @@ plugins:
   # Serial Device Plugin - LED controller
   - name: "led_controller"
     type: "serial_device"
+    port: "/dev/ttyUSB1"
     port_windows: "COM5"
     port_posix: "/dev/ttyUSB1"
     baudrate: 9600
@@ -75,12 +77,12 @@ plugins:
   # Script Plugin - Custom preprocessing
   - name: "preprocessing"
     type: "script"
-    script: './user_functions/preprocess_data'
+    script_path: './user_functions/preprocess_data'
 
   # Script Plugin - Post-trial analysis
   - name: "analysis"
     type: "script"
-    script: './user_functions/analyze_trial'
+    script_path: './user_functions/analyze_trial'
 
 # ============================================================================
 # EXPERIMENT STRUCTURE

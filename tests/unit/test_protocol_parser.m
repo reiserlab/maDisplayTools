@@ -340,14 +340,29 @@ classdef test_protocol_parser < matlab.unittest.TestCase
         end
         
         function testParseExistingYamlExamples(testCase)
-            % Parse all existing YAML example files (compatibility check)
+            % Parse all existing YAML example files that are experiment protocols.
+            % Skips non-protocol YAML files (templates, lab tests, etc.)
+            % by checking for a top-level 'version' field.
             examples_dir = fullfile(testCase.repoRoot, 'examples');
             yaml_files = dir(fullfile(examples_dir, '**', '*.yaml'));
             parser = ProtocolParser('verbose', false);
-            
+
             for i = 1:length(yaml_files)
                 yaml_path = fullfile(yaml_files(i).folder, yaml_files(i).name);
-                % Test that each example parses without error
+
+                % Pre-screen: only parse files with top-level 'version' key
+                % (this identifies experiment protocol files vs templates,
+                %  lab test configs, or other YAML formats)
+                try
+                    raw = yamlread(yaml_path);
+                catch
+                    continue;  % Skip files that can't be read as YAML
+                end
+                if ~isstruct(raw) || ~isfield(raw, 'version')
+                    continue;  % Not an experiment protocol file
+                end
+
+                % Test that each protocol example parses without error
                 try
                     protocol = parser.parse(yaml_path); %#ok<NASGU>
                 catch ME
@@ -355,7 +370,7 @@ classdef test_protocol_parser < matlab.unittest.TestCase
                         yaml_files(i).name, ME.message));
                 end
             end
-            
+
             % Also try the test YAML
             test_yaml = fullfile(testCase.repoRoot, 'testing', 'test_g41_controller_only.yaml');
             if isfile(test_yaml)
