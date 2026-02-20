@@ -10,10 +10,11 @@ classdef PluginManager < handle
     properties (Access = private)
         pluginRegistry      % containers.Map: plugin ID -> Plugin object
         logger              % ExperimentLogger instance
+        experimentDir        % Directory to save any plugin logs
     end
     
     methods (Access = public)
-        function self = PluginManager(logger)
+        function self = PluginManager(logger, experimentDir)
             % Constructor
             %
             % Input Arguments:
@@ -21,6 +22,7 @@ classdef PluginManager < handle
             
             self.pluginRegistry = containers.Map();
             self.logger = logger;
+            self.experimentDir = experimentDir; 
         end
         
         function initializePlugin(self, pluginDef)
@@ -36,6 +38,17 @@ classdef PluginManager < handle
             
             self.logger.log('INFO', sprintf('Initializing %s plugin: %s', ...
                                           pluginType, pluginName));
+
+            % Inject outputDir into plugin config if available
+
+            if ~isfield(pluginDef, 'config')
+                pluginDef.config = struct();
+            end
+            if ~isfield(pluginDef.config, 'experimentDir') || isempty(pluginDef.config.experimentDir)
+                pluginDef.config.experimentDir = self.experimentDir;
+            end
+
+
             
             % Create appropriate plugin object based on type.
             %% TODO: Still need to create these classes. Each class can load a plugin
@@ -55,7 +68,7 @@ classdef PluginManager < handle
             end
             
             % Initialize the plugin
-            %plugin.initialize();
+            plugin.initialize();
             
             % Store in registry
             self.pluginRegistry(pluginName) = plugin;
@@ -104,7 +117,7 @@ classdef PluginManager < handle
                 pluginName = pluginNames{i};
                 try
                     plugin = self.pluginRegistry(pluginName);
-                    plugin.close();
+                    plugin.cleanup();
                     self.logger.log('INFO', sprintf('  ✓ Closed plugin: %s', pluginName));
                 catch ME
                     self.logger.log('WARNING', sprintf('  ✗ Failed to close plugin %s: %s', ...
@@ -123,6 +136,31 @@ classdef PluginManager < handle
             % Get list of all plugin IDs
             
             ids = keys(self.pluginRegistry);
+        end
+        
+        function logCustomMessage(self, pluginName, message, level)
+            % Log a custom user message associated with a plugin
+            %
+            % This method is called when a plugin command with command_name='log'
+            % is executed. It logs a user-provided message to the experiment log.
+            %
+            % Input Arguments:
+            %   pluginName - Name of the plugin (for context in log)
+            %   message    - User's custom log message
+            %   level      - Log level: 'DEBUG', 'INFO', 'WARNING', or 'ERROR' (default: 'INFO')
+            %
+            % Example log output:
+            %   [2025-02-05 14:23:15.123] INFO: [PLUGIN: background_light] USER LOG: Activated red light here to reset vision before next trial
+            
+            if nargin < 4
+                level = 'INFO';
+            end
+            
+            % Format message to clearly indicate it's user-provided
+            formattedMessage = sprintf('[PLUGIN: %s] USER LOG: %s', pluginName, message);
+            
+            % Log using the experiment logger
+            self.logger.log(level, formattedMessage);
         end
     end
 end

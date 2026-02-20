@@ -19,10 +19,11 @@ classdef ProtocolRunner < handle
         logger                  % ExperimentLogger instance
         patternIDMap            % containers.Map: pattern path -> ID
         trialExecutionOrder     % Array of trial metadata structs
-        outputDir               % Base output directory
-        experimentDir           % Specific experiment directory (timestamped)
+        outputDir               % Output directory - location where experiment folder is saved
+        experimentDir           % Created automatically - yaml filename plus timestamp at run time
         verbose                 % Verbose logging flag
         dryRun                  % Dry run mode (validate only)
+        startTime
     end
     
     methods (Access = public)
@@ -37,7 +38,8 @@ classdef ProtocolRunner < handle
             %   protocolFilePath - Path to YAML protocol file
             %
             % Name-Value Pairs:
-            %   'OutputDir' - Base output directory (default: './experiments')
+            %   'OutputDir' - Directory where experiment folder will be
+            %   saved
             %   'Verbose' - Enable verbose logging (default: true)
             %   'DryRun' - Validate without executing (default: false)
             
@@ -52,16 +54,19 @@ classdef ProtocolRunner < handle
             
             % Store configuration
             self.protocolFilePath = p.Results.protocolFilePath;
+            self.startTime = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
             self.outputDir = p.Results.OutputDir;
             self.verbose = p.Results.Verbose;
             self.dryRun = p.Results.DryRun;
             self.arenaIP = p.Results.arenaIP;
             
+            % get experiment folder
+            self.getExperimentDir()
+            
             % Initialize (validation only at construction)
             self.validateEnvironment();
             self.parseProtocol();
 
-            %self.extractPatternMapping();
         end
         
         function run(self)
@@ -246,10 +251,7 @@ classdef ProtocolRunner < handle
             % Initialize all components for execution
             
             fprintf('\n=== Initializing Experiment ===\n');
-            
-            % Get experiment directory - assumes yaml was already saved in
-            % experiment directory.
-            self.getExperimentDirectory();
+           
             
             % Initialize logger
             self.initializeLogger();
@@ -275,17 +277,29 @@ classdef ProtocolRunner < handle
             fprintf('=== Initialization Complete ===\n\n');
         end
         
-        function getExperimentDirectory(self)
-
-            [self.experimentDir, ~] = fileparts(self.protocolFilePath);
-
-        end
         
         function initializeLogger(self)
-            % Create experiment logger
+            % Create experiment logger with timestamped filename
             
-            logFile = fullfile(self.experimentDir, 'logs', 'experiment.log');
+            % Generate timestamp for current experiment run
+            
+            
+            % Create log filename with timestamp
+            logFilename = sprintf('experimentLog_%s.log', self.startTime);
+            logFile = fullfile(self.experimentDir, 'logs', logFilename);
             self.logger = ExperimentLogger(logFile, self.verbose);
+        end
+
+        function getExperimentDir(self)
+            % Experiment directory is outputDir/yamlFilename_startTime
+            [~, yaml_filename, ~] = fileparts(self.protocolFilePath);
+            experimentName = [yaml_filename '_' self.startTime];
+            self.experimentDir = fullfile(self.outputDir, experimentName);
+
+            if ~exist(self.experimentDir, 'dir')
+                mkdir(self.experimentDir);
+            end
+
         end
         
         function initializePlugins(self)
@@ -298,11 +312,13 @@ classdef ProtocolRunner < handle
             end
             
             self.logger.log('INFO', 'Initializing plugins...');
-            self.pluginManager = PluginManager(self.logger);
+            self.pluginManager = PluginManager(self.logger, self.experimentDir);
             
             plugins = self.protocolData.plugins;
             for i = 1:length(plugins)
-                pluginDef = plugins(i);
+                
+                pluginDef = plugins{i};
+                
                 
                 try
                     self.pluginManager.initializePlugin(pluginDef);
@@ -614,10 +630,8 @@ classdef ProtocolRunner < handle
             
             % Save trial execution order
             trialOrder = self.trialExecutionOrder;
-            if ~exist(fullfile(self.experimentDir, 'data'),'dir')
-                mkdir(fullfile(self.experimentDir, 'data'));
-            end
-            save(fullfile(self.experimentDir, 'data', 'trial_order.mat'), 'trialOrder');
+            
+            save(fullfile(self.experimentDir, 'trial_order.mat'), 'trialOrder');
             
             % TODO: Save any additional data collected during experiment
             
@@ -631,15 +645,20 @@ classdef ProtocolRunner < handle
         end
         
         function generateExperimentSummary(self)
-            % Create experiment summary file
+            % Create experiment summary file with timestamped filename
             
-            summaryFile = fullfile(self.experimentDir, 'summary.txt');
+            % Generate timestamp for current experiment run
+            
+            
+            % Create summary filename with timestamp
+            summaryFilename = sprintf('experimentSummary_%s.txt', self.startTime);
+            summaryFile = fullfile(self.experimentDir, summaryFilename);
             fid = fopen(summaryFile, 'w');
             
             fprintf(fid, 'EXPERIMENT SUMMARY\n');
             fprintf(fid, '==================\n\n');
             fprintf(fid, 'Experiment: %s\n', self.protocolData.experimentInfo.name);
-            fprintf(fid, 'Date: %s\n', datestr(now));
+            fprintf(fid, 'Date: %s\n', self.startTime);
             fprintf(fid, 'Protocol: %s\n\n', self.protocolFilePath);
             
             fprintf(fid, 'Arena Configuration:\n');
