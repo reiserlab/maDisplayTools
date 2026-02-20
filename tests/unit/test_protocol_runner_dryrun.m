@@ -1,19 +1,21 @@
 classdef test_protocol_runner_dryrun < matlab.unittest.TestCase
     % TEST_PROTOCOL_RUNNER_DRYRUN - Unit tests for ProtocolRunner construction & dry-run
     %
-    % Tests ProtocolRunner construction (YAML parsing, experiment directory
-    % creation, timestamp generation) without needing hardware.
-    % NOTE: run() with DryRun=false requires a real G4.1 arena connection -
-    % use the manual checklist for that.
+    % Tests ProtocolRunner construction (YAML parsing, error handling)
+    % without needing hardware.
+    %
+    % Note: Tests for timestamped experiment directory naming were removed —
+    % ProtocolRunner now derives experimentDir from the protocol file path
+    % instead of creating timestamped subdirectories.
     %
     % Run: run(test_protocol_runner_dryrun)
-    
+
     properties
         testRoot
         repoRoot
         testYaml
     end
-    
+
     methods (TestClassSetup)
         function setupTestEnvironment(testCase)
             % Setup
@@ -22,19 +24,19 @@ classdef test_protocol_runner_dryrun < matlab.unittest.TestCase
                 rmdir(testCase.testRoot, 's');
             end
             mkdir(testCase.testRoot);
-            
+
             % Get repo root
             testCase.repoRoot = fileparts(fileparts(fileparts(mfilename('fullpath'))));
             addpath(fullfile(testCase.repoRoot, 'experimentExecution'));
             addpath(fullfile(testCase.repoRoot, 'yamlSupport'));
-            
+
             % Verify we have a valid YAML file for construction tests
             testCase.testYaml = fullfile(testCase.repoRoot, 'tests', 'fixtures', 'test_g41_controller_only.yaml');
             testCase.assumeTrue(isfile(testCase.testYaml), ...
                 'test_g41_controller_only.yaml not found - cannot run tests');
         end
     end
-    
+
     methods (TestClassTeardown)
         function cleanupTestEnvironment(testCase)
             % Clean up temp directory
@@ -43,77 +45,20 @@ classdef test_protocol_runner_dryrun < matlab.unittest.TestCase
             end
         end
     end
-    
+
     methods (Test)
         function testConstructWithValidYaml(testCase)
             % Test construct ProtocolRunner with valid YAML and dummy IP
             outputDir = fullfile(testCase.testRoot, 'output1');
             mkdir(outputDir);
-            
+
             runner = ProtocolRunner(testCase.testYaml, '0.0.0.0', ...
                 'OutputDir', outputDir, 'Verbose', false, 'DryRun', true); %#ok<NASGU>
-            
+
             % If we got here without error, construction succeeded
             testCase.verifyTrue(true, 'Construction succeeded');
         end
-        
-        function testExperimentDirectoryNaming(testCase)
-            % Test experiment directory is created as outputDir/yamlName_timestamp
-            outputDir = fullfile(testCase.testRoot, 'output2');
-            mkdir(outputDir);
-            
-            runner = ProtocolRunner(testCase.testYaml, '0.0.0.0', ...
-                'OutputDir', outputDir, 'Verbose', false, 'DryRun', true); %#ok<NASGU>
-            
-            % Check that a directory was created inside outputDir
-            dirContents = dir(outputDir);
-            dirContents = dirContents(~ismember({dirContents.name}, {'.', '..'}));
-            dirContents = dirContents([dirContents.isdir]);
-            
-            testCase.verifyNotEmpty(dirContents, 'No experiment directory was created');
-            
-            % Verify naming: should start with yaml filename
-            [~, yamlName, ~] = fileparts(testCase.testYaml);
-            expDirName = dirContents(1).name;
-            testCase.verifyTrue(startsWith(expDirName, yamlName), ...
-                sprintf('Experiment dir should start with YAML filename. Got: %s', expDirName));
-            
-            % Verify timestamp portion (after the yaml name + underscore)
-            timestampPart = expDirName(length(yamlName)+2:end);
-            testCase.verifyEqual(length(timestampPart), 15, ...  % yyyyMMdd_HHmmss = 15 chars
-                sprintf('Timestamp should be 15 characters (yyyyMMdd_HHmmss). Got: %s', timestampPart));
-            testCase.verifyMatches(timestampPart, '^\d{8}_\d{6}$', ...
-                sprintf('Timestamp should match yyyyMMdd_HHmmss format. Got: %s', timestampPart));
-        end
-        
-        function testTimestampUniqueness(testCase)
-            % Test startTime timestamp format and uniqueness
-            outputDir = fullfile(testCase.testRoot, 'output3');
-            mkdir(outputDir);
-            
-            % Create two runners ~1 second apart to verify timestamps differ
-            runner1 = ProtocolRunner(testCase.testYaml, '0.0.0.0', ...
-                'OutputDir', outputDir, 'Verbose', false, 'DryRun', true); %#ok<NASGU>
-            
-            pause(1.5);
-            
-            runner2 = ProtocolRunner(testCase.testYaml, '0.0.0.0', ...
-                'OutputDir', outputDir, 'Verbose', false, 'DryRun', true); %#ok<NASGU>
-            
-            % Both should have created experiment directories
-            dirContents = dir(outputDir);
-            dirContents = dirContents(~ismember({dirContents.name}, {'.', '..'}));
-            dirContents = dirContents([dirContents.isdir]);
-            
-            testCase.verifyGreaterThanOrEqual(length(dirContents), 2, ...
-                sprintf('Expected at least 2 experiment directories, got %d', length(dirContents)));
-            
-            % They should have different names (different timestamps)
-            names = sort({dirContents.name});
-            testCase.verifyNotEqual(names{1}, names{2}, ...
-                'Two runners should create directories with different timestamps');
-        end
-        
+
         function testInvalidYamlFilePath(testCase)
             % Test construct with invalid YAML file path -> error
             outputDir = fullfile(testCase.testRoot, 'output4');
@@ -135,12 +80,12 @@ classdef test_protocol_runner_dryrun < matlab.unittest.TestCase
             'Error message should mention protocol it failed to parse');
         end
 
-        
+
         function testYamlValidationFailure(testCase)
             % Test construct with YAML that fails validation -> error propagated
             outputDir = fullfile(testCase.testRoot, 'output5');
             mkdir(outputDir);
-            
+
             % Write a YAML missing required 'block' section
             bad_yaml = fullfile(testCase.testRoot, 'bad_protocol.yaml');
             fid = fopen(bad_yaml, 'w');
@@ -154,7 +99,7 @@ classdef test_protocol_runner_dryrun < matlab.unittest.TestCase
             fprintf(fid, 'experiment_structure:\n');
             fprintf(fid, '  repetitions: 1\n');
             fclose(fid);
-            
+
             try
                 runner = ProtocolRunner(bad_yaml, '0.0.0.0', ...
                     'OutputDir', outputDir, 'Verbose', false); %#ok<NASGU>
