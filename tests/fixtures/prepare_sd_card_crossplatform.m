@@ -62,8 +62,8 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, opt
 %       - Format option: Windows (auto), Mac (with confirmation prompt)
 %       - ValidateDriveName: checks 'PATSD' on both Windows (vol) and Mac (mount path)
 %       - On Mac, formatting clears the FAT table, ensuring reliable dirIndex order
-%       - macOS dot-files (._*) are automatically cleaned from FAT32 volumes
-%         (AppleDouble resource forks corrupt G4.1 controller dirIndex ordering)
+%       - On macOS, extended attributes are stripped (xattr -c) before copying
+%         to FAT32, preventing AppleDouble ._* files that corrupt dirIndex ordering
 %
 %   See also: prepare_sd_card, deploy_experiments_to_sd
 
@@ -407,6 +407,17 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, opt
         end
     end
     
+    %% Strip extended attributes (prevents macOS AppleDouble ._* files on FAT32)
+    if ismac
+        for i = 1:num_patterns
+            src = fullfile(staging_dir, 'patterns', sprintf('pat%04d.pat', i));
+            system(sprintf('xattr -c "%s"', src));
+        end
+        system(sprintf('xattr -c "%s"', bin_path));
+        system(sprintf('xattr -c "%s"', txt_path));
+        fprintf('  ✓ Cleared extended attributes (prevents ._* files on FAT32)\n');
+    end
+
     %% Copy patterns to SD card (FIRST - for correct dirIndex order)
     fprintf('  Copying %d patterns...\n', num_patterns);
     try
@@ -421,30 +432,6 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, opt
     end
     fprintf('  ✓ Copied %d patterns\n', num_patterns);
 
-    %% Clean up macOS resource fork files (._* files)
-    %  macOS creates AppleDouble "._" files when copying to FAT32 volumes.
-    %  These are invisible in Finder but occupy FAT32 directory entries,
-    %  which shifts dirIndex ordering and causes the G4.1 controller to
-    %  load wrong patterns. We must remove them before writing manifests.
-    if ismac
-        dot_files = dir(fullfile(target_dir, '._*'));
-        if ~isempty(dot_files)
-            fprintf('  Cleaning %d macOS resource fork files (._*)...\n', length(dot_files));
-            for i = 1:length(dot_files)
-                delete(fullfile(target_dir, dot_files(i).name));
-            end
-            fprintf('  ✓ Removed %d dot-files (prevents dirIndex corruption)\n', length(dot_files));
-        end
-
-        % Also clean root-level dot-files (in case manifests create them)
-        dot_files_root = dir(fullfile(sd_root, '._*'));
-        if ~isempty(dot_files_root)
-            for i = 1:length(dot_files_root)
-                delete(fullfile(sd_root, dot_files_root(i).name));
-            end
-        end
-    end
-
     %% Copy manifest files to SD card (AFTER patterns for correct dirIndex)
     try
         copyfile(bin_path, fullfile(sd_root, 'MANIFEST.bin'));
@@ -454,29 +441,10 @@ function mapping = prepare_sd_card_crossplatform(pattern_paths, sd_location, opt
         return;
     end
     fprintf('  ✓ Copied manifest files\n');
-    
-    %% Final macOS dot-file cleanup (manifests may have created new ones)
-    if ismac
-        % Clean patterns dir
-        dot_final = dir(fullfile(target_dir, '._*'));
-        for i = 1:length(dot_final)
-            delete(fullfile(target_dir, dot_final(i).name));
-        end
-        % Clean root dir
-        dot_final_root = dir(fullfile(sd_root, '._*'));
-        for i = 1:length(dot_final_root)
-            delete(fullfile(sd_root, dot_final_root(i).name));
-        end
-        if ~isempty(dot_final) || ~isempty(dot_final_root)
-            fprintf('  ✓ Final dot-file cleanup: removed %d files\n', ...
-                length(dot_final) + length(dot_final_root));
-        end
-    end
 
-    %% Verify (exclude macOS ._* resource fork files from count)
+    %% Verify
     all_pat = dir(fullfile(target_dir, '*.pat'));
-    real_pat = all_pat(~startsWith({all_pat.name}, '._'));
-    verify_count = length(real_pat);
+    verify_count = length(all_pat);
     if verify_count ~= num_patterns
         mapping.error = sprintf('Verification failed: expected %d patterns, found %d on SD card', ...
             num_patterns, verify_count);

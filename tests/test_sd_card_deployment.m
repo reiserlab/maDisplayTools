@@ -12,7 +12,7 @@ function results = test_sd_card_deployment(options)
 %     2. MANIFEST.bin binary format (uint16 count + uint32 timestamp)
 %     3. MANIFEST.txt human-readable mapping
 %     4. Verification count accuracy
-%     5. macOS dot-file cleanup (AppleDouble resource fork removal)
+%     5. macOS dot-file prevention (xattr -c before copy to FAT32)
 %     6. ValidateDriveName on Mac (volume name from mount path)
 %     7. detect_sd_card utility (when UseRealSD=true)
 %     8. Format + deploy pipeline (when UseRealSD=true, DESTRUCTIVE)
@@ -220,34 +220,34 @@ function results = test_sd_card_deployment(options)
         record_fail('1.7 Mapping struct fields', 'Mapping not available');
     end
 
-    % Test 1.8: macOS dot-file cleanup simulation
+    % Test 1.8: macOS dot-file prevention (xattr -c)
     if ismac
-        fprintf('\n  [Mac-specific] Testing dot-file cleanup...\n');
+        fprintf('\n  [Mac-specific] Testing dot-file prevention...\n');
 
-        % Clean and redo with injected dot-files
+        % Clean and redo
         if isfolder(fake_sd), rmdir(fake_sd, 's'); end
         mkdir(fake_sd);
 
         mapping2 = prepare_sd_card_crossplatform(pattern_paths, fake_sd, ...
             'ValidateDriveName', false);
 
-        % Check no dot-files remain
+        % Check no dot-files were created
         dot_files_pat = dir(fullfile(fake_sd, 'patterns', '._*'));
         dot_files_root = dir(fullfile(fake_sd, '._*'));
         total_dots = length(dot_files_pat) + length(dot_files_root);
 
         if total_dots == 0 && mapping2.success
-            record_pass('1.8 macOS dot-file cleanup', ...
-                'No ._* files remain on fake SD');
+            record_pass('1.8 macOS dot-file prevention', ...
+                'No ._* files on fake SD (xattr -c worked)');
         elseif ~mapping2.success
-            record_fail('1.8 macOS dot-file cleanup', ...
+            record_fail('1.8 macOS dot-file prevention', ...
                 sprintf('Deployment failed: %s', mapping2.error));
         else
-            record_fail('1.8 macOS dot-file cleanup', ...
+            record_fail('1.8 macOS dot-file prevention', ...
                 sprintf('%d dot-files still present', total_dots));
         end
     else
-        record_pass('1.8 macOS dot-file cleanup', 'Skipped (not macOS)');
+        record_pass('1.8 macOS dot-file prevention', 'Skipped (not macOS)');
     end
 
     % Test 1.9: ValidateDriveName with wrong name
@@ -356,15 +356,15 @@ function results = test_sd_card_deployment(options)
                     real_target = mapping_real.target_dir;
                     dot_check = dir(fullfile(real_target, '._*'));
                     if isempty(dot_check)
-                        record_pass('3.3 Real SD dot-file clean', ...
+                        record_pass('3.3 Real SD no dot-files', ...
                             'No ._* files on SD card');
                     else
-                        record_fail('3.3 Real SD dot-file clean', ...
+                        record_fail('3.3 Real SD no dot-files', ...
                             sprintf('%d dot-files found — dirIndex may be corrupted', ...
                             length(dot_check)));
                     end
                 else
-                    record_pass('3.3 Real SD dot-file clean', 'Skipped (not macOS)');
+                    record_pass('3.3 Real SD no dot-files', 'Skipped (not macOS)');
                 end
 
                 % Test 3.4: Verify pattern count on real SD
@@ -379,7 +379,7 @@ function results = test_sd_card_deployment(options)
                 end
             else
                 record_fail('3.2 Real SD deployment', mapping_real.error);
-                record_fail('3.3 Real SD dot-file clean', 'Deployment failed');
+                record_fail('3.3 Real SD no dot-files', 'Deployment failed');
                 record_fail('3.4 Real SD pattern count', 'Deployment failed');
             end
         end
