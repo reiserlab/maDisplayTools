@@ -54,10 +54,10 @@ plugins:
   - name: "temperature"
     type: "class"
     matlab:
-      class: "maDisplayTools.plugins.DAQController"
-    config:
-      sample_rate: 1000
-      # This is needed because it's not included in the rig yaml
+      class: "DAQThermometerPlugin"
+    # config: - Optional if you want to override values from rig. 
+    #   sample_duration: 1.5
+    #  
 
   - name: "backlight"
     type: "class"
@@ -83,41 +83,45 @@ experiment_structure:
 # PRETRIAL - Execute once before any trials
 # Used for hardware initialization and setup
 # ============================================================================
-pretrial:
+pretrial: # Class plugins like camera, backlight, and temperature are 
+# connected and initialized automatically before pretrial unless unable due to missing config
   include: true
   commands:
-    # Initialize camera system
-    - type: "plugin"
-      plugin_name: "camera"
-      command_name: "connect"
-    
-    - type: "plugin"
-      plugin_name: "camera"
-      command_name: "initialize"
-
-    # Initialize DAQ system
-    - type: "plugin"
-      plugin_name: "temperature"
-      command_name: "connect"
-    
-    - type: "plugin"
-      plugin_name: "temperature"
-      command_name: "configure"
-      params:
-        buffer_size: 10000
-    
-    # Initialize background lighting
-    - type: "plugin"
-      plugin_name: "background_light"
-      command_name: "activate"
-    
-    # Wait for systems to stabilize
-    - type: "wait"
-      duration: 1  # 1 second
     
     # Run preprocessing script
     - type: "plugin"
       plugin_name: "preprocessing"
+
+    # Turn off visible backlights, turn on IR to remain on throughout experiment
+    - type: "plugin"      
+      plugin_name: "backlight"
+      command_name: "setVisibleBacklightsOff"
+
+    - type: "plugin"
+      plugin_name: "backlight"
+      command_name: "setIRLEDPower"
+      params:
+        power: 50
+
+    - type: "plugin"
+      plugin_name: "backlight"
+      command_name: "turnOnLED"
+
+    - type: "plugin"
+      plugin_name: "background_light" #imaginary serial device plugin
+      command_name: "activate"
+
+    # Get initial temperature
+    - type: "plugin"
+      plugin_name: "temperature" 
+      command_name: "get_temperature"
+    
+    # Start camera recording
+    - type: "plugin"
+      plugin_name: "camera"
+      command_name: "startRecording"
+      params:
+        filename: "test_experiment"
     
     # Display a test pattern to verify arena
     - type: "controller"
@@ -131,7 +135,7 @@ pretrial:
       gain: 0
     
     - type: "wait"
-      duration: .5  # 0.5 second pause
+      duration: 2 # Total waits must equal trialParams duration
 
 # ============================================================================
 # BLOCK - Main experimental conditions
@@ -142,30 +146,25 @@ block:
     # Condition 1: Vertical bars moving right
     - id: "sq grating 30deg gs16"
       commands:
-        # Start recording
+
+        # Get timestamp
         - type: "plugin"
           plugin_name: "camera"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "setVideoFile"
-          params:
-            filename: "sqGrating_30deg_gs16.avi"
-        
-        # Start DAQ
+          command_name: "getTimestamp"
+
+        # Get temperature
         - type: "plugin"
           plugin_name: "temperature"
-          command_name: "startAcquisition"
-        
-        # Pulse LED to mark trial start
+          command_name: "get_temperature"
+
+        # Turn on backlight red, 1010 pattern, all panels
         - type: "plugin"
           plugin_name: "backlight"
-          command_name: "pulse"
-        
-        # Wait 50ms
-        - type: "wait"
-          duration: .1
+          command_name: "setRedLEDPower"
+          params:
+            power: 5
+            panel_num: 0
+            pattern: "1010"
         
         # Display pattern
         - type: "controller"
@@ -177,39 +176,36 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: -90  # degrees per second
-        
-        # Stop recording
+
+        - type: "wait"
+          duration: 5 #Total wait durations much match trialParams duration
+
         - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "stopCapture"
+          plugin_name: "backlight"
+          command_name: "setVisibleBacklightsOff"
+
     
     # Condition 2: Horizontal bars moving up
     - id: "Sq grating 60Deg gs2"
       commands:
+
+        # Get timestamp
         - type: "plugin"
           plugin_name: "camera"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "setVideoFile"
-          params:
-            filename: "SqGrating_60Deg_gs2.avi"
-        
+          command_name: "getTimestamp"
+
+        # Get temperature
         - type: "plugin"
           plugin_name: "temperature"
-          command_name: "startAcquisition"
-        
+          command_name: "get_temperature"
+
+        # Turn blue backlight on panel 1
         - type: "plugin"
           plugin_name: "backlight"
-          command_name: "pulse"
-        
-        - type: "wait"
-          duration: .1
+          command_name: "setBlueLEDPower"
+          params: 
+            power: 5
+            panel_num: 1
         
         - type: "controller"
           command_name: "trialParams"
@@ -220,39 +216,31 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: -90
+       
         
+        - type: "wait"
+          duration: 5
+
         - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "stopCapture"
+          plugin_name: "backlight"
+          command_name: "setVisibleBacklightsOff"
     
     # Condition 3: Checkerboard pattern (static)
     - id: "Sq Grating 60Deg gs16"
       commands:
+        
+        # Get timestamp
         - type: "plugin"
           plugin_name: "camera"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "setVideoFile"
-          params:
-            filename: "SqGrating_60Deg_gs16.avi"
-        
+          command_name: "getTimestamp"
+
+        # Get temperature
         - type: "plugin"
           plugin_name: "temperature"
-          command_name: "startAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "backlight"
-          command_name: "pulse"
-        
-        - type: "wait"
-          duration: .1
-        
+          command_name: "get_temperature"
+
+        # no backlight this time
+
         - type: "controller"
           command_name: "trialParams"
           pattern: 'pat04_sq_grating_60deg_gs16_G4.pat'
@@ -262,38 +250,34 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: 0
+
+        - type: "wait"
+          duration: 3
+
         
-        - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "stopCapture"
     
     # Condition 4: Expanding grating
     - id: "Sine grating 30deg gs16"
       commands:
+        
+        # Get timestamp
         - type: "plugin"
           plugin_name: "camera"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "setVideoFile"
-          params:
-            filename: "SineGrating_30Deg_gs16.avi"
-        
+          command_name: "getTimestamp"
+
+        # Get temperature
         - type: "plugin"
           plugin_name: "temperature"
-          command_name: "startAcquisition"
-        
+          command_name: "get_temperature"
+
+        # turn on green backlight, all panels, 1010 pattern
         - type: "plugin"
           plugin_name: "backlight"
-          command_name: "pulse"
-        
-        - type: "wait"
-          duration: .1
+          command_name: "setGreenLEDPower"
+          params: 
+            power: 5
+            panel_num: 0
+            pattern: "1010"
         
         - type: "controller"
           command_name: "trialParams"
@@ -304,39 +288,21 @@ block:
           frame_index: 1
           frame_rate: 60
           gain: -45
+        
+        - type: "wait"
+          duration: 4
 
         - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "stopCapture"
+          plugin_name: "backlight"
+          command_name: "setVisibleBacklightsOff"
     
     # Condition 5: Dark (no stimulus)
     - id: "dark_control"
       commands:
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "startCapture"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "setVideoFile"
-          params:
-            filename: "dark_control.avi"
-        
-        - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "startAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "backlight"
-          command_name: "pulse"
         
         # Turn off arena
         - type: "plugin"
-          plugin_name: "background_light"
+          plugin_name: "background_light" #imaginary serial device plugin
           command_name: "off"
         
         # Wait in darkness
@@ -345,16 +311,9 @@ block:
         
         # Turn background back on
         - type: "plugin"
-          plugin_name: "background_light"
+          plugin_name: "background_light" #imaginary serial device plugin
           command_name: "activate"
-        
-        - type: "plugin"
-          plugin_name: "temperature"
-          command_name: "stopAcquisition"
-        
-        - type: "plugin"
-          plugin_name: "camera"
-          command_name: "stopCapture"
+
 
 # ============================================================================
 # INTERTRIAL - Execute between each trial
@@ -377,10 +336,15 @@ intertrial:
     # Run analysis script on previous trial
     - type: "plugin"
       plugin_name: "analysis"
+   
+    # Get the temperature at each intertrial
+    - type: "plugin"
+      plugin_name: "temperature"
+      command_name: "get_temperature"
     
-    # Brief pause
+      # wait for pattern to display
     - type: "wait"
-      duration: .5 # 0.5 second
+      duration: 2 # wait must equal duration of pattern
 
 # ============================================================================
 # POSTTRIAL - Execute once after all trials complete
@@ -389,34 +353,36 @@ intertrial:
 posttrial:
   include: true
   commands:
-    # Stop all recording systems
+
+    # get final timestamp
     - type: "plugin"
       plugin_name: "camera"
-      command_name: "disconnect"
-    
+      command_name: "getTimestamp"
+      
+    # get final temperature
     - type: "plugin"
       plugin_name: "temperature"
-      command_name: "disconnect"
+      command_name: "get_temperature"
+
+    - type: "controller"
+      command_name: "allOff"
+
+    - type: "plugin"
+      plugin_name: "backlight"
+      command_name: "turnOffLED"
+    
+    - type: "plugin"
+      plugin_name: "camera"
+      command_name: "stopRecording"
+
+    - type: "plugin"
+      plugin_name: "camera"
+      command_name: "stopCapture"
     
     # Turn off hardware
     - type: "plugin"
-      plugin_name: "background_light"
+      plugin_name: "background_light" # Not real, example of serial device plugin
       command_name: "off"
-    
-    - type: "plugin"
-      plugin_name: "backlight"
-      command_name: "off"
-    
-    # Display completion message pattern
-    - type: "controller"
-      command_name: "trialParams"
-      pattern: 'pat07_sine_grating_30deg_fine_gs16_G4.pat'
-      pattern_ID: 7
-      duration: 2
-      mode: 2
-      frame_index: 1
-      frame_rate: 60
-      gain: 0
     
     # Final wait before shutdown
     - type: "wait"
