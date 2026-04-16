@@ -1,46 +1,88 @@
 classdef DAQThermometerPlugin < handle
-    % DAQ-based thermometer plugin for temperature monitoring during experiments
+    % DAQ-based thermocouple plugin for temperature monitoring during experiments
     %
     % Wraps the MATLAB Data Acquisition Toolbox to read temperature from a
-    % National Instruments CompactDAQ thermocouple module. Hardware identity
-    % (device, channel, measurement type) is fully rig-configurable so the
-    % class code never needs to change between setups.
+    % National Instruments CompactDAQ thermocouple module. Supports 1 to 4
+    % channels on a single module. All hardware identity fields are
+    % rig-configurable; the class code never needs to change between setups.
     %
     % Required MATLAB Toolbox: Data Acquisition Toolbox (R2020a or later)
     %
     % Rig YAML Config Fields:
-    %   vendor            - DAQ vendor string (default: 'ni')
-    %   device_id         - NI device/module ID (e.g. 'cDAQ1Mod1') [required]
-    %   channel           - Channel number on the module (e.g. 1)    [required]
-    %   measurement_type  - Measurement type string (default: 'Thermocouple')
+    %   enabled: true     - Whether the thermometer is in use for this
+    %                       experiment [required]
+    %   type: "DAQ Thermometer" - Identifier in case more than one type of
+    %                           hardware is used for this purpose in the
+    %                           future [required]
+    %   device_id         - NI module ID (e.g. 'cDAQ1Mod4')          [required]
+    %   channels          - List of channel strings (1-4 supported)  [required]
+    %     - "ai0"
+    %     - "ai2"        
+    %   measurement_type  - Type of measurement (default: 'Thermocouple')
+    %   thermocouple_type - Thermocouple type string (default: 'K')
+    %   sample_rate       - Samples per second (default: 7)
     %   sample_duration   - Default read duration in seconds (default: 1.0)
-    %   sample_rate       - Samples per second; omit to use toolbox default
+    %   generate_plots    - Save plots by default (default: true)
+    %   vendor            - DAQ vendor string (default: 'ni')
     %
-    % Experiment YAML Usage:
-    %   - type: "plugin"
-    %     plugin_name: "temperature"
-    %     command_name: "get_temperature"
-    %     params:
-    %       sample_duration: 2.0    % optional override
+    %   ALL RIG YAML CONFIGURATION VALUES CAN BE OVERRIDED BY INCLUDING
+    %   THEM IN THE EXPERIMENT YAML'S TEMPERATURE CONFIG.
     %
-    % Class Plugin Interface:
-    %   Constructor : DAQThermometerPlugin(name, config, logger)
-    %   initialize  : Opens DAQ session and adds measurement channel
-    %   execute     : Accepts command 'get_temperature'; returns result struct
-    %   cleanup     : Stops and releases DAQ session
-    %   getStatus   : Returns status struct
+    % Commands:
+    %   get_temperature  - Short read; logs and returns mean per channel.
+    %                      Intended for between-trial passive monitoring.
+    %   log_temperature  - Longer read; logs mean/min/max per channel and
+    %                      optionally saves a plot. Intended for pre/post-
+    %                      experiment records.
+    %
+    % Optional Command Params:
+    %   sample_duration  - Override config default read duration (both commands)
+    %   generate_plots   - Override config plot default (log_temperature only)
+    %
+    % Experiment YAML Example:
+    %   
+    %   plugins: 
+    %     - name: "thermometer"
+    %       type: "class"
+    %       matlab:
+    %         class: "DAQThermometerPlugin"
+    % 
+    %   pretrial:
+    %     commands:
+    %       - type: "plugin"
+    %         plugin_name: "thermometer"
+    %         command_name: "log_temperature"
+    %         params:
+    %           sample_duration: 30.0
+    %   intertrial:
+    %     commands:
+    %       - type: "plugin"
+    %         plugin_name: "thermometer"
+    %         command_name: "get_temperature"
+    %   posttrial:
+    %     commands:
+    %       - type: "plugin"
+    %         plugin_name: "thermometer"
+    %         command_name: "log_temperature"
+    %         params:
+    %           sample_duration: 30.0
 
     properties (Access = private)
-        name                % Plugin name string
-        config              % Config struct from rig YAML
-        logger              % ExperimentLogger instance
-        daqSession          % daq session object
-        isConnected         % logical: true after successful initialize()
-        vendor              % DAQ vendor string (default: 'ni')
-        deviceId            % NI device/module ID string
-        channel             % Channel number
-        measurementType     % Measurement type string
-        defaultSampleDuration  % Fallback sample duration in seconds
+        name                    % Plugin name string
+        config                  % Config struct from rig YAML
+        logger                  % ExperimentLogger instance
+        daqSession              % daq session object
+        isConnected             % logical: true after successful initialize()
+        vendor                  % DAQ vendor string
+        deviceId                % NI module ID string
+        measurementType         % Measurement type string (default: 'Thermocouple')
+        thermocoupleType        % Thermocouple type string (e.g. 'K')
+        sampleRate              % Samples per second
+        channels                % Cell array of one to four channel strings 
+        numChannels             % Number of configured channels
+        defaultSampleDuration   % Default read duration in seconds
+        defaultGeneratePlots    % Default plot-saving behaviour (logical)
+        saveDir                 % Directory for plot output
     end
 
     methods (Access = public)
@@ -53,56 +95,64 @@ classdef DAQThermometerPlugin < handle
             %   config - Config struct from rig YAML
             %   logger - ExperimentLogger instance
 
-            self.name   = name;
-            self.config = config;
-            self.logger = logger;
+            self.name        = name;
+            self.config      = config;
+            self.logger      = logger;
             self.isConnected = false;
 
             self.extractConfig();
         end
 
         function initialize(self)
-            % Open DAQ session and add measurement channel
+            % Open DAQ session, set sample rate, and register all channels
             %
-            % Creates the daq() session, optionally sets sample rate, and
-            % calls addinput() to configure the physical channel. Called by
-            % PluginManager before any experiment commands are executed.
+            % Creates the daq() session and calls addinput() once per
+            % configured channel, applying thermocouple type and Celsius
+            % units to each. Called by PluginManager before any experiment
+            % commands are executed.
             %
             % Throws on failure so PluginManager can prompt for retry.
 
-            self.logger.log('INFO', sprintf('[%s] Initializing DAQ session (vendor: %s, device: %s, channel: %d, type: %s)', ...
-                self.name, self.vendor, self.deviceId, self.channel, self.measurementType));
+            self.logger.log('INFO', sprintf( ...
+                '[%s] Initializing DAQ session (vendor: %s, device: %s, type: %s, rate: %g Hz, channels: %d)', ...
+                self.name, self.vendor, self.deviceId, ...
+                self.measurementType, self.sampleRate, self.numChannels));
 
-            self.daqSession = daq(self.vendor);
+            self.daqSession      = daq(self.vendor);
+            self.daqSession.Rate = self.sampleRate;
 
-            if isfield(self.config, 'sample_rate') && ~isempty(self.config.sample_rate)
-                self.daqSession.Rate = self.config.sample_rate;
-                self.logger.log('DEBUG', sprintf('[%s] Sample rate set to %g Hz', ...
-                    self.name, self.config.sample_rate));
+            for i = 1:self.numChannels
+                ch                   = addinput(self.daqSession, self.deviceId, ...
+                                           self.channels{i}, self.measurementType);
+                if strcmp(self.measurementType, 'Thermocouple')
+                    ch.ThermocoupleType  = self.thermocoupleType;
+                    ch.Units             = 'Celsius';
+               % else: Voltage and other measurement types need no additional
+                % channel properties beyond what addinput() sets by default.
+                % But optional channel properties could be here in an else statement.
+                end
+                
+                self.logger.log('DEBUG', sprintf('[%s] Added channel %s', ...
+                    self.name, self.channels{i}));
             end
-
-            addinput(self.daqSession, self.deviceId, self.channel, self.measurementType);
 
             self.isConnected = true;
             self.logger.log('INFO', sprintf('[%s] DAQ session ready', self.name));
         end
 
         function result = execute(self, command, params)
-            % Execute a plugin command
+            % Dispatch a command to the appropriate handler
             %
             % Supported commands:
-            %   get_temperature - Read temperature from DAQ channel
+            %   get_temperature - Short read; returns mean per channel
+            %   log_temperature - Longer read; logs stats and optionally plots
             %
             % Args:
             %   command - Command name string
-            %   params  - Struct of command parameters (optional)
-            %             params.sample_duration overrides config default
+            %   params  - Struct of optional command parameters (may be omitted)
             %
             % Returns:
-            %   result  - Struct with fields:
-            %             .temperature  - Mean temperature value (degrees C)
-            %             .unit         - String 'C'
-            %             .timestamp    - datetime of the read
+            %   result - Struct; fields depend on command (see private methods)
 
             if nargin < 3
                 params = struct();
@@ -111,6 +161,8 @@ classdef DAQThermometerPlugin < handle
             switch command
                 case 'get_temperature'
                     result = self.cmdGetTemperature(params);
+                case 'log_temperature'
+                    result = self.cmdLogTemperature(params);
                 otherwise
                     error('DAQThermometerPlugin:UnknownCommand', ...
                         '[%s] Unknown command: %s', self.name, command);
@@ -120,7 +172,8 @@ classdef DAQThermometerPlugin < handle
         function cleanup(self)
             % Stop and release the DAQ session
             %
-            % Called by PluginManager during posttrial cleanup.
+            % Called automatically by PluginManager at the end of the
+            % experiment, whether the experiment completes normally or errors.
 
             if self.isConnected && ~isempty(self.daqSession)
                 try
@@ -139,13 +192,14 @@ classdef DAQThermometerPlugin < handle
         function status = getStatus(self)
             % Return plugin status struct
 
-            status = struct();
-            status.name            = self.name;
-            status.vendor          = self.vendor;
-            status.deviceId        = self.deviceId;
-            status.channel         = self.channel;
-            status.measurementType = self.measurementType;
-            status.connected       = self.isConnected;
+            status                  = struct();
+            status.name             = self.name;
+            status.vendor           = self.vendor;
+            status.deviceId         = self.deviceId;
+            status.thermocoupleType = self.thermocoupleType;
+            status.sampleRate       = self.sampleRate;
+            status.numChannels      = self.numChannels;
+            status.connected        = self.isConnected;
         end
 
     end
@@ -153,73 +207,303 @@ classdef DAQThermometerPlugin < handle
     methods (Access = private)
 
         function extractConfig(self)
-            % Parse config struct and apply defaults for optional fields
+            % Parse config struct, validate required fields, and apply defaults
+            %
+            % Normalizes the channels field so that a single YAML list item
+            % (which parses as a struct) is wrapped in a cell array, matching
+            % the multi-channel cell array format.
 
-            % Required fields
+            % Required: device_id
             if ~isfield(self.config, 'device_id') || isempty(self.config.device_id)
                 error('DAQThermometerPlugin:MissingConfig', ...
                     '[%s] Required config field missing: device_id', self.name);
             end
-            if ~isfield(self.config, 'channel') || isempty(self.config.channel)
+            self.deviceId = self.config.device_id;
+
+            % Required: channels
+            if ~isfield(self.config, 'channels') || isempty(self.config.channels)
                 error('DAQThermometerPlugin:MissingConfig', ...
-                    '[%s] Required config field missing: channel', self.name);
+                    '[%s] Required config field missing: channels', self.name);
             end
 
-            self.deviceId = self.config.device_id;
-            self.channel  = self.config.channel;
+            % Normalize: single YAML list item parses as struct, not cell array
+            raw = self.config.channels;
+            if ~iscell(raw)
+                raw = {raw};
+            end
+            self.channels    = raw;
+            self.numChannels = numel(self.channels);
 
-            % Optional fields with defaults
+            if self.numChannels < 1 || self.numChannels > 4
+                error('DAQThermometerPlugin:InvalidConfig', ...
+                    '[%s] channels must contain 1 to 4 entries (got %d)', ...
+                    self.name, self.numChannels);
+            end
+
+            % Optional: vendor (default: 'ni')
             if isfield(self.config, 'vendor') && ~isempty(self.config.vendor)
                 self.vendor = self.config.vendor;
             else
                 self.vendor = 'ni';
             end
 
+            % Optional: measurement_type (default: 'Thermocouple')
             if isfield(self.config, 'measurement_type') && ~isempty(self.config.measurement_type)
                 self.measurementType = self.config.measurement_type;
             else
                 self.measurementType = 'Thermocouple';
             end
 
+            % Optional: thermocouple_type (default: 'K')
+            if isfield(self.config, 'thermocouple_type') && ~isempty(self.config.thermocouple_type)
+                self.thermocoupleType = self.config.thermocouple_type;
+            else
+                self.thermocoupleType = 'K';
+            end
+
+            % Optional: sample_rate (default: 7, matching Shubham's script)
+            if isfield(self.config, 'sample_rate') && ~isempty(self.config.sample_rate)
+                self.sampleRate = self.config.sample_rate;
+            else
+                self.sampleRate = 7;
+            end
+
+            % Optional: sample_duration (default: 1.0 s)
             if isfield(self.config, 'sample_duration') && ~isempty(self.config.sample_duration)
                 self.defaultSampleDuration = self.config.sample_duration;
             else
                 self.defaultSampleDuration = 1.0;
             end
+
+            % Optional: generate_plots (default: true)
+            if isfield(self.config, 'generate_plots') && ~isempty(self.config.generate_plots)
+                self.defaultGeneratePlots = self.config.generate_plots;
+            else
+                self.defaultGeneratePlots = true;
+            end
+
+            % saveDir injected by PluginManager; fall back to working directory
+            if isfield(self.config, 'saveDir') && ~isempty(self.config.saveDir)
+                self.saveDir = self.config.saveDir;
+            else
+                self.saveDir = pwd;
+            end
         end
 
         function result = cmdGetTemperature(self, params)
-            % Read temperature from DAQ channel and return result struct
+            % Short temperature read for between-trial passive monitoring
             %
-            % Uses params.sample_duration if provided, otherwise falls back
-            % to the config default (self.defaultSampleDuration).
+            % Reads for sample_duration seconds, computes per-channel
+            % mean/min/max, and writes a summary line to the experiment log.
+            % Does not generate plots regardless of config setting.
+            %
+            % Args:
+            %   params.sample_duration - Override default duration (optional)
+            %
+            % Returns:
+            %   result.channels(i).mean  - Mean temperature (degrees C)
+            %   result.channels(i).min   - Min temperature (degrees C)
+            %   result.channels(i).max   - Max temperature (degrees C)
+            %   result.timestamp         - datetime of read
 
             if ~self.isConnected
                 error('DAQThermometerPlugin:NotConnected', ...
                     '[%s] DAQ session not initialized', self.name);
             end
 
+            duration = self.resolveDuration(params);
+
+            self.logger.log('DEBUG', sprintf('[%s] get_temperature: reading for %.1f s', ...
+                self.name, duration));
+
+            data   = read(self.daqSession, seconds(duration));
+            result = self.buildResult(data);
+
+            self.logSummary(result);
+        end
+
+        function result = cmdLogTemperature(self, params)
+            % Longer temperature read for pre/post-experiment records
+            %
+            % Reads for sample_duration seconds, computes per-channel
+            % mean/min/max, writes a summary to the experiment log, and
+            % optionally saves a plot PNG to the experiment output directory.
+            %
+            % Args:
+            %   params.sample_duration - Override default duration (optional)
+            %   params.generate_plots  - Override config plot default (optional)
+            %
+            % Returns:
+            %   result.channels  - Same as cmdGetTemperature
+            %   result.timestamp - datetime of read
+            %   result.plotFile  - Full path to saved PNG, or '' if not generated
+
+            if ~self.isConnected
+                error('DAQThermometerPlugin:NotConnected', ...
+                    '[%s] DAQ session not initialized', self.name);
+            end
+
+            duration = self.resolveDuration(params);
+
+            if isfield(params, 'generate_plots') && ~isempty(params.generate_plots)
+                doPlot = params.generate_plots;
+            else
+                doPlot = self.defaultGeneratePlots;
+            end
+
+            self.logger.log('DEBUG', sprintf( ...
+                '[%s] log_temperature: reading for %.1f s (generate_plots: %d)', ...
+                self.name, duration, doPlot));
+
+            data            = read(self.daqSession, seconds(duration));
+            result          = self.buildResult(data);
+            result.plotFile = '';
+
+            self.logSummary(result);
+
+            if doPlot
+                result.plotFile = self.savePlot(data, result);
+            end
+        end
+
+        function duration = resolveDuration(self, params)
+            % Return params.sample_duration if provided, else config default
+
             if isfield(params, 'sample_duration') && ~isempty(params.sample_duration)
                 duration = params.sample_duration;
             else
                 duration = self.defaultSampleDuration;
             end
+        end
 
-            self.logger.log('DEBUG', sprintf('[%s] Reading temperature (%.1f s)', ...
-                self.name, duration));
+        function result = buildResult(self, data)
+            % Compute per-channel statistics from timetable and build result struct
+            %
+            % Accesses timetable columns by index so the method is not
+            % sensitive to the auto-generated column names (e.g. cDAQ1Mod4_ai0).
+            %
+            % Args:
+            %   data - Timetable returned by read()
+            %
+            % Returns:
+            %   result.channels  - Struct array of per-channel stats
+            %   result.timestamp - datetime of read
+            channelStats = [];
 
-            data = read(self.daqSession, seconds(duration));
+            for i = 1:self.numChannels
+                channelStats(i) = struct( 'label', ...
+              '', 'mean', 0, 'min', 0, 'max', 0);
+                readings               = data{:, i};
+                channelStats(i).label  = self.channels{i};
+                channelStats(i).mean   = mean(readings);
+                channelStats(i).min    = min(readings);
+                channelStats(i).max    = max(readings);
+            end
 
-            temperature = mean(data{:, 1});
-            timestamp   = datetime('now');
+            result           = struct();
+            result.channels  = channelStats;
+            result.timestamp = datetime('now');
+        end
 
-            result = struct();
-            result.temperature = temperature;
-            result.unit        = 'C';
-            result.timestamp   = timestamp;
+        function logSummary(self, result)
+            % Write per-channel mean/min/max to experiment log
+            %
+            % For exactly 2 channels, also logs the mean temperature difference.
 
-            self.logger.log('INFO', sprintf('[%s] Temperature: %.2f C', ...
-                self.name, temperature));
+            for i = 1:self.numChannels
+                ch = result.channels(i);
+                self.logger.log('INFO', sprintf( ...
+                    '[%s] %s: mean=%.2f C  min=%.2f C  max=%.2f C', ...
+                    self.name, ch.label, ch.mean, ch.min, ch.max));
+            end
+
+            if self.numChannels == 2
+                tempDiff = result.channels(2).mean - result.channels(1).mean;
+                self.logger.log('INFO', sprintf( ...
+                    '[%s] %s - %s mean difference: %.2f C', ...
+                    self.name, result.channels(2).label, result.channels(1).label, tempDiff));
+            end
+        end
+
+        function plotFile = savePlot(self, data, result)
+            % Generate and save a temperature plot PNG to saveDir
+            %
+            % Plot layout depends on channel count:
+            %   1 channel  : single axes, readings over time
+            %   2 channels : 3 subplots - ch1, ch2, and difference (ch2 - ch1)
+            %   3-4 channels: one subplot per channel, readings over time only
+            %
+            % Args:
+            %   data   - Timetable returned by read()
+            %   result - Result struct from buildResult()
+            %
+            % Returns:
+            %   plotFile - Full path to the saved PNG file
+
+            timestamp = datestr(result.timestamp, 'yyyymmdd_HHMMSS');
+            filename  = sprintf('thermometer_%s.png', timestamp);
+            plotFile  = fullfile(self.saveDir, filename);
+
+            time = data.Time;
+            fig  = figure('Visible', 'off');
+
+            if self.numChannels == 1
+
+                plot(time, data{:, 1});
+                xlabel('Time');
+                ylabel('Temperature (C)');
+                title(sprintf('%s', ...
+                    result.channels(1).label));
+                grid on;
+
+            elseif self.numChannels == 2
+
+                readings1 = data{:, 1};
+                readings2 = data{:, 2};
+
+                subplot(3, 1, 1);
+                plot(time, readings1);
+                ylabel('Temp (C)');
+                title(sprintf('%s', ...
+                    result.channels(1).label));
+                grid on;
+
+                subplot(3, 1, 2);
+                plot(time, readings2);
+                ylabel('Temp (C)');
+                title(result.channels(2).label);
+                grid on;
+
+                subplot(3, 1, 3);
+                plot(time, readings2 - readings1);
+                xlabel('Time');
+                ylabel('Delta T (C)');
+                title(sprintf('Difference (%s - %s)', ...
+                    result.channels(2).label, result.channels(1).label));
+                grid on;
+
+            else  % 3 or 4 channels
+
+                for i = 1:self.numChannels
+                    subplot(self.numChannels, 1, i);
+                    plot(time, data{:, i});
+                    ylabel('Temp (C)');
+                    title(result.channels(i).label);
+                    if i == self.numChannels
+                        xlabel('Time');
+                    end
+                    grid on;
+                end
+
+            end
+
+            sgtitle(sprintf('Temperature Log  %s', ...
+                datestr(result.timestamp, 'yyyy-mm-dd HH:MM:SS')));
+
+            saveas(fig, plotFile);
+            close(fig);
+
+            self.logger.log('INFO', sprintf('[%s] Plot saved: %s', self.name, plotFile));
         end
 
     end

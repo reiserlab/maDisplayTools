@@ -26,10 +26,14 @@ plugins:
     bias_executable: 'C:\Users\labadmin\Documents\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe'
   temperature:
     enabled: false
-    type: "DAQ Thermometer"
-    vendor: "ni"
+    type: "DAQ Thermometer" 
     device_id: "cDAQ1Mod1"
-    channel: 1
+    channels:  # supports 1-4 channels
+      - "ai0"
+      - "ai2"
     measurement_type: "Thermocouple"
-    sample_duration: 1.0
-
+    thermocouple_type: "K"
+    sample_rate: 7 # Temperature reads to take per second
+    sample_duration: 1.0 # How long to take temperature reads
+    generate_plots: true
+    vendor: "ni"
