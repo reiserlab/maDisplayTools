@@ -118,15 +118,15 @@ classdef DAQThermometerPlugin < handle
                 self.name, self.vendor, self.deviceId, ...
                 self.measurementType, self.sampleRate, self.numChannels));
 
-            self.daqSession      = daq(self.vendor);
+            self.daqSession = daq(self.vendor);
             self.daqSession.Rate = self.sampleRate;
 
             for i = 1:self.numChannels
-                ch                   = addinput(self.daqSession, self.deviceId, ...
-                                           self.channels{i}, self.measurementType);
+                ch = addinput(self.daqSession, self.deviceId, self.channels{i}, ...
+                    self.measurementType);
                 if strcmp(self.measurementType, 'Thermocouple')
-                    ch.ThermocoupleType  = self.thermocoupleType;
-                    ch.Units             = 'Celsius';
+                    ch.ThermocoupleType = self.thermocoupleType;
+                    ch.Units = 'Celsius';
                % else: Voltage and other measurement types need no additional
                 % channel properties beyond what addinput() sets by default.
                 % But optional channel properties could be here in an else statement.
@@ -355,8 +355,8 @@ classdef DAQThermometerPlugin < handle
                 '[%s] log_temperature: reading for %.1f s (generate_plots: %d)', ...
                 self.name, duration, doPlot));
 
-            data            = read(self.daqSession, seconds(duration));
-            result          = self.buildResult(data);
+            data = read(self.daqSession, seconds(duration));
+            result = self.buildResult(data);
             result.plotFile = '';
 
             self.logSummary(result);

@@ -103,6 +103,24 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
             return;
         end
     end
+    
+    %% Step 1: Extract patterns from YAML files
+    fprintf('\n=== Extracting patterns from YAML files ===\n');
+    
+    try
+        [pattern_paths_per_yaml, yaml_files] = extract_patterns_from_yaml(yaml_file_paths);
+    catch ME
+        result.error = sprintf('Pattern extraction failed: %s', ME.message);
+        fprintf('%s\n', result.error);
+        return;
+    end
+    
+    result.yaml_files = yaml_files;
+    
+    % Show per-YAML summary
+    for i = 1:length(yaml_files)
+        fprintf('  %s: %d patterns\n', yaml_files{i}, length(pattern_paths_per_yaml{i}));
+    end
 
     %% Step 1: Extract patterns from each YAML file
     fprintf('\n=== Extracting patterns from YAML files ===\n');
