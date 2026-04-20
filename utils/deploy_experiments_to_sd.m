@@ -74,7 +74,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     %% Input validation
     if nargin < 3
         result.error = 'Must provide yaml_file_paths, sd_drive, and output_dir';
-        fprintf(result.error);
+        fprintf('%s\n', result.error);
         return;
     end
     
@@ -88,7 +88,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
             mkdir(output_dir);
         catch ME
             result.error = sprintf('Failed to create output directory %s: %s', output_dir, ME.message);
-            fprintf(result.error);
+            fprintf('%s\n', result.error);
             return;
         end
     end
@@ -100,7 +100,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
         [pattern_paths_per_yaml, yaml_files] = extract_patterns_from_yaml(yaml_file_paths);
     catch ME
         result.error = sprintf('Pattern extraction failed: %s', ME.message);
-        fprintf(result.error);
+        fprintf('%s\n', result.error);
         return;
     end
     
@@ -152,7 +152,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     % Stop if any validation failed
     if validation_failed
         result.error = sprintf('Protocol validation failed with %d total error(s). See details above.', length(all_errors));
-        fprintf(result.error);
+        fprintf('%s\n', result.error);
         return;
     end
     
@@ -174,7 +174,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
     
     if result.num_patterns == 0
         result.error = 'No patterns found in YAML file(s)';
-        fprintf(result.error);
+        fprintf('%s\n', result.error);
         return;
     end
     
@@ -192,7 +192,7 @@ function result = deploy_experiments_to_sd(yaml_file_paths, sd_drive, output_dir
         end
     catch ME
         result.error = sprintf('SD card deployment failed: %s', ME.message);
-        fprintf(result.error);
+        fprintf('%s\n', result.error);
         return;
     end
     
