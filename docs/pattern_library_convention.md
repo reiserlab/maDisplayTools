@@ -1,3 +1,10 @@
+---
+title: Pattern Library Convention
+parent: MATLAB Tools
+grand_parent: Generation 6
+nav_order: 20
+---
+
 # Pattern Library Convention
 
 This document describes the recommended convention for organizing pattern files to enable automatic arena-pattern association and validation.

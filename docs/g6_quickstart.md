@@ -1,3 +1,10 @@
+---
+title: MATLAB Tools
+parent: Generation 6
+has_children: true
+nav_order: 20
+---
+
 # G6 Pattern Tools - Quick Start
 
 ## Basic Usage

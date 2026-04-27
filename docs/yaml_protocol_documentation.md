@@ -1,3 +1,10 @@
+---
+title: YAML Protocol
+parent: MATLAB Tools
+grand_parent: Generation 6
+nav_order: 20
+---
+
 # G4.1 YAML Protocol Documentation
 
 ## Overview

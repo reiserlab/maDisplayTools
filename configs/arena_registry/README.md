@@ -1,3 +1,12 @@
+---
+title: Arena Registry
+parent: MATLAB Tools
+grand_parent: Generation 6
+has_children: true
+nav_order: 10
+---
+
+
 # Arena Registry
 
 This registry assigns unique IDs to arena configurations for use in G4.1 V2 and G6 V1 pattern file headers.

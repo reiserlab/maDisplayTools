@@ -1,3 +1,10 @@
+---
+title: Quick Start
+parent: MATLAB Tools
+grand_parent: Generation 6
+nav_order: 20
+---
+
 # Pattern Tools Quick Start Guide
 
 A quick reference for the Reiser Lab's MATLAB pattern generation tools.
