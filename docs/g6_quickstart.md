@@ -1,3 +1,10 @@
+---
+title: MATLAB Tools
+parent: Generation 6
+has_children: true
+nav_order: 20
+---
+
 # G6 Pattern Tools - Quick Start
 
 ## Basic Usage
@@ -45,8 +52,3 @@ g6_save_pattern(Pats, stretch, [2, 10], './patterns', 'gradient', 'Mode', 'GS16'
 |----------|---------|
 | `g6_save_pattern()` | Create and save pattern files |
 | `g6_encode_panel()` | (Internal) Encode single 20×20 panel |
-
-## See Also
-
-- `docs/g6_migration_plan.md` — Development roadmap
-- `docs/g6_led_mapping.md` — LED wiring documentation (TODO)

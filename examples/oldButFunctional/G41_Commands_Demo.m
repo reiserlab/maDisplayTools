@@ -1,7 +1,7 @@
 %% Demo of all implemented PanelsController commands aside from modes. 
 
 %% Initialize Panels Controller
-ip_add = '10.102.40.209'; % may vary by arena
+ip_add = '10.102.40.124'; % may vary by arena
 panelsController = PanelsController(ip_add);
 panelsController.open(false);
 
@@ -112,26 +112,17 @@ if isempty(lengthByte)
     error('No response received from hardware');
 end
 
-% Step 2: Read the remaining bytes (total_length - 1, since we already read 1)
-remainingBytes = lengthByte - 1;
+% Step 2: Read the remaining bytes (total_length)
+remainingBytes = lengthByte;
 response = pnet(panelsController.tcpConn, 'read', remainingBytes, 'uint8');
 
 % Combine: [lengthByte, response]
 fullResponse = [lengthByte; response(:)];
 
-% Skip first 3 bytes (length, command_echo, status) to get payload
-payload = fullResponse(4:end);
-
-% Convert payload to IP address string
-% Assuming payload is 4 bytes representing IP octets
-if length(payload) >= 4
-    ipAddress = sprintf('%d.%d.%d.%d', payload(1), payload(2), payload(3), payload(4));
-else
-    ipAddress = '';
-    warning('Invalid IP address response');
-end
-
+% Skip 3-byte header (length, command_echo, status); payload is ASCII string.
+ipAddress = char(reshape(fullResponse(4:end), 1, []));
 disp(['IP address: ' ipAddress]);
+
 disp("ethernet IP demo finished. Moving on to set refresh rate.");
 
 %% Set Refresh rate - Will implement in PanelsController

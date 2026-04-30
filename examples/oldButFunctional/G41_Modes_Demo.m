@@ -18,8 +18,8 @@
 %   waitForEnd:  true = block until done, false = return immediately
 
 %% Configuration
-ip_addr = '10.102.40.209';  % Arena IP address
-patIDs = [1 2 3 4 5];          % Pattern IDs to cycle through
+ip_addr = '10.102.40.124';  % Arena IP address
+patIDs = [1 2];          % Pattern IDs to cycle through
 mode = 2;                  % Default mode (change to 3 or 4 to test)
 fps = 10;                  % Frame rate (mode 2 only)
 initPos = 1;               % Starting frame
@@ -31,8 +31,8 @@ pc = PanelsController(ip_addr);
 pc.open(false);
 
 %% Sanity check
-pc.allOn(); pause(1);
-pc.allOff(); pause(0.5);
+pc.allOn(); pause(3);
+pc.allOff(); pause(3);
 fprintf('Connection verified.\n');
 
 %% Run trials

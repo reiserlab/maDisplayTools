@@ -1,3 +1,10 @@
+---
+title: Experimental Pipeline
+parent: MATLAB Tools
+grand_parent: Generation 6
+nav_order: 20
+---
+
 # G4.1 Experiment Pipeline Guide
 
 **Last Updated:** 2026-04-03  

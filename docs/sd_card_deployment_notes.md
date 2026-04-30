@@ -1,3 +1,10 @@
+---
+title: SD Card Deployment
+parent: MATLAB Tools
+grand_parent: Generation 6
+nav_order: 20
+---
+
 # SD Card Pattern Deployment - Usage Notes
 
 > **Last Updated**: 2026-02-28
