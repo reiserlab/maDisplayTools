@@ -10,26 +10,32 @@ arena: "../arenas/G41_2x12_cw.yaml"
 
 # Controller settings
 controller:
-  host: "10.102.40.47"    # Replace with your controller IP
+  host: "10.102.40.125"    # Replace with your controller IP
   port: 62222
 
 # Plugin configurations (optional)
 plugins:
   backlight:
-    enabled: false
-    com_port: "COM3"      # Replace with your COM port
-    ir_power: 50
-    red_power: 0
-    green_power: 0
-    blue_power: 0
+    enabled: true
+    type: "LED Controller"
+    port: 'COM6'
   camera:
-    enabled: false
+    enabled: true
     type: "BIAS"
     ip: "127.0.0.1"
     port: 5010
     config_file: 'path/to/json/file'
     executable_file: 'path/to/BIAS/exe/file'
   temperature:
-    enabled: false
-    daq_device: "ni"
-    channel: "ai0"
+    enabled: true
+    type: "DAQ Thermometer" 
+    device_id: "cDAQ1Mod1"
+    channels:  # supports 1-4 channels
+      - "ai0"
+      - "ai2"
+    measurement_type: "Thermocouple"
+    thermocouple_type: "K"
+    sample_rate: 7 # Temperature reads to take per second
+    sample_duration: 1.0 # How long to take temperature reads
+    generate_plots: true
+    vendor: "ni"
