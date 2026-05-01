@@ -1,0 +1,156 @@
+version: 2
+
+# ============================================================================
+# EXPERIMENT METADATA
+# ============================================================================
+experiment_info:
+  name: "Demo for meeting - no backlight"
+  date_created: "2026-05-01"
+  author: "Lisa Ferguson"
+  pattern_library: './patterns/reference/G41_2x12_cw'  # UPDATE THIS TO FULL PATH
+
+# ============================================================================
+# ARENA CONFIGURATION
+# ============================================================================
+rig: './configs/rigs/test_rig_1.yaml'  # UPDATE THIS TO FULL PATH BEFORE USE
+
+# ============================================================================
+# EXPERIMENT STRUCTURE
+# ============================================================================
+experiment_structure:
+  repetitions: 1
+  randomization:
+    enabled: false
+    seed: null
+    method: "block"
+
+# ============================================================================
+# PLUGIN DEFINITIONS
+# ============================================================================
+plugins:
+# Class Plugin - Camera/video capture system
+  # - name: "camera"
+  #   type: "class"
+  #   matlab:
+  #     class: "BiasPlugin"
+#    config: # Optional - required config is in rig yaml. This config is for optional settings that may 
+            # change between experiments. Values here that contradict rig yaml will override rig yaml.
+      #saveDir: 'path/to/save/videos' # Optional, default is in experiment yaml's location. 
+      #frame_rate: 150 # Optional, default is 100, a value outside of 10-200 will produce warning
+      #video_format: 'avi' #Optional, default is 'ufmf', only other option is 'avi'
+    # python: WOULD USE THIS IF PYTHON CLASS
+    #   module: "pyDisplayTools.plugins.SimpleBias"
+    #   class: "SimpleBias"
+    # config:   # config established in rig yaml but can add here to override
+
+  # - name: "backlight"
+  #   type: "class"
+  #   matlab:
+  #     class: "LEDControllerPlugin"
+
+
+# ============================================================================
+# PRETRIAL - Sanity check: all panels ON briefly, turns on IR backlight, starts recording
+# ============================================================================
+pretrial:
+  include: true
+  commands:
+    - type: "controller"
+      command_name: "allOn"
+
+    - type: "wait"
+      duration: 1
+
+    - type: "controller"
+      command_name: "allOff"
+
+    - type: "wait"
+      duration: 0.5
+    # 
+    # - type: "plugin"
+    #   plugin_name: "camera"
+    #   command_name: "startRecording"
+    #   params:
+    #     filename: 'testExperiment'
+
+# ============================================================================
+# BLOCK - 16 experiment pattern conditions
+# ============================================================================
+block:
+  conditions:
+    # --- GRATINGS ---
+
+    - id: "sq_grating_30deg_gs2"
+      commands:
+        # Getting timestamp at start of trial instead of end for better consistency
+        # - type: "plugin"
+        #   plugin_name: "camera"
+        #   command_name: "getTimestamp"
+
+        - type: "controller"
+          command_name: "trialParams"
+          pattern: "pat01_sq_grating_30deg_gs2_G4.pat"
+          pattern_ID: 1
+          duration: 10
+          mode: 2
+          frame_index: 1
+          frame_rate: 10
+          gain: 0
+
+        - type: "wait"
+          duration: 10
+        
+    - id: "sq_grating_60deg_gs16"
+      commands:
+
+        # - type: "plugin"
+        #   plugin_name: "camera"
+        #   command_name: "getTimestamp"
+
+      
+        - type: "controller"
+          command_name: "trialParams"
+          pattern: "pat04_sq_grating_60deg_gs16_G4.pat"
+          pattern_ID: 2
+          duration: 10
+          mode: 2
+          frame_index: 1
+          frame_rate: 10
+          gain: 0
+
+        - type: "wait"
+          duration: 10
+       
+
+# ============================================================================
+# INTERTRIAL - 2 second pause with arena off between conditions
+# ============================================================================
+intertrial:
+  include: true
+  commands:
+    - type: "controller"
+      command_name: "allOff"
+
+    - type: "wait"
+      duration: 2
+
+# ============================================================================
+# POSTTRIAL - Stop recording, turn off arena, turn off backlight.
+# ============================================================================
+posttrial:
+  include: true
+  commands:
+
+    - type: "controller"
+      command_name: "allOff"
+    # 
+    # - type: "plugin"
+    #   plugin_name: "camera"
+    #   command_name: "stopRecording"
+    # 
+    # - type: "plugin"
+    #   plugin_name: "camera"
+    #   command_name: "stopCapture"
+
+    - type: "wait"
+      duration: 1
