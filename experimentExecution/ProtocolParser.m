@@ -1,33 +1,68 @@
 classdef ProtocolParser < handle
-    % Parse  and validate YAML protocol files
+    % Parse and validate Version 3 YAML protocol files
     %
-    % This class reads YAML protocol files and extracts all sections into
-    % a structured format. It validates the protocol structure and provides
-    % detailed error messages for any issues.
+    % Version 3 protocol files introduce three major features over V2:
     %
-    % Example usage:
-    %   parser = ProtocolParser('verbose', true);
-    %   protocol = parser.parse('./protocols/my_experiment.yaml');
-    %   
-    %   % Access parsed data:
-    %   experimentName = protocol.experimentInfo.name;
-    %   numConditions = length(protocol.blockConditions);
-    
+    %   1. VARIABLES section - a flat mapping of names to scalar values
+    %      (numbers or strings) that can be referenced by name anywhere in
+    %      the conditions section.  A variable reference is any string value
+    %      whose text exactly matches a variable name.  Numeric fields, and
+    %      strings that do not match any variable name, are left unchanged.
+    %
+    %   2. CONDITIONS library - all conditions are defined once by name in a
+    %      top-level "conditions" list.  Conditions are referenced by name
+    %      in the experiment sequence rather than defined inline.
+    %
+    %   3. EXPERIMENT sequence - a flat, readable list that mixes standalone
+    %      condition references (strings) with block definitions (mappings
+    %      with trials, repetitions, randomize, and intertrial fields).
+    %      The parser fully expands this sequence into an ordered flat list
+    %      of {id, commands} steps that the runner executes top-to-bottom
+    %      with no additional scheduling logic.
+    %
+    % Output:
+    %   parse() returns a protocol struct with fields:
+    %     .version          - 3
+    %     .filepath         - path to protocol YAML
+    %     .experimentInfo   - struct: name, date_created, author, etc.
+    %     .rigConfig        - full resolved rig config struct
+    %     .arenaConfig      - shortcut to rigConfig.arena
+    %     .derivedConfig    - shortcut to rigConfig.derived
+    %     .controllerConfig - shortcut to rigConfig.controller
+    %     .rigFilepath      - resolved rig YAML path
+    %     .arenaFilepath    - resolved arena YAML path
+    %     .plugins          - cell array of plugin definition structs,
+    %                         with rig hardware config merged in
+    %     .variables        - struct of resolved variable name -> value
+    %     .commandSequence  - cell array of structs, each with:
+    %                           .id       string label for logging
+    %                           .commands cell array of command structs
+    %                         Variables are already resolved; the runner
+    %                         executes this list in order.
+    %
+    % Example:
+    %   parser  = ProtocolParser('verbose', true);
+    %   protocol = parser.parse('./protocols/my_exp.yaml');
+    %   fprintf('%d steps\n', length(protocol.commandSequence));
+
     properties (Access = private)
-        verbose         % Whether to print parsing progress
-        filepath        % Path to protocol file being parsed
+        verbose     % Print parsing progress to console
+        filepath    % Path to the protocol file being parsed
     end
 
     properties (Constant)
-        SUPPORTED_VERSIONS = [2];
-        REQUIRED_YAML_SECTIONS = {'experiment_info', 'rig', 'experiment_structure', 'block'};
-        REQUIRED_ARENA_FIELDS = {'num_rows', 'num_cols', 'generation'};
-        SUPPORTED_GENERATIONS = {'G3', 'G4', 'G4.1', 'G6'};
-        SUPPORTED_RANDOMIZATION_METHODS = {'block'};
-        SUPPORTED_PLUGIN_TYPES = {'serial_device', 'class', 'script'};
+        SUPPORTED_VERSION            = 3;
+        REQUIRED_YAML_SECTIONS       = {'experiment_info', 'rig', 'conditions', 'experiment'};
+        REQUIRED_ARENA_FIELDS        = {'num_rows', 'num_cols', 'generation'};
+        SUPPORTED_GENERATIONS        = {'G3', 'G4', 'G4.1', 'G6'};
+        SUPPORTED_PLUGIN_TYPES       = {'serial_device', 'class', 'script'};
     end
-    
+
+    % =========================================================================
+    %  PUBLIC INTERFACE
+    % =========================================================================
     methods (Access = public)
+
         function self = ProtocolParser(varargin)
             % Constructor
             %
@@ -36,837 +71,925 @@ classdef ProtocolParser < handle
             %
             % Example:
             %   parser = ProtocolParser('verbose', true);
-            
-            % Parse input arguments
+
             p = inputParser;
             addParameter(p, 'verbose', false, @islogical);
             parse(p, varargin{:});
-            
             self.verbose = p.Results.verbose;
         end
-        
+
         function protocol = parse(self, filepath)
-            % Parse a Version 2 YAML protocol file
+            % Parse a Version 3 YAML protocol file
             %
             % Input Arguments:
-            %   filepath - Path to YAML protocol file (version 2)
+            %   filepath - Path to the YAML protocol file
             %
             % Returns:
-            %   protocol - Struct containing all parsed protocol data.
-            %              Fields:
-            %     .version             - Protocol version number (2)
-            %     .filepath            - Path to the protocol YAML file
-            %     .experimentInfo      - Struct: name, date_created, author,
-            %                           pattern_library
-            %     .rigConfig           - Full resolved rig config struct
-            %                           (from load_rig_config). Contains:
-            %                             .name, .description
-            %                             .arena    - arena fields (see below)
-            %                             .derived  - computed arena properties
-            %                             .controller.host / .port
-            %                             .plugins  - rig-level plugin hardware
-            %                                         configs, keyed by name
-            %     .arenaConfig         - Shortcut to rigConfig.arena. Fields:
-            %                             .generation, .num_rows, .num_cols,
-            %                             .column_order, .orientation,
-            %                             .angle_offset_deg,
-            %                             .columns_installed (null = all)
-            %     .derivedConfig       - Shortcut to rigConfig.derived. Fields:
-            %                             .pixels_per_panel, .total_pixels_x,
-            %                             .total_pixels_y, .panel_width_mm,
-            %                             .inner_radius_mm,
-            %                             .num_columns_installed,
-            %                             .azimuth_coverage_deg
-            %     .controllerConfig    - Shortcut to rigConfig.controller.
-            %                           Fields: .host (IP string), .port
-            %     .rigFilepath         - Resolved path to the rig YAML file
-            %     .arenaFilepath       - Resolved path to the arena YAML file
-            %     .plugins             - Cell array of plugin definition structs.
-            %                           Each struct has .name, .type, and
-            %                           type-specific fields (.matlab.class,
-            %                           .script_path, etc.). The .config field
-            %                           is populated by merging the rig YAML's
-            %                           plugin hardware settings with any config
-            %                           defined in the experiment YAML
-            %                           (experiment values win on conflict).
-            %     .experimentStructure - Struct: .repetitions, .randomization
-            %     .pretrialCommands    - Cell array of command structs, or []
-            %     .blockConditions     - Struct array. Each element has .id
-            %                           and .commands (cell array of structs)
-            %     .intertrialCommands  - Cell array of command structs, or []
-            %     .posttrialCommands   - Cell array of command structs, or []
+            %   protocol - Struct described in the class header comment
             %
-            % Example:
-            %   protocol = parser.parse('./experiments/exp001/protocol.yaml');
-            %   fprintf('Rig: %s\n', protocol.rigConfig.name);
-            %   fprintf('Controller IP: %s\n', protocol.controllerConfig.host);
-            
+            % Errors:
+            %   ProtocolParser:FileNotFound   - file does not exist
+            %   ProtocolParser:ValidationError - file fails validation
+            %   ProtocolParser:ParseError      - unexpected parsing failure
+
             self.filepath = filepath;
-            
+
+            if ~isfile(filepath)
+                error('ProtocolParser:FileNotFound', ...
+                    'Protocol file not found: %s', filepath);
+            end
+
             if self.verbose
                 fprintf('Parsing protocol: %s\n', filepath);
             end
-            
-            % Check file exists
-            if ~isfile(filepath)
-                error('ProtocolParser:FileNotFound', ...
-                      'Protocol file not found: %s', filepath);
-            end
-            
+
             try
-                % Read YAML file using yamlread found in yamlSupport
                 rawData = yamlread(filepath);
-                
+
                 if self.verbose
-                    fprintf('  YAML file loaded successfully\n');
+                    fprintf('  YAML loaded successfully\n');
                 end
-                
-                % Validate protocol structure
+
+                % Check version before anything else so the error is clear
+                self.checkVersion(rawData);
+
+                % Validate structure and content
                 self.validateProtocol(rawData);
-                
-                % Extract all sections into structured format
+
+                % Extract and build protocol struct
                 protocol = self.extractProtocol(rawData);
-                
-                % Store filepath in protocol for reference
                 protocol.filepath = filepath;
-                
+
                 if self.verbose
-                    fprintf('  Protocol parsed successfully\n');
                     self.printProtocolSummary(protocol);
                 end
-                
+
             catch ME
-                % Provide context for parsing errors
-                if strcmp(ME.identifier, 'ProtocolParser:ValidationError')
+                % Re-throw validation errors unchanged; wrap everything else
+                if strcmp(ME.identifier, 'ProtocolParser:ValidationError') || ...
+                   strcmp(ME.identifier, 'ProtocolParser:FileNotFound')
                     rethrow(ME);
                 else
                     error('ProtocolParser:ParseError', ...
-                          'Failed to parse protocol file: %s\nError: %s', ...
-                          filepath, ME.message);
+                        'Failed to parse protocol file: %s\nError: %s', ...
+                        filepath, ME.message);
                 end
             end
         end
-    
 
-        %% Getters to be used by other classes
-    
-        function output = get_supported_versions(self)
-            output = self.SUPPORTED_VERSIONS;
+        function v = get_supported_version(~)
+            % Return the single protocol version this parser accepts
+            v = ProtocolParser.SUPPORTED_VERSION;
         end
 
-
     end
-    
+
+    % =========================================================================
+    %  PRIVATE — VALIDATION
+    % =========================================================================
     methods (Access = private)
 
-        function validateProtocol(self, data)
-            % Check that protocol has required structure
-            %
-            % Input Arguments:
-            %   data - Raw parsed YAML data
+        function checkVersion(self, data)
+            % Verify version field exists and equals SUPPORTED_VERSION
 
-            % Check version field exists
             if ~isfield(data, 'version')
                 self.throwValidationError('Protocol missing required "version" field');
             end
-
-            % Check version is supported
-            if ~ismember(data.version, self.SUPPORTED_VERSIONS)
-                self.throwValidationError(['Unsupported protocol version: %d\n' ...
-                    'Only version 2 is supported.\n' ...
-                    'If this is a version 1 protocol, migrate it by replacing\n' ...
-                    '"arena_info" with a rig reference: rig: "path/to/rig.yaml"'], ...
-                    data.version);
+            if data.version ~= self.SUPPORTED_VERSION
+                self.throwValidationError( ...
+                    ['Unsupported protocol version: %d\n' ...
+                     'This parser accepts version %d only.\n' ...
+                     'For version 2 protocols, use the version 2 branch.'], ...
+                    data.version, self.SUPPORTED_VERSION);
             end
+        end
 
-            % Check all required top-level sections exist
+        function validateProtocol(self, data)
+            % Top-level validation — calls section-specific validators in order
+
+            % Required top-level sections
             for i = 1:length(self.REQUIRED_YAML_SECTIONS)
                 section = self.REQUIRED_YAML_SECTIONS{i};
                 if ~isfield(data, section)
-                    self.throwValidationError('Protocol missing required "%s" section', section);
+                    self.throwValidationError( ...
+                        'Protocol missing required "%s" section', section);
                 end
             end
 
-            % Validate experiment_info
             self.validateExperimentInfo(data.experiment_info);
-
-            % Validate rig reference (resolves rig and arena files)
             self.validateRigReference(data.rig);
 
-            % Validate experiment_structure
-            self.validateExperimentStructure(data.experiment_structure);
-
-            % Validate plugins (if present)
             if isfield(data, 'plugins')
                 self.validatePlugins(data.plugins);
             end
 
-            % Validate trial sections
-            self.validateTrialSections(data);
+            % Parse variables early; their names are needed to validate
+            % condition commands (string durations must match a variable name)
+            variables = self.parseVariables(data);
+            if isfield(data, 'variables') && ~isempty(data.variables)
+                self.validateVariables(data.variables);
+            end
+            variableNames = fieldnames(variables);
+
+            % Validate conditions library; returns the list of defined names
+            conditionNames = self.validateConditionsLibrary( ...
+                data.conditions, variableNames);
+
+            % Validate experiment sequence against the known condition names
+            self.validateExperimentSequence(data.experiment, conditionNames);
 
             if self.verbose
-                fprintf('  Protocol validation passed\n');
+                fprintf('  Validation passed\n');
             end
         end
-        
-        function validateExperimentInfo(self, experimentInfo)
-            % Validate experiment_info section
-            
-            if ~isfield(experimentInfo, 'name')
-                self.throwValidationError('experiment_info missing required "name" field');
+
+        % --- experiment_info -------------------------------------------------
+
+        function validateExperimentInfo(self, info)
+            if ~isfield(info, 'name')
+                self.throwValidationError( ...
+                    'experiment_info missing required "name" field');
             end
-            
-            if ~ischar(experimentInfo.name) && ~isstring(experimentInfo.name)
+            if ~ischar(info.name) && ~isstring(info.name)
                 self.throwValidationError('experiment_info.name must be a string');
             end
         end
-        
-        function validateSerialPlugin(self, plugin)
-            % Validate serial_device plugin
 
-            requiredFields = {'baudrate', 'commands'};
-            for i = 1:length(requiredFields)
-                field = requiredFields{i};
-                if ~isfield(plugin, field)
-                    self.throwValidationError('Serial plugin "%s" missing required "%s" field', ...
-                                             plugin.name, field);
+        % --- variables -------------------------------------------------------
+
+        function validateVariables(self, variables)
+            % Each variable must be a scalar (number or string).
+            % Lists and nested mappings are not allowed because they would
+            % produce unpredictable results when substituted into command fields.
+
+            if ~isstruct(variables)
+                self.throwValidationError( ...
+                    '"variables" must be a YAML mapping (key: value pairs)');
+            end
+
+            fields = fieldnames(variables);
+            for i = 1:length(fields)
+                name = fields{i};
+                val  = variables.(name);
+                if iscell(val) || (isstruct(val) && ~isscalar(val))
+                    self.throwValidationError( ...
+                        ['Variable "%s" must be a scalar value (number or string).\n' ...
+                         'Lists and nested mappings are not supported as variable values.'], ...
+                        name);
+                end
+            end
+        end
+
+        % --- rig reference ---------------------------------------------------
+
+        function validateRigReference(self, rigRef)
+            if ~ischar(rigRef) && ~isstring(rigRef)
+                self.throwValidationError( ...
+                    'rig must be a file path string, e.g. rig: "configs/rigs/my_rig.yaml"');
+            end
+
+            rigPath = self.resolveRelativePath(rigRef);
+            if ~isfile(rigPath)
+                self.throwValidationError('Rig config file not found: %s', rigPath);
+            end
+
+            try
+                rigConfig = load_rig_config(rigPath);
+            catch ME
+                self.throwValidationError( ...
+                    'Failed to load rig config: %s\nError: %s', rigPath, ME.message);
+            end
+
+            if ~isfield(rigConfig, 'arena')
+                self.throwValidationError('Rig config missing arena configuration');
+            end
+
+            arena = rigConfig.arena;
+            for i = 1:length(self.REQUIRED_ARENA_FIELDS)
+                field = self.REQUIRED_ARENA_FIELDS{i};
+                if ~isfield(arena, field)
+                    self.throwValidationError( ...
+                        'Rig arena missing required "%s" field', field);
                 end
             end
 
-            % Must have at least one port field (generic, Windows, or POSIX)
+            if strcmpi(arena.generation, 'G5')
+                self.throwValidationError( ...
+                    'G5 is deprecated. Use G6 for 20x20 pixel panels.');
+            end
+            if ~ismember(arena.generation, self.SUPPORTED_GENERATIONS)
+                self.throwValidationError( ...
+                    'arena.generation must be one of: %s', ...
+                    strjoin(self.SUPPORTED_GENERATIONS, ', '));
+            end
+
+            if self.verbose
+                fprintf('  Rig: %s  |  Arena: %s (%dx%d)\n', ...
+                    rigConfig.name, arena.generation, ...
+                    arena.num_rows, arena.num_cols);
+            end
+        end
+
+        % --- plugins ---------------------------------------------------------
+
+        function validatePlugins(self, plugins)
+            plugins = self.normalizeToCell(plugins);
+
+            for i = 1:length(plugins)
+                plugin = plugins{i};
+
+                if ~isfield(plugin, 'name')
+                    self.throwValidationError( ...
+                        'Plugin %d missing required "name" field', i);
+                end
+                if ~isfield(plugin, 'type')
+                    self.throwValidationError( ...
+                        'Plugin "%s" missing required "type" field', plugin.name);
+                end
+                if ~ismember(plugin.type, self.SUPPORTED_PLUGIN_TYPES)
+                    self.throwValidationError( ...
+                        'Plugin "%s" has unsupported type "%s". Must be one of: %s', ...
+                        plugin.name, plugin.type, ...
+                        strjoin(self.SUPPORTED_PLUGIN_TYPES, ', '));
+                end
+
+                switch plugin.type
+                    case 'serial_device', self.validateSerialPlugin(plugin);
+                    case 'class',         self.validateClassPlugin(plugin);
+                    case 'script',        self.validateScriptPlugin(plugin);
+                end
+            end
+        end
+
+        function validateSerialPlugin(self, plugin)
+            requiredFields = {'baudrate', 'commands'};
+            for i = 1:length(requiredFields)
+                if ~isfield(plugin, requiredFields{i})
+                    self.throwValidationError( ...
+                        'Serial plugin "%s" missing required "%s" field', ...
+                        plugin.name, requiredFields{i});
+                end
+            end
             if ~isfield(plugin, 'port') && ...
                ~isfield(plugin, 'port_windows') && ...
                ~isfield(plugin, 'port_posix')
-                self.throwValidationError(['Serial plugin "%s" must define at least one port field ' ...
-                    '(port, port_windows, or port_posix)'], plugin.name);
+                self.throwValidationError( ...
+                    ['Serial plugin "%s" must define at least one port field ' ...
+                     '(port, port_windows, or port_posix)'], plugin.name);
             end
         end
 
-        function validateRigReference(self, rigRef)
-            % Validate rig reference (Version 2 format)
-            %
-            % The rig field should be a path to a rig YAML file which
-            % contains the arena configuration and controller settings.
-
-            if ~ischar(rigRef) && ~isstring(rigRef)
-                self.throwValidationError(['rig field must be a file path string.\n' ...
-                    'Example: rig: "configs/rigs/my_rig.yaml"']);
-            end
-
-            % Resolve path relative to protocol file
-            rig_path = self.resolveRelativePath(rigRef);
-
-            if ~isfile(rig_path)
-                self.throwValidationError('Rig config file not found: %s', rig_path);
-            end
-
-            % Load and validate the rig config
-            try
-                rig_config = load_rig_config(rig_path);
-
-                % Validate that rig has resolved arena
-                if ~isfield(rig_config, 'arena')
-                    self.throwValidationError('Rig config missing arena configuration');
-                end
-
-                % Validate arena fields
-                arena = rig_config.arena;
-                for i = 1:length(self.REQUIRED_ARENA_FIELDS)
-                    field = self.REQUIRED_ARENA_FIELDS{i};
-                    if ~isfield(arena, field)
-                        self.throwValidationError('Rig arena missing required "%s" field', field);
-                    end
-                end
-
-                % Validate generation
-                if strcmpi(arena.generation, 'G5')
-                    self.throwValidationError('G5 is deprecated. Use G6 for 20x20 pixel panels.');
-                end
-                if ~ismember(arena.generation, self.SUPPORTED_GENERATIONS)
-                    self.throwValidationError('arena.generation must be one of: %s', ...
-                                             strjoin(self.SUPPORTED_GENERATIONS, ', '));
-                end
-
-                if self.verbose
-                    fprintf('  Rig config loaded: %s\n', rig_config.name);
-                    fprintf('  Arena: %s (%dx%d)\n', arena.generation, ...
-                            arena.num_rows, arena.num_cols);
-                end
-
-            catch ME
-                self.throwValidationError('Failed to load rig config: %s\nError: %s', ...
-                                         rig_path, ME.message);
-            end
-        end
-
-        function resolved = resolveRelativePath(self, rel_path)
-            % Resolve a relative path from the protocol file location
-
-            [protocol_dir, ~, ~] = fileparts(self.filepath);
-
-            % Handle absolute paths
-            if (ispc() && length(rel_path) >= 2 && rel_path(2) == ':') || ...
-               (~ispc() && startsWith(rel_path, '/'))
-                resolved = rel_path;
-            else
-                resolved = fullfile(protocol_dir, rel_path);
-            end
-
-            % Normalize path
-            resolved = char(java.io.File(resolved).getCanonicalPath());
-        end
-        
-        function validateExperimentStructure(self, experimentStructure)
-            % Validate experiment_structure section
-            
-            if ~isfield(experimentStructure, 'repetitions')
-                self.throwValidationError('experiment_structure missing required "repetitions" field');
-            end
-            
-            if ~isnumeric(experimentStructure.repetitions) || ...
-               experimentStructure.repetitions < 1
-                self.throwValidationError('experiment_structure.repetitions must be a positive integer');
-            end
-            
-            % Validate randomization (if present)
-            if isfield(experimentStructure, 'randomization')
-                rand = experimentStructure.randomization;
-                
-                if isfield(rand, 'enabled') && rand.enabled
-                    if ~isfield(rand, 'method')
-                        self.throwValidationError('randomization.method required when randomization enabled');
-                    end
-                    
-                    if ~ismember(rand.method, self.SUPPORTED_RANDOMIZATION_METHODS)
-                        self.throwValidationError('randomization.method not supported');
-                    end
-                end
-            end
-        end
-        
-        function validatePlugins(self, plugins)
-            % Validate plugins section
-            
-            if isstruct(plugins) && ~iscell(plugins)
-                plugins = arrayfun(@(s) s, plugins, 'UniformOutput', false);
-            end
-            
-            if ~iscell(plugins)
-                self.throwValidationError('plugins must be a list (cell array)');
-            end
-            
-            for i = 1:length(plugins)
-                plugin = plugins{i};
-                
-                % Check required fields
-                if ~isfield(plugin, 'name')
-                    self.throwValidationError('Plugin %d missing required "name" field', i);
-                end
-                
-                if ~isfield(plugin, 'type')
-                    self.throwValidationError('Plugin "%s" missing required "type" field', ...
-                                             plugin.name);
-                end
-                
-                % Validate plugin type
-                if ~ismember(plugin.type, self.SUPPORTED_PLUGIN_TYPES)
-                    self.throwValidationError('Plugin "%s" has invalid type "%s" (must be: %s)', ...
-                                             plugin.name, plugin.type, ...
-                                             strjoin(self.SUPPORTED_PLUGIN_TYPES, ', '));
-                end
-                
-                % Type-specific validation
-                switch plugin.type
-                    case 'serial_device'
-                        self.validateSerialPlugin(plugin);
-                    case 'class'
-                        self.validateClassPlugin(plugin);
-                    case 'script'
-                        self.validateScriptPlugin(plugin);
-                end
-            end
-        end
-        
         function validateClassPlugin(self, plugin)
-            % Validate class plugin
-            
-            % Must have matlab and/or python implementation
             if ~isfield(plugin, 'matlab') && ~isfield(plugin, 'python')
-                self.throwValidationError('Class plugin "%s" must define matlab and/or python implementation', ...
-                                         plugin.name);
+                self.throwValidationError( ...
+                    'Class plugin "%s" must define a matlab or python implementation', ...
+                    plugin.name);
             end
-            
-            % Validate matlab implementation
-            if isfield(plugin, 'matlab')
-                if ~isfield(plugin.matlab, 'class')
-                    self.throwValidationError('Class plugin "%s" matlab implementation missing "class" field', ...
-                                             plugin.name);
+            if isfield(plugin, 'matlab') && ~isfield(plugin.matlab, 'class')
+                self.throwValidationError( ...
+                    'Class plugin "%s" matlab section missing required "class" field', ...
+                    plugin.name);
+            end
+            if isfield(plugin, 'config') && isfield(plugin.config, 'frame_rate')
+                if ~isnumeric(plugin.config.frame_rate) || plugin.config.frame_rate <= 0
+                    self.throwValidationError( ...
+                        'Class plugin "%s" frame_rate must be a positive number', ...
+                        plugin.name);
                 end
             end
-            
-            % Validate python implementation
-            if isfield(plugin, 'python')
-                pythonRequired = {'module', 'class'};
-                for i = 1:length(pythonRequired)
-                    field = pythonRequired{i};
-                    if ~isfield(plugin.python, field)
-                        self.throwValidationError('Class plugin "%s" python implementation missing "%s" field', ...
-                                                 plugin.name, field);
+        end
+
+        function validateScriptPlugin(self, plugin)
+            if ~isfield(plugin, 'script_path')
+                self.throwValidationError( ...
+                    'Script plugin "%s" missing required "script_path" field', plugin.name);
+            end
+        end
+
+        % --- conditions library ----------------------------------------------
+
+        function conditionNames = validateConditionsLibrary(self, conditions, variableNames)
+            % Validate each condition and return the list of defined names.
+            % The returned cell array is used by validateExperimentSequence
+            % to confirm that every reference resolves to a real condition.
+
+            conditions = self.normalizeToCell(conditions);
+
+            if isempty(conditions)
+                self.throwValidationError( ...
+                    '"conditions" must contain at least one condition');
+            end
+
+            conditionNames = {};
+            for i = 1:length(conditions)
+                cond = conditions{i};
+
+                if ~isfield(cond, 'name')
+                    self.throwValidationError( ...
+                        'Condition %d missing required "name" field', i);
+                end
+
+                condName = char(cond.name);
+
+                if ismember(condName, conditionNames)
+                    self.throwValidationError( ...
+                        'Duplicate condition name: "%s"', condName);
+                end
+                conditionNames{end+1} = condName; %#ok<AGROW>
+
+                if ~isfield(cond, 'commands')
+                    self.throwValidationError( ...
+                        'Condition "%s" missing required "commands" field', condName);
+                end
+
+                commands = self.normalizeToCell(cond.commands);
+                if isempty(commands)
+                    self.throwValidationError( ...
+                        'Condition "%s" must contain at least one command', condName);
+                end
+
+                self.validateCommands(commands, ...
+                    sprintf('Condition "%s"', condName), variableNames);
+            end
+        end
+
+        % --- experiment sequence ---------------------------------------------
+
+        function validateExperimentSequence(self, experiment, conditionNames)
+            experiment = self.normalizeToCell(experiment);
+
+            if isempty(experiment)
+                self.throwValidationError( ...
+                    '"experiment" section must contain at least one entry');
+            end
+
+            for i = 1:length(experiment)
+                entry = experiment{i};
+
+                if ischar(entry) || isstring(entry)
+                    % Standalone condition reference
+                    if ~ismember(char(entry), conditionNames)
+                        self.throwValidationError( ...
+                            'experiment entry %d references unknown condition: "%s"', ...
+                            i, entry);
                     end
+
+                elseif isstruct(entry)
+                    % Block definition
+                    self.validateBlockDefinition(entry, conditionNames, i);
+
+                else
+                    self.throwValidationError( ...
+                        ['experiment entry %d must be either a condition name (string) ' ...
+                         'or a block definition (YAML mapping)'], i);
+                end
+            end
+        end
+
+        function validateBlockDefinition(self, block, conditionNames, blockIndex)
+            % A block must have a trials list; all other fields are optional
+
+            if ~isfield(block, 'trials')
+                self.throwValidationError( ...
+                    'experiment block %d missing required "trials" field', blockIndex);
+            end
+
+            trials = self.normalizeToCell(block.trials);
+            if isempty(trials)
+                self.throwValidationError( ...
+                    'experiment block %d "trials" list must not be empty', blockIndex);
+            end
+
+            for j = 1:length(trials)
+                trialName = char(trials{j});
+                if ~ismember(trialName, conditionNames)
+                    self.throwValidationError( ...
+                        'experiment block %d references unknown condition: "%s"', ...
+                        blockIndex, trialName);
                 end
             end
 
-            if isfield(plugin, 'config') && isfield(plugin.config, 'frame_rate')
-                if plugin.config.frame_rate <= 0
-                    self.throwValidationError('Class plugin "%s" frame rate %g is invalid.', ...
-                        plugin.name, plugin.config.frame_rate);
+            if isfield(block, 'repetitions')
+                reps = block.repetitions;
+                if ~isnumeric(reps) || reps < 1 || floor(reps) ~= reps
+                    self.throwValidationError( ...
+                        'experiment block %d "repetitions" must be a positive integer', ...
+                        blockIndex);
+                end
+            end
+
+            if isfield(block, 'intertrial')
+                itName = char(block.intertrial);
+                if ~ismember(itName, conditionNames)
+                    self.throwValidationError( ...
+                        ['experiment block %d "intertrial" references unknown ' ...
+                         'condition: "%s"'], blockIndex, itName);
                 end
             end
         end
-        
-        function validateScriptPlugin(self, plugin)
-            % Validate script plugin
-            
-            if ~isfield(plugin, 'script_path')
-                self.throwValidationError('Script plugin "%s" missing required "script_path" field', ...
-                                         plugin.name);
-            end
-        end
-        
-        function validateTrialSections(self, data)
-            % Validate pretrial, block, intertrial, posttrial
-            
-            % Block is required and must have conditions
-            if ~isfield(data, 'block')
-                self.throwValidationError('Protocol missing required "block" section');
-            end
-            
-            if ~isfield(data.block, 'conditions')
-                self.throwValidationError('block section missing required "conditions" field');
-            end
-            
-            if ~isstruct(data.block.conditions) || isempty(data.block.conditions)
-                self.throwValidationError('block.conditions must be a non-empty list');
-            end
-            
-            % Validate each condition
-            for i = 1:length(data.block.conditions)
-                condition = data.block.conditions(i);
-                
-                if ~isfield(condition, 'id')
-                    self.throwValidationError('Block condition %d missing required "id" field', i);
-                end
-                
-                if ~isfield(condition, 'commands')
-                    self.throwValidationError('Block condition "%s" missing required "commands" field', ...
-                                             condition.id);
-                end
-                
-                if isstruct(condition.commands) && ~iscell(condition.commands)
-                    condition.commands = arrayfun(@(s) s, condition.commands, 'UniformOutput', false);
-                end
-                if ~iscell(condition.commands)
-                    self.throwValidationError('Block condition "%s" commands must be a list', ...
-                                             condition.id);
-                end
-                
-                % Validate commands in condition
-                self.validateCommands(condition.commands, ...
-                                     sprintf('Block condition "%s"', condition.id));
-            end
-            
-            % Validate optional sections (if included)
-            optionalSections = {'pretrial', 'intertrial', 'posttrial'};
-            for i = 1:length(optionalSections)
-                section = optionalSections{i};
-                if isfield(data, section)
-                    self.validateOptionalSection(data.(section), section);
-                end
-            end
-        end
-        
-        function validateOptionalSection(self, section, sectionName)
-            % Validate pretrial/intertrial/posttrial
-            
-            if ~isfield(section, 'include')
-                self.throwValidationError('%s section missing required "include" field', sectionName);
-            end
-            
-            if ~islogical(section.include) && ~isnumeric(section.include)
-                self.throwValidationError('%s.include must be true or false', sectionName);
-            end
-            
-            % If included, must have commands
-            if section.include
-                if ~isfield(section, 'commands')
-                    self.throwValidationError('%s section has include=true but missing "commands" field', ...
-                                             sectionName);
-                end
-                
-                if isstruct(section.commands) && ~iscell(section.commands)
-                    section.commands = arrayfun(@(s) s, section.commands, 'UniformOutput', false);
-                end
-                if ~iscell(section.commands)
-                    self.throwValidationError('%s.commands must be a list', sectionName);
-                end
-                
-                % Validate commands
-                self.validateCommands(section.commands, sectionName);
-            end
-        end
-        
-        function validateCommands(self, commands, context)
-            % Validate a list of commands
+
+        % --- commands --------------------------------------------------------
+
+        function validateCommands(self, commands, context, variableNames)
+            % Validate a cell array of command structs.
             %
-            % Input Arguments:
-            %   commands - Cell array of command structs
-            %   context - String describing where these commands are from
-            
+            % variableNames is a cell array of known variable name strings.
+            % It is used only to validate duration fields: a duration must
+            % be either a non-negative number or a known variable name.
+            % All other string fields are allowed to be literal strings or
+            % variable names — the distinction is resolved at parse time.
+
             for i = 1:length(commands)
-                command = commands{i};
-                
-                % Every command must have a type
-                if ~isfield(command, 'type')
-                    self.throwValidationError('%s command %d missing required "type" field', ...
-                                             context, i);
+                cmd = commands{i};
+
+                if ~isfield(cmd, 'type')
+                    self.throwValidationError( ...
+                        '%s, command %d: missing required "type" field', context, i);
                 end
-                
-                % Validate based on type
-                switch command.type
+
+                switch cmd.type
+
                     case 'controller'
-                        self.validateControllerCommand(command, context, i);
+                        if ~isfield(cmd, 'command_name')
+                            self.throwValidationError( ...
+                                '%s, command %d: controller command missing "command_name"', ...
+                                context, i);
+                        end
+                        if isfield(cmd, 'duration')
+                            self.validateDurationField(cmd.duration, variableNames, ...
+                                sprintf('%s, command %d duration', context, i));
+                        end
+
                     case 'wait'
-                        self.validateWaitCommand(command, context, i);
+                        if ~isfield(cmd, 'duration')
+                            self.throwValidationError( ...
+                                '%s, command %d: wait command missing "duration"', context, i);
+                        end
+                        self.validateDurationField(cmd.duration, variableNames, ...
+                            sprintf('%s, command %d duration', context, i));
+
                     case 'plugin'
-                        self.validatePluginCommand(command, context, i);
+                        if ~isfield(cmd, 'plugin_name')
+                            self.throwValidationError( ...
+                                '%s, command %d: plugin command missing "plugin_name"', ...
+                                context, i);
+                        end
+
                     otherwise
-                        self.throwValidationError('%s command %d has invalid type "%s"', ...
-                                                 context, i, command.type);
+                        self.throwValidationError( ...
+                            '%s, command %d: invalid type "%s"', context, i, cmd.type);
                 end
             end
         end
-        
-        function validateControllerCommand(self, command, context, index)
-            % Validate controller command
-            
-            if ~isfield(command, 'command_name')
-                self.throwValidationError('%s controller command %d missing "command_name" field', ...
-                                         context, index);
+
+        function validateDurationField(self, value, variableNames, context)
+            % A duration field must be a non-negative number, or a string
+            % that exactly matches a known variable name (which is expected
+            % to resolve to a number at parse time).
+
+            if isnumeric(value) && isscalar(value) && value >= 0
+                return;
             end
-            
-            % Note: We don't validate command-specific parameters here
-            % That will be done in CommandExecutor during execution
+            if (ischar(value) || isstring(value)) && ...
+                    ismember(char(value), variableNames)
+                return;
+            end
+            if ischar(value) || isstring(value)
+                self.throwValidationError( ...
+                    ['%s: "%s" is not a known variable name.\n' ...
+                     'Duration must be a non-negative number or a variable ' ...
+                     'name defined in the "variables" section.'], context, value);
+            end
+            self.throwValidationError( ...
+                '%s: must be a non-negative number or a variable name', context);
         end
-        
-        function validateWaitCommand(self, command, context, index)
-            % Validate wait command
-            
-            if ~isfield(command, 'duration')
-                self.throwValidationError('%s wait command %d missing "duration" field', ...
-                                         context, index);
-            end
-            
-            if ~isnumeric(command.duration) || command.duration < 0
-                self.throwValidationError('%s wait command %d duration must be non-negative number', ...
-                                         context, index);
-            end
-        end
-        
-        function validatePluginCommand(self, command, context, index)
-            % Validate plugin command
-            
-            if ~isfield(command, 'plugin_name')
-                self.throwValidationError('%s plugin command %d missing "plugin_name" field', ...
-                                         context, index);
-            end
-            
-            % Note: command_name field is validated later by CommandExecutor
-            % based on plugin type (some plugins like scripts don't need it)
-        end
-        
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — EXTRACTION
+    % =========================================================================
+    methods (Access = private)
+
         function protocol = extractProtocol(self, data)
-            % Extract all protocol sections into structured format
-            %
-            % Input Arguments:
-            %   data - Raw parsed YAML data
-            %
-            % Returns:
-            %   protocol - Struct with organized protocol data
+            % Build the protocol struct from validated raw YAML data
 
             protocol = struct();
-
-            % Store version
-            protocol.version = data.version;
-
-            % Extract experiment metadata
+            protocol.version       = data.version;
             protocol.experimentInfo = data.experiment_info;
 
-            % Load rig config (resolves arena config inside)
-            rig_path = self.resolveRelativePath(data.rig);
-            rig_config = load_rig_config(rig_path);
+            % --- Rig / arena / controller ------------------------------------
+            rigPath = self.resolveRelativePath(data.rig);
+            rigConfig = load_rig_config(rigPath);
 
-            protocol.rigConfig     = rig_config;
-            protocol.arenaConfig   = rig_config.arena;
-            protocol.derivedConfig = rig_config.derived;
-            protocol.rigFilepath   = rig_path;
-            protocol.arenaFilepath = rig_config.arena_file;
+            protocol.rigConfig        = rigConfig;
+            protocol.arenaConfig      = rigConfig.arena;
+            protocol.derivedConfig    = rigConfig.derived;
+            protocol.rigFilepath      = rigPath;
+            protocol.arenaFilepath    = rigConfig.arena_file;
 
-            % Convenience shortcut so callers don't have to dig into rigConfig
-            if isfield(rig_config, 'controller')
-                protocol.controllerConfig = rig_config.controller;
+            if isfield(rigConfig, 'controller')
+                protocol.controllerConfig = rigConfig.controller;
             else
                 protocol.controllerConfig = struct('host', '', 'port', 62222);
             end
 
             if self.verbose
-                fprintf('  Loaded rig: %s\n', rig_config.name);
-                fprintf('  Controller: %s:%d\n', protocol.controllerConfig.host, ...
-                        protocol.controllerConfig.port);
+                fprintf('  Controller: %s:%d\n', ...
+                    protocol.controllerConfig.host, ...
+                    protocol.controllerConfig.port);
             end
 
-            % Extract experiment structure
-            protocol.experimentStructure = data.experiment_structure;
-
-            % Extract plugins (if present) and merge rig-level hardware config
+            % --- Plugins -----------------------------------------------------
             if isfield(data, 'plugins')
-                exp_plugins = data.plugins;
-                % Normalize to cell array (yamlread may return struct array)
-                if isstruct(exp_plugins) && ~iscell(exp_plugins)
-                    exp_plugins = arrayfun(@(s) s, exp_plugins, 'UniformOutput', false);
-                end
-                % Merge rig plugin hardware config into each plugin definition
-                exp_plugins = self.mergeRigPluginConfig(exp_plugins, rig_config.plugins);
-                protocol.plugins = exp_plugins;
+                expPlugins = self.normalizeToCell(data.plugins);
+                expPlugins = self.mergeRigPluginConfig(expPlugins, rigConfig.plugins);
+                protocol.plugins = expPlugins;
                 if self.verbose
-                    fprintf('  Found %d plugin definitions\n', length(protocol.plugins));
+                    fprintf('  Plugins: %d defined\n', length(protocol.plugins));
                 end
             else
-                protocol.plugins = [];
+                protocol.plugins = {};
                 if self.verbose
-                    fprintf('  No plugins defined\n');
+                    fprintf('  Plugins: none\n');
                 end
             end
 
-            % Extract pretrial commands
-            protocol.pretrialCommands = self.extractOptionalSection(data, 'pretrial');
-            if isstruct(protocol.pretrialCommands) && ~iscell(protocol.pretrialCommands)
-                protocol.pretrialCommands = arrayfun(@(s) s, protocol.pretrialCommands, 'UniformOutput', false);
-            end
-            if self.verbose
-                if isempty(protocol.pretrialCommands)
-                    fprintf('  Pretrial: skipped\n');
-                else
-                    fprintf('  Pretrial: %d commands\n', length(protocol.pretrialCommands));
+            % --- Variables ---------------------------------------------------
+            variables = self.parseVariables(data);
+            protocol.variables = variables;
+
+            if self.verbose && ~isempty(fieldnames(variables))
+                varNames = fieldnames(variables);
+                fprintf('  Variables (%d):', length(varNames));
+                for i = 1:length(varNames)
+                    val = variables.(varNames{i});
+                    if isnumeric(val)
+                        fprintf('  %s=%g', varNames{i}, val);
+                    else
+                        fprintf('  %s="%s"', varNames{i}, val);
+                    end
                 end
+                fprintf('\n');
             end
 
-            % Extract block conditions
-            protocol.blockConditions = data.block.conditions;
-            for cond = 1:length(protocol.blockConditions)
-                if isstruct(protocol.blockConditions(cond).commands) && ...
-                        ~iscell(protocol.blockConditions(cond).commands)
-                    protocol.blockConditions(cond).commands = arrayfun(@(s) s, ...
-                        protocol.blockConditions(cond).commands, 'UniformOutput', false);
-                end
-            end
-            if self.verbose
-                fprintf('  Block: %d conditions\n', length(protocol.blockConditions));
-            end
+            % --- Conditions → commands map (variables resolved) --------------
+            conditionsMap = self.buildConditionsMap(data.conditions, variables);
 
-            % Extract intertrial commands
-            protocol.intertrialCommands = self.extractOptionalSection(data, 'intertrial');
-            if isstruct(protocol.intertrialCommands) && ~iscell(protocol.intertrialCommands)
-                protocol.intertrialCommands = arrayfun(@(s) s, protocol.intertrialCommands, 'UniformOutput', false);
-            end
-            if self.verbose
-                if isempty(protocol.intertrialCommands)
-                    fprintf('  Intertrial: skipped\n');
-                else
-                    fprintf('  Intertrial: %d commands\n', length(protocol.intertrialCommands));
-                end
-            end
+            % --- Experiment → flat command sequence --------------------------
+            experiment = self.normalizeToCell(data.experiment);
+            protocol.commandSequence = self.expandExperiment(experiment, conditionsMap);
 
-            % Extract posttrial commands
-            protocol.posttrialCommands = self.extractOptionalSection(data, 'posttrial');
-            if isstruct(protocol.posttrialCommands) && ~iscell(protocol.posttrialCommands)
-                protocol.posttrialCommands = arrayfun(@(s) s, protocol.posttrialCommands, 'UniformOutput', false);
-            end
             if self.verbose
-                if isempty(protocol.posttrialCommands)
-                    fprintf('  Posttrial: skipped\n');
-                else
-                    fprintf('  Posttrial: %d commands\n', length(protocol.posttrialCommands));
+                fprintf('  Command sequence: %d steps\n', ...
+                    length(protocol.commandSequence));
+            end
+        end
+
+        function variables = parseVariables(self, data)
+            % Return the variables struct, or an empty struct if absent
+
+            if isfield(data, 'variables') && isstruct(data.variables)
+                variables = data.variables;
+            else
+                variables = struct();
+            end
+        end
+
+        function conditionsMap = buildConditionsMap(self, conditions, variables)
+            % Build a containers.Map of conditionName -> commands cell array.
+            % All variable references within commands are resolved before storing.
+
+            conditions    = self.normalizeToCell(conditions);
+            conditionsMap = containers.Map();
+
+            for i = 1:length(conditions)
+                cond     = conditions{i};
+                name     = char(cond.name);
+                commands = self.normalizeToCell(cond.commands);
+
+                % Resolve every variable reference in this condition's commands.
+                % The recursive resolver walks the full struct/cell tree, so
+                % params sub-structs and nested fields are all covered.
+                commands = self.resolveVariablesInCell(commands, variables);
+
+                conditionsMap(name) = commands;
+            end
+        end
+
+        function commandSequence = expandExperiment(self, experiment, conditionsMap)
+            % Expand the experiment list into a flat ordered cell array of
+            % {id, commands} structs.  Standalone condition references become
+            % one step each.  Block definitions are expanded into all their
+            % trials (with repetitions and optional randomization) with
+            % intertrials inserted between consecutive trials.
+
+            commandSequence = {};
+
+            for i = 1:length(experiment)
+                entry = experiment{i};
+
+                if ischar(entry) || isstring(entry)
+                    % Standalone condition — one step
+                    name     = char(entry);
+                    commands = conditionsMap(name);
+                    commandSequence{end+1} = struct('id', name, 'commands', {commands}); %#ok<AGROW>
+
+                elseif isstruct(entry)
+                    % Block — expand and append all generated steps
+                    blockSteps  = self.expandBlock(entry, conditionsMap);
+                    commandSequence = [commandSequence, blockSteps]; %#ok<AGROW>
                 end
             end
         end
-        
-        function exp_plugins = mergeRigPluginConfig(self, exp_plugins, rig_plugins)
-            % Merge rig-level plugin hardware config into experiment plugin definitions
-            %
-            % The rig YAML stores hardware-specific settings (IP, port, executable
-            % paths, etc.) keyed by plugin name. The experiment YAML stores
-            % behavioural/class definitions. This method combines them so that each
-            % plugin definition passed to PluginManager is fully populated.
-            %
-            % Merge rules:
-            %   - Rig fields are written into plugin.config
-            %   - If the experiment YAML already has a matching field in plugin.config,
-            %     the experiment value is kept (experiment wins on conflict)
-            %   - The 'enabled' field from the rig is skipped (rig-level metadata only)
-            %
-            % Input Arguments:
-            %   exp_plugins - Cell array of plugin structs from experiment YAML
-            %   rig_plugins - Struct of plugin hardware configs from rig YAML,
-            %                 keyed by plugin name (e.g., rig_plugins.camera)
-            %
-            % Returns:
-            %   exp_plugins - Same cell array with .config fields augmented
 
-            if isempty(rig_plugins) || ~isstruct(rig_plugins)
+        function entries = expandBlock(self, blockDef, conditionsMap)
+            % Expand a block definition into an ordered cell array of steps.
+            %
+            % Intertrial steps are inserted between every consecutive pair of
+            % trials, including across repetition boundaries, but not after
+            % the final trial in the block.
+
+            trials = self.normalizeToCell(blockDef.trials);
+
+            reps = 1;
+            if isfield(blockDef, 'repetitions')
+                reps = blockDef.repetitions;
+            end
+
+            doRandomize = false;
+            if isfield(blockDef, 'randomize')
+                doRandomize = logical(blockDef.randomize);
+            end
+
+            hasIntertrial = isfield(blockDef, 'intertrial') && ...
+                            ~isempty(blockDef.intertrial);
+            if hasIntertrial
+                intertrialName     = char(blockDef.intertrial);
+                intertrialCommands = conditionsMap(intertrialName);
+            end
+
+            blockLabel = '';
+            if isfield(blockDef, 'name')
+                blockLabel = char(blockDef.name);
+            end
+
+            % Build the complete ordered trial list across all repetitions
+            allTrials = {};
+            for rep = 1:reps
+                if doRandomize
+                    order     = randperm(length(trials));
+                    repTrials = trials(order);
+                else
+                    repTrials = trials;
+                end
+                allTrials = [allTrials, repTrials]; %#ok<AGROW>
+            end
+
+            % Assemble entries, inserting intertrial between (not after last)
+            entries = {};
+            for k = 1:length(allTrials)
+                trialName = char(allTrials{k});
+                commands  = conditionsMap(trialName);
+
+                if isempty(blockLabel)
+                    stepId = trialName;
+                else
+                    stepId = sprintf('%s: %s', blockLabel, trialName);
+                end
+
+                entries{end+1} = struct('id', stepId, 'commands', {commands}); %#ok<AGROW>
+
+                % Insert intertrial after every trial except the last
+                if hasIntertrial && k < length(allTrials)
+                    itId           = sprintf('intertrial (%s)', intertrialName);
+                    entries{end+1} = struct('id', itId, ...
+                                           'commands', {intertrialCommands}); %#ok<AGROW>
+                end
+            end
+        end
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — VARIABLE RESOLUTION
+    % =========================================================================
+    methods (Access = private)
+
+        function value = resolveVariable(~, value, variables)
+            % If value is a string that exactly matches a variable name,
+            % replace it with the variable's value.  All other types (numbers,
+            % logicals, non-matching strings) are returned unchanged.
+
+            if (ischar(value) || isstring(value)) && isfield(variables, char(value))
+                value = variables.(char(value));
+            end
+        end
+
+        function s = resolveVariablesInStruct(self, s, variables)
+            % Recursively resolve variable references in every field of a struct.
+
+            fields = fieldnames(s);
+            for i = 1:length(fields)
+                f   = fields{i};
+                val = s.(f);
+                if isstruct(val)
+                    s.(f) = self.resolveVariablesInStruct(val, variables);
+                elseif iscell(val)
+                    s.(f) = self.resolveVariablesInCell(val, variables);
+                elseif ischar(val) || isstring(val)
+                    s.(f) = self.resolveVariable(val, variables);
+                end
+                % Numeric, logical → untouched
+            end
+        end
+
+        function c = resolveVariablesInCell(self, c, variables)
+            % Recursively resolve variable references in every element of a
+            % cell array.  Elements may be structs, cells, or scalar values.
+
+            for i = 1:length(c)
+                item = c{i};
+                if isstruct(item)
+                    c{i} = self.resolveVariablesInStruct(item, variables);
+                elseif iscell(item)
+                    c{i} = self.resolveVariablesInCell(item, variables);
+                elseif ischar(item) || isstring(item)
+                    c{i} = self.resolveVariable(item, variables);
+                end
+            end
+        end
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — HELPERS
+    % =========================================================================
+    methods (Access = private)
+
+        function cellArr = normalizeToCell(~, input)
+            % Convert yamlread output to a uniform cell array.
+            %
+            % yamlread returns:
+            %   - A cell array for YAML sequences with mixed types
+            %   - A struct array for YAML sequences of mappings
+            %   - A plain value for YAML scalars
+            %
+            % This function normalises all three cases.
+
+            if isempty(input)
+                cellArr = {};
+            elseif iscell(input)
+                cellArr = input;
+            elseif isstruct(input)
+                % Struct array (one element per YAML list item)
+                cellArr = arrayfun(@(s) s, input, 'UniformOutput', false);
+            else
+                % Scalar string, number, etc.
+                cellArr = {input};
+            end
+        end
+
+        function resolved = resolveRelativePath(self, relPath)
+            % Resolve relPath relative to the protocol file's directory.
+            % Absolute paths (Windows drive letters or Unix /...) are returned
+            % unchanged.
+
+            [protDir, ~, ~] = fileparts(self.filepath);
+
+            isAbsolute = (ispc() && length(relPath) >= 2 && relPath(2) == ':') || ...
+                         (~ispc() && startsWith(relPath, '/'));
+
+            if isAbsolute
+                resolved = relPath;
+            else
+                resolved = fullfile(protDir, relPath);
+            end
+
+            % Canonicalize (resolves .. and symlinks)
+            resolved = char(java.io.File(resolved).getCanonicalPath());
+        end
+
+        function expPlugins = mergeRigPluginConfig(self, expPlugins, rigPlugins)
+            % Merge rig-level hardware config into experiment plugin definitions.
+            %
+            % Rig fields are written into plugin.config.  If the experiment
+            % YAML already defines the same field in plugin.config, the
+            % experiment value is kept (experiment overrides rig).  The
+            % "enabled" rig field is skipped (rig-level metadata only).
+
+            if isempty(rigPlugins) || ~isstruct(rigPlugins)
                 return;
             end
 
-            rig_plugin_names = fieldnames(rig_plugins);
+            rigPluginNames = fieldnames(rigPlugins);
 
-            for i = 1:length(exp_plugins)
-                plugin = exp_plugins{i};
-                plugin_name = plugin.name;
+            for i = 1:length(expPlugins)
+                plugin     = expPlugins{i};
+                pluginName = plugin.name;
 
-                if ~ismember(plugin_name, rig_plugin_names)
-                    continue;  % No rig config for this plugin — leave as-is
-                end
-
-                rig_plugin = rig_plugins.(plugin_name);
-                if ~isstruct(rig_plugin)
+                if ~ismember(pluginName, rigPluginNames)
                     continue;
                 end
 
-                % Ensure plugin.config exists
+                rigPlugin = rigPlugins.(pluginName);
+                if ~isstruct(rigPlugin)
+                    continue;
+                end
+
                 if ~isfield(plugin, 'config') || isempty(plugin.config)
                     plugin.config = struct();
                 end
 
-                % Copy rig fields into plugin.config, skipping 'enabled' and
-                % any field already specified in the experiment YAML
-                rig_fields = fieldnames(rig_plugin);
-                for j = 1:length(rig_fields)
-                    field = rig_fields{j};
+                rigFields = fieldnames(rigPlugin);
+                for j = 1:length(rigFields)
+                    field = rigFields{j};
                     if strcmp(field, 'enabled')
                         continue;
                     end
                     if ~isfield(plugin.config, field)
-                        plugin.config.(field) = rig_plugin.(field);
+                        plugin.config.(field) = rigPlugin.(field);
                     end
                 end
 
-                exp_plugins{i} = plugin;
+                expPlugins{i} = plugin;
 
                 if self.verbose
-                    fprintf('  Merged rig hardware config into plugin: %s\n', plugin_name);
+                    fprintf('  Merged rig config into plugin: %s\n', pluginName);
                 end
             end
         end
 
-        function commands = extractOptionalSection(self, data, sectionName)
-            % Extract commands from optional section
-            %
-            % Returns empty array if section not included
-            
-            if isfield(data, sectionName) && ...
-               isfield(data.(sectionName), 'include') && ...
-               data.(sectionName).include && ...
-               isfield(data.(sectionName), 'commands')
-                
-                commands = data.(sectionName).commands;
-            else
-                commands = [];
-            end
-        end
-        
         function printProtocolSummary(self, protocol)
-            % Print summary of parsed protocol
+            % Print a human-readable summary of the parsed protocol
 
             fprintf('\n=== Protocol Summary ===\n');
+            fprintf('Version:    %d\n', protocol.version);
             fprintf('Experiment: %s\n', protocol.experimentInfo.name);
 
             if isfield(protocol.experimentInfo, 'author')
-                fprintf('Author: %s\n', protocol.experimentInfo.author);
+                fprintf('Author:     %s\n', protocol.experimentInfo.author);
             end
-
             if isfield(protocol.experimentInfo, 'date_created')
-                fprintf('Date Created: %s\n', protocol.experimentInfo.date_created);
+                fprintf('Date:       %s\n', protocol.experimentInfo.date_created);
             end
 
-            fprintf('Rig: %s\n', protocol.rigConfig.name);
-            fprintf('Controller: %s:%d\n', protocol.controllerConfig.host, ...
-                    protocol.controllerConfig.port);
-            fprintf('Arena: %dx%d panels (%s)\n', ...
-                    protocol.arenaConfig.num_rows, ...
-                    protocol.arenaConfig.num_cols, ...
-                    protocol.arenaConfig.generation);
-            if isfield(protocol.arenaConfig, 'column_order')
-                fprintf('Column order: %s\n', protocol.arenaConfig.column_order);
-            end
-            if isfield(protocol.derivedConfig, 'total_pixels_x')
-                fprintf('Pattern dimensions: %dx%d px\n', ...
-                        protocol.derivedConfig.total_pixels_x, ...
-                        protocol.derivedConfig.total_pixels_y);
-            end
+            fprintf('Rig:        %s\n', protocol.rigConfig.name);
+            fprintf('Controller: %s:%d\n', ...
+                protocol.controllerConfig.host, protocol.controllerConfig.port);
+            fprintf('Arena:      %dx%d panels (%s)\n', ...
+                protocol.arenaConfig.num_rows, ...
+                protocol.arenaConfig.num_cols, ...
+                protocol.arenaConfig.generation);
 
-            fprintf('Repetitions: %d\n', protocol.experimentStructure.repetitions);
-
-            if isfield(protocol.experimentStructure, 'randomization') && ...
-               isfield(protocol.experimentStructure.randomization, 'enabled')
-                if protocol.experimentStructure.randomization.enabled
-                    fprintf('Randomization: enabled (%s)\n', ...
-                            protocol.experimentStructure.randomization.method);
-                else
-                    fprintf('Randomization: disabled\n');
+            % Variables
+            varNames = fieldnames(protocol.variables);
+            if ~isempty(varNames)
+                fprintf('\nVariables (%d):\n', length(varNames));
+                for i = 1:length(varNames)
+                    val = protocol.variables.(varNames{i});
+                    if isnumeric(val)
+                        fprintf('  %-24s = %g\n', varNames{i}, val);
+                    else
+                        fprintf('  %-24s = "%s"\n', varNames{i}, val);
+                    end
                 end
             end
 
-            total_trials = ProtocolParser.get_total_trials(protocol);
+            % Command sequence
+            n = length(protocol.commandSequence);
+            fprintf('\nCommand sequence (%d steps):\n', n);
+            for i = 1:n
+                fprintf('  %3d. %s\n', i, protocol.commandSequence{i}.id);
+            end
 
-            fprintf('Conditions: %d\n', length(protocol.blockConditions));
-            fprintf('Total trials: %d\n', total_trials);
             fprintf('========================\n\n');
         end
-        
+
         function throwValidationError(self, varargin)
-            % Throw validation error with context
-            
-            % Format error message
-            msg = sprintf(varargin{:});
-            
-            % Add file context
-            fullMsg = sprintf('Protocol validation failed (%s):\n%s', ...
-                             self.filepath, msg);
-            
+            msg     = sprintf(varargin{:});
+            fullMsg = sprintf('Protocol validation failed (%s):\n%s', self.filepath, msg);
             error('ProtocolParser:ValidationError', '%s', fullMsg);
         end
+
     end
-    
+
+    % =========================================================================
+    %  STATIC
+    % =========================================================================
     methods (Static)
 
-        function output = get_total_trials(protocol)
+        function n = get_total_steps(protocol)
+            % Return the total number of execution steps in a V3 protocol
+            %
+            % Input:
+            %   protocol - parsed protocol struct (output of parse())
+            % Returns:
+            %   n - number of entries in protocol.commandSequence
 
-            num_conds = length(protocol.blockConditions);
-            reps = protocol.experimentStructure.repetitions;
-            pre = 0;
-            inter = 0;
-            post = 0;
-            if ~isempty(protocol.pretrialCommands)
-                pre = 1;
-            end
-            if ~isempty(protocol.intertrialCommands)
-                inter = 1;
-            end
-            if ~isempty(protocol.posttrialCommands)
-                post = 1;
-            end
-            output = (num_conds*reps) + inter*((num_conds*reps)-1) + pre + post;
-            
+            n = length(protocol.commandSequence);
         end
+
     end
 
 end
