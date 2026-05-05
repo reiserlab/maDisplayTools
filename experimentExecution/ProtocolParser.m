@@ -1,25 +1,19 @@
 classdef ProtocolParser < handle
     % Parse and validate Version 3 YAML protocol files
     %
-    % Version 3 protocol files introduce three major features over V2:
+    % Version 3 protocol files introduce two major features over V2:
     %
-    %   1. VARIABLES section - a flat mapping of names to scalar values
-    %      (numbers or strings) that can be referenced by name anywhere in
-    %      the conditions section.  A variable reference is any string value
-    %      whose text exactly matches a variable name.  Numeric fields, and
-    %      strings that do not match any variable name, are left unchanged.
-    %
-    %   2. CONDITIONS library - all conditions are defined once by name in a
+    %   1. CONDITIONS library - all conditions are defined once by name in a
     %      top-level "conditions" list.  Conditions are referenced by name
     %      in the experiment sequence rather than defined inline.
     %
-    %   3. EXPERIMENT sequence - a flat, readable list that mixes standalone
+    %   2. EXPERIMENT sequence - a flat, readable list that mixes standalone
     %      condition references (strings) with block definitions (mappings
     %      with trials, repetitions, randomize, and intertrial fields).
     %      The parser fully expands this sequence into an ordered flat list
     %      of {id, commands} steps that the runner executes top-to-bottom
     %      with no additional scheduling logic.
-    %
+
     % Output:
     %   parse() returns a protocol struct with fields:
     %     .version          - 3
@@ -33,12 +27,13 @@ classdef ProtocolParser < handle
     %     .arenaFilepath    - resolved arena YAML path
     %     .plugins          - cell array of plugin definition structs,
     %                         with rig hardware config merged in
-    %     .variables        - struct of resolved variable name -> value
+    %     .variables        - struct from the optional "variables" YAML section
+    %                         (anchor values resolved at load time;
+    %                          preserved here for logging/documentation purposes)
     %     .commandSequence  - cell array of structs, each with:
     %                           .id       string label for logging
     %                           .commands cell array of command structs
-    %                         Variables are already resolved; the runner
-    %                         executes this list in order.
+    %                         The runner executes this list in order.
     %
     % Example:
     %   parser  = ProtocolParser('verbose', true);
@@ -183,17 +178,8 @@ classdef ProtocolParser < handle
                 self.validatePlugins(data.plugins);
             end
 
-            % Parse variables early; their names are needed to validate
-            % condition commands (string durations must match a variable name)
-            variables = self.parseVariables(data);
-            if isfield(data, 'variables') && ~isempty(data.variables)
-                self.validateVariables(data.variables);
-            end
-            variableNames = fieldnames(variables);
-
             % Validate conditions library; returns the list of defined names
-            conditionNames = self.validateConditionsLibrary( ...
-                data.conditions, variableNames);
+            conditionNames = self.validateConditionsLibrary(data.conditions);
 
             % Validate experiment sequence against the known condition names
             self.validateExperimentSequence(data.experiment, conditionNames);
@@ -212,31 +198,6 @@ classdef ProtocolParser < handle
             end
             if ~ischar(info.name) && ~isstring(info.name)
                 self.throwValidationError('experiment_info.name must be a string');
-            end
-        end
-
-        % --- variables -------------------------------------------------------
-
-        function validateVariables(self, variables)
-            % Each variable must be a scalar (number or string).
-            % Lists and nested mappings are not allowed because they would
-            % produce unpredictable results when substituted into command fields.
-
-            if ~isstruct(variables)
-                self.throwValidationError( ...
-                    '"variables" must be a YAML mapping (key: value pairs)');
-            end
-
-            fields = fieldnames(variables);
-            for i = 1:length(fields)
-                name = fields{i};
-                val  = variables.(name);
-                if iscell(val) || (isstruct(val) && ~isscalar(val))
-                    self.throwValidationError( ...
-                        ['Variable "%s" must be a scalar value (number or string).\n' ...
-                         'Lists and nested mappings are not supported as variable values.'], ...
-                        name);
-                end
             end
         end
 
@@ -368,7 +329,7 @@ classdef ProtocolParser < handle
 
         % --- conditions library ----------------------------------------------
 
-        function conditionNames = validateConditionsLibrary(self, conditions, variableNames)
+        function conditionNames = validateConditionsLibrary(self, conditions)
             % Validate each condition and return the list of defined names.
             % The returned cell array is used by validateExperimentSequence
             % to confirm that every reference resolves to a real condition.
@@ -408,8 +369,7 @@ classdef ProtocolParser < handle
                         'Condition "%s" must contain at least one command', condName);
                 end
 
-                self.validateCommands(commands, ...
-                    sprintf('Condition "%s"', condName), variableNames);
+                self.validateCommands(commands, sprintf('Condition "%s"', condName));
             end
         end
 
@@ -490,14 +450,8 @@ classdef ProtocolParser < handle
 
         % --- commands --------------------------------------------------------
 
-        function validateCommands(self, commands, context, variableNames)
+        function validateCommands(self, commands, context)
             % Validate a cell array of command structs.
-            %
-            % variableNames is a cell array of known variable name strings.
-            % It is used only to validate duration fields: a duration must
-            % be either a non-negative number or a known variable name.
-            % All other string fields are allowed to be literal strings or
-            % variable names — the distinction is resolved at parse time.
 
             for i = 1:length(commands)
                 cmd = commands{i};
@@ -516,7 +470,7 @@ classdef ProtocolParser < handle
                                 context, i);
                         end
                         if isfield(cmd, 'duration')
-                            self.validateDurationField(cmd.duration, variableNames, ...
+                            self.validateDurationField(cmd.duration, ...
                                 sprintf('%s, command %d duration', context, i));
                         end
 
@@ -525,7 +479,7 @@ classdef ProtocolParser < handle
                             self.throwValidationError( ...
                                 '%s, command %d: wait command missing "duration"', context, i);
                         end
-                        self.validateDurationField(cmd.duration, variableNames, ...
+                        self.validateDurationField(cmd.duration, ...
                             sprintf('%s, command %d duration', context, i));
 
                     case 'plugin'
@@ -542,26 +496,16 @@ classdef ProtocolParser < handle
             end
         end
 
-        function validateDurationField(self, value, variableNames, context)
-            % A duration field must be a non-negative number, or a string
-            % that exactly matches a known variable name (which is expected
-            % to resolve to a number at parse time).
+        function validateDurationField(self, value, context)
+            % A duration field must be a non-negative number.
+            % YAML anchor/alias syntax (*var_name) is resolved by SnakeYAML
+            % before this validation runs, so values are always numeric here.
 
             if isnumeric(value) && isscalar(value) && value >= 0
                 return;
             end
-            if (ischar(value) || isstring(value)) && ...
-                    ismember(char(value), variableNames)
-                return;
-            end
-            if ischar(value) || isstring(value)
-                self.throwValidationError( ...
-                    ['%s: "%s" is not a known variable name.\n' ...
-                     'Duration must be a non-negative number or a variable ' ...
-                     'name defined in the "variables" section.'], context, value);
-            end
             self.throwValidationError( ...
-                '%s: must be a non-negative number or a variable name', context);
+                '%s: duration must be a non-negative number', context);
         end
 
     end
@@ -616,25 +560,19 @@ classdef ProtocolParser < handle
             end
 
             % --- Variables ---------------------------------------------------
-            variables = self.parseVariables(data);
-            protocol.variables = variables;
+            % The "variables" section is optional and used purely for YAML
+            % anchor declarations.  Aliases are resolved by SnakeYAML before
+            % this code runs; the struct is preserved for logging purposes.
+            protocol.variables = self.parseVariables(data);
 
-            if self.verbose && ~isempty(fieldnames(variables))
-                varNames = fieldnames(variables);
-                fprintf('  Variables (%d):', length(varNames));
-                for i = 1:length(varNames)
-                    val = variables.(varNames{i});
-                    if isnumeric(val)
-                        fprintf('  %s=%g', varNames{i}, val);
-                    else
-                        fprintf('  %s="%s"', varNames{i}, val);
-                    end
-                end
-                fprintf('\n');
+            if self.verbose && ~isempty(fieldnames(protocol.variables))
+                varNames = fieldnames(protocol.variables);
+                fprintf('  Variables (%d): %s\n', length(varNames), ...
+                    strjoin(varNames, ', '));
             end
 
-            % --- Conditions → commands map (variables resolved) --------------
-            conditionsMap = self.buildConditionsMap(data.conditions, variables);
+            % --- Conditions → commands map -----------------------------------
+            conditionsMap = self.buildConditionsMap(data.conditions);
 
             % --- Experiment → flat command sequence --------------------------
             experiment = self.normalizeToCell(data.experiment);
@@ -656,9 +594,10 @@ classdef ProtocolParser < handle
             end
         end
 
-        function conditionsMap = buildConditionsMap(self, conditions, variables)
+        function conditionsMap = buildConditionsMap(self, conditions)
             % Build a containers.Map of conditionName -> commands cell array.
-            % All variable references within commands are resolved before storing.
+            % All YAML anchor/alias values are already resolved by SnakeYAML
+            % before this method is called; no further substitution is needed.
 
             conditions    = self.normalizeToCell(conditions);
             conditionsMap = containers.Map();
@@ -667,12 +606,6 @@ classdef ProtocolParser < handle
                 cond     = conditions{i};
                 name     = char(cond.name);
                 commands = self.normalizeToCell(cond.commands);
-
-                % Resolve every variable reference in this condition's commands.
-                % The recursive resolver walks the full struct/cell tree, so
-                % params sub-structs and nested fields are all covered.
-                commands = self.resolveVariablesInCell(commands, variables);
-
                 conditionsMap(name) = commands;
             end
         end
@@ -765,57 +698,6 @@ classdef ProtocolParser < handle
                     itId           = sprintf('intertrial (%s)', intertrialName);
                     entries{end+1} = struct('id', itId, ...
                                            'commands', {intertrialCommands}); %#ok<AGROW>
-                end
-            end
-        end
-
-    end
-
-    % =========================================================================
-    %  PRIVATE — VARIABLE RESOLUTION
-    % =========================================================================
-    methods (Access = private)
-
-        function value = resolveVariable(~, value, variables)
-            % If value is a string that exactly matches a variable name,
-            % replace it with the variable's value.  All other types (numbers,
-            % logicals, non-matching strings) are returned unchanged.
-
-            if (ischar(value) || isstring(value)) && isfield(variables, char(value))
-                value = variables.(char(value));
-            end
-        end
-
-        function s = resolveVariablesInStruct(self, s, variables)
-            % Recursively resolve variable references in every field of a struct.
-
-            fields = fieldnames(s);
-            for i = 1:length(fields)
-                f   = fields{i};
-                val = s.(f);
-                if isstruct(val)
-                    s.(f) = self.resolveVariablesInStruct(val, variables);
-                elseif iscell(val)
-                    s.(f) = self.resolveVariablesInCell(val, variables);
-                elseif ischar(val) || isstring(val)
-                    s.(f) = self.resolveVariable(val, variables);
-                end
-                % Numeric, logical → untouched
-            end
-        end
-
-        function c = resolveVariablesInCell(self, c, variables)
-            % Recursively resolve variable references in every element of a
-            % cell array.  Elements may be structs, cells, or scalar values.
-
-            for i = 1:length(c)
-                item = c{i};
-                if isstruct(item)
-                    c{i} = self.resolveVariablesInStruct(item, variables);
-                elseif iscell(item)
-                    c{i} = self.resolveVariablesInCell(item, variables);
-                elseif ischar(item) || isstring(item)
-                    c{i} = self.resolveVariable(item, variables);
                 end
             end
         end

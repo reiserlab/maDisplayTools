@@ -229,6 +229,9 @@ classdef ProtocolRunner < handle
 
             self.logger.log('INFO', 'Initialization complete');
             fprintf('=== Initialization Complete ===\n\n');
+            cd(cd); % A trick to prevent a weird matlab GUI bug where files disappear
+                        % from the matlab file explorer but files are fine.
+
         end
 
         function getExperimentDirectory(self)
@@ -262,6 +265,7 @@ classdef ProtocolRunner < handle
             destYaml = fullfile(self.experimentDir, [yamlName yamlExt]);
             try
                 copyfile(self.protocolFilePath, destYaml);
+                
                 self.logger.log('INFO', sprintf('Archived protocol YAML: %s', destYaml));
             catch ME
                 self.logger.log('WARNING', sprintf( ...

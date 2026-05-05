@@ -18,9 +18,10 @@ rig: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/configs
 # VARIABLES
 # ============================================================================
 variables:
-  dur_long: 10
-  dur_short: 3
-  color_command: "setRedLEDPower"
+  dur_long: &dur_long 10
+  dur_short: &dur_short 3
+  color_command: &color_command "setRedLEDPower"
+  color_power: &color_power 5
 
 # ============================================================================
 # PLUGIN DEFINITIONS
@@ -36,6 +37,28 @@ plugins:
     matlab:
       class: "LEDControllerPlugin"
 
+
+# ============================================================================
+# EXPERIMENT SEQUENCE
+# ============================================================================
+experiment:
+  - "arena check"
+  - "start light and camera"
+  - name: "main block"
+    trials:
+      - "sq_grating_30deg_gs2"
+      - "sq_grating_30deg_gs16"
+      - "sq_grating_60deg_gs2"
+      - "sq_grating_60deg_gs16"
+      - "sine_grating_30deg_gs16"
+      - "sine_grating_60deg_gs16"
+      - "sine_grating_30deg_fine_gs16"
+    repetitions: 3
+    randomize: true
+    intertrial: "intertrial"
+  - "posttrial"
+
+
 # ============================================================================
 # CONDITIONS LIBRARY
 # ============================================================================
@@ -45,7 +68,7 @@ conditions:
       - type: "controller"
         command_name: "allOn"
       - type: "wait"
-        duration: "dur_short"
+        duration: *dur_short
       - type: "controller"
         command_name: "allOff"
 
@@ -84,7 +107,7 @@ conditions:
         command_name: "trialParams"
         pattern: "pat01_sq_grating_30deg_gs2_G4.pat"
         pattern_ID: 1
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
@@ -95,9 +118,9 @@ conditions:
 
       - type: "plugin"
         plugin_name: "backlight"
-        command_name: "color_command"
+        command_name: *color_command
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -121,7 +144,7 @@ conditions:
         command_name: "trialParams"
         pattern: "pat02_sq_grating_30deg_gs16_G4.pat"
         pattern_ID: 2
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
@@ -134,7 +157,7 @@ conditions:
         plugin_name: "backlight"
         command_name: "setGreenLEDPower"
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -155,7 +178,7 @@ conditions:
         plugin_name: "backlight"
         command_name: "setBlueLEDPower"
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -163,7 +186,7 @@ conditions:
         command_name: "trialParams"
         pattern: "pat03_sq_grating_60deg_gs2_G4.pat"
         pattern_ID: 3
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
@@ -187,9 +210,9 @@ conditions:
 
       - type: "plugin"
         plugin_name: "backlight"
-        command_name: "color_command"
+        command_name: *color_command
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -197,14 +220,14 @@ conditions:
         command_name: "trialParams"
         pattern: "pat04_sq_grating_60deg_gs16_G4.pat"
         pattern_ID: 4
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
         gain: 0
 
       - type: "wait"
-        duration: "dur_long"
+        duration: *dur_long
 
       - type: "plugin"
         plugin_name: "backlight"
@@ -220,14 +243,14 @@ conditions:
         command_name: "trialParams"
         pattern: "pat05_sine_grating_30deg_gs16_G4.pat"
         pattern_ID: 5
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
         gain: 0
 
       - type: "wait"
-        duration: "dur_long"
+        duration: *dur_long
 
   - name: "sine_grating_60deg_gs16"
     commands:
@@ -239,7 +262,7 @@ conditions:
         command_name: "trialParams"
         pattern: "pat06_sine_grating_60deg_gs16_G4.pat"
         pattern_ID: 6
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
@@ -252,7 +275,7 @@ conditions:
         plugin_name: "backlight"
         command_name: "setGreenLEDPower"
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -270,7 +293,7 @@ conditions:
         plugin_name: "backlight"
         command_name: "setGreenLEDPower"
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -292,9 +315,9 @@ conditions:
 
       - type: "plugin"
         plugin_name: "backlight"
-        command_name: "color_command"
+        command_name: *color_command
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -302,7 +325,7 @@ conditions:
         command_name: "trialParams"
         pattern: "pat07_sine_grating_30deg_fine_gs16_G4.pat"
         pattern_ID: 7
-        duration: "dur_long"
+        duration: *dur_long
         mode: 2
         frame_index: 1
         frame_rate: 10
@@ -315,7 +338,7 @@ conditions:
         plugin_name: "backlight"
         command_name: "setBlueLEDPower"
         params:
-          power: 5
+          power: *color_power
           panel_num: 0
           pattern: "1010"
 
@@ -353,23 +376,3 @@ conditions:
 
       - type: "wait"
         duration: 1
-
-# ============================================================================
-# EXPERIMENT SEQUENCE
-# ============================================================================
-experiment:
-  - "arena check"
-  - "start light and camera"
-  - name: "main block"
-    trials:
-      - "sq_grating_30deg_gs2"
-      - "sq_grating_30deg_gs16"
-      - "sq_grating_60deg_gs2"
-      - "sq_grating_60deg_gs16"
-      - "sine_grating_30deg_gs16"
-      - "sine_grating_60deg_gs16"
-      - "sine_grating_30deg_fine_gs16"
-    repetitions: 3
-    randomize: true
-    intertrial: "intertrial"
-  - "posttrial"
