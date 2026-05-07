@@ -294,10 +294,13 @@ function [update_info, new_yaml_path] = create_updated_yaml_with_sd_mapping( ...
         yaml_path, sd_mapping, output_dir)
 % Create a NEW YAML file with SD card pattern mapping (original untouched).
 %
-%   Creates a new YAML file named: original_name_[timestamp].yaml
-%   Adds 'sd_card_mapping' section with timestamp, drive, and pattern mappings.
-%   Updates 'pattern_ID' fields in conditions commands to match SD card numbering.
-%   Converts specific numeric fields to integers before saving.
+%   Uses SnakeYAML's compose/serialize API to operate on the Node tree
+%   before aliases are resolved, so anchors and aliases in the original
+%   file are preserved natively in the output.
+%
+%   Two changes are made to the node tree:
+%     1. Each pattern_ID ScalarNode is replaced with the SD card number.
+%     2. A new sd_card_mapping MappingNode is appended to the root.
 
     update_info = struct();
     update_info.success         = false;
@@ -306,81 +309,71 @@ function [update_info, new_yaml_path] = create_updated_yaml_with_sd_mapping( ...
     update_info.num_ids_updated = 0;
     update_info.error           = '';
 
-    % Load raw YAML (anchors/aliases already resolved by the YAML library)
+    % Parse as struct — needed only to resolve pattern_library and
+    % collect the pattern file list for the sd_card_mapping section
     experiment_data = yaml.loadFile(yaml_path);
 
-    % Get pattern_library if specified
     pattern_library = '';
     if isfield(experiment_data, 'experiment_info') && ...
        isfield(experiment_data.experiment_info, 'pattern_library') && ...
        ~isempty(experiment_data.experiment_info.pattern_library)
-        pattern_library = experiment_data.experiment_info.pattern_library;
+        pattern_library = experiment_data.experiment_info.pattern_library; %#ok<NASGU>
     end
 
-    % Build path -> SD card ID and path -> SD card name maps
-    path_to_id   = containers.Map('KeyType', 'char', 'ValueType', 'double');
-    path_to_name = containers.Map('KeyType', 'char', 'ValueType', 'char');
-
+    % Build filename->SD card ID and path->SD card name maps
+    filename_to_id = containers.Map('KeyType', 'char', 'ValueType', 'double');
+    path_to_name   = containers.Map('KeyType', 'char', 'ValueType', 'char');
     for i = 1:length(sd_mapping.patterns)
-        original_path           = sd_mapping.patterns{i}.original_path;
-        path_to_id(original_path)   = i;
-        path_to_name(original_path) = sd_mapping.patterns{i}.new_name;
+        orig           = sd_mapping.patterns{i}.original_path;
+        [~, fn, ext]   = fileparts(orig);
+        filename_to_id([fn ext]) = i;
+        path_to_name(orig)       = sd_mapping.patterns{i}.new_name;
     end
 
-    % Update pattern_ID fields in the V3 conditions library
-    num_ids_updated = 0;
-    update_cmds     = @(commands) update_pattern_ids_in_commands( ...
-        commands, path_to_id, pattern_library);
+    % Compose the YAML node tree.
+    % At this level aliases are Java object references, not resolved copies,
+    % so serialize() will re-emit anchors and aliases correctly.
+    reader   = java.io.FileReader(yaml_path);
+    yamlObj  = org.yaml.snakeyaml.Yaml();
+    rootNode = yamlObj.compose(reader);
+    reader.close();
 
-    if isfield(experiment_data, 'conditions')
-        conditions = experiment_data.conditions;
-        if ~iscell(conditions)
-            conditions = arrayfun(@(s) s, conditions, 'UniformOutput', false);
-        end
-        for i = 1:length(conditions)
-            if isfield(conditions{i}, 'commands')
-                [conditions{i}.commands, count] = update_cmds(conditions{i}.commands);
-                num_ids_updated = num_ids_updated + count;
-            end
-        end
-        experiment_data.conditions = conditions;
-    end
+    % Update pattern_ID ScalarNodes in the tree
+    num_ids_updated = update_pattern_id_nodes(rootNode, filename_to_id);
 
-    % Collect the patterns actually used in this YAML (for the mapping section)
+    % Collect which patterns this YAML references (for the mapping section)
     patterns_in_yaml = extract_patterns_from_single_yaml(experiment_data, yaml_path);
-
     mappings_list = {};
     for i = 1:length(patterns_in_yaml)
-        pattern_path = patterns_in_yaml{i};
-        if isKey(path_to_name, pattern_path)
-            entry          = struct();
-            entry.original = pattern_path;
-            entry.sd_name  = path_to_name(pattern_path);
-            mappings_list{end+1} = entry; %#ok<AGROW>
+        ppath = char(patterns_in_yaml{i});
+        if isKey(path_to_name, ppath)
+            mappings_list{end+1} = struct( ...
+                'original', ppath, ...
+                'sd_name',  path_to_name(ppath)); %#ok<AGROW>
         end
     end
 
-    % Add sd_card_mapping section
-    sd_card_mapping           = struct();
-    sd_card_mapping.timestamp = sd_mapping.timestamp;
-    sd_card_mapping.sd_drive  = sd_mapping.sd_drive;
-    sd_card_mapping.mappings  = mappings_list;
-    experiment_data.sd_card_mapping = sd_card_mapping;
+    % Serialize the modified node tree to a string.
+    % Aliases are re-emitted natively by SnakeYAML at this step.
+    strWriter = java.io.StringWriter();
+    yamlObj.serialize(rootNode, strWriter);
+    serialized = char(strWriter.toString());
 
-    % Convert numeric fields that must be integers in the saved YAML
-    experiment_data = convert_integers_for_yaml(experiment_data);
+    % Append sd_card_mapping as a proper node (no enum names — styles
+    % are borrowed from the already-loaded tree, so version-independent)
+    append_sd_card_mapping_node(rootNode, sd_mapping, mappings_list);
 
-    % Generate timestamped output filename
+    % Serialize back to YAML — aliases re-emitted natively by SnakeYAML
     [~, base_name, ~] = fileparts(yaml_path);
-    timestamp_str = sd_mapping.timestamp;
-    timestamp_str = strrep(timestamp_str, '-', '');
+    timestamp_str = strrep(sd_mapping.timestamp, '-', '');
     timestamp_str = strrep(timestamp_str, ':', '');
     timestamp_str = strrep(timestamp_str, 'T', '_');
-
     new_filename  = sprintf('%s_%s.yaml', base_name, timestamp_str);
     new_yaml_path = fullfile(output_dir, new_filename);
 
-    yaml.dumpFile(new_yaml_path, experiment_data, 'block');
+    writer = java.io.FileWriter(new_yaml_path);
+    yamlObj.serialize(rootNode, writer);
+    writer.close();
 
     update_info.success         = true;
     update_info.num_mappings    = length(mappings_list);
@@ -388,147 +381,157 @@ function [update_info, new_yaml_path] = create_updated_yaml_with_sd_mapping( ...
 end
 
 
-function data = convert_integers_for_yaml(data)
-% Convert numeric fields that must be saved as integers in the YAML output.
+function append_sd_card_mapping_node(rootNode, sd_mapping, mappings_list)
+% Append a sd_card_mapping section to the root MappingNode.
 %
-%   Handles:
-%     - version field
-%     - experiment block repetitions
-%     - Plugin definitions: baudrate, port, sample_rate
-%     - Conditions library command parameters:
-%         controller: pattern_ID, mode, frame_index, frame_rate, gain
-%         plugin params: panel_num, fps, buffer_size, port
+% Style constants (ScalarStyle and FlowStyle) are borrowed directly from
+% existing nodes in the already-loaded tree rather than referenced by class
+% name.  This makes the function version-independent across SnakeYAML 1.x
+% and 2.x: the types automatically match because the instances came from
+% the same JAR.
+%
+%   PLAIN ScalarStyle — borrowed from the first key node in the document.
+%     Every YAML key is a plain scalar, so this is always available.
+%
+%   BLOCK FlowStyle — borrowed from the root MappingNode itself.
+%     A block-style YAML document will always have BLOCK (or AUTO) here,
+%     and passing it to the MappingNode/SequenceNode constructors
+%     for the new content produces the same block output.
 
-    % Top-level version integer
-    if isfield(data, 'version') && isnumeric(data.version)
-        data.version = int32(data.version);
-    end
+    % Borrow style constants — no class name references, no version issues
+    PLAIN = rootNode.getValue().get(0).getKeyNode().getScalarStyle();
+    BLOCK = rootNode.getFlowStyle();
 
-    % experiment block repetitions
-    if isfield(data, 'experiment')
-        experiment = data.experiment;
-        if ~iscell(experiment)
-            experiment = arrayfun(@(s) s, experiment, 'UniformOutput', false);
-        end
-        for i = 1:length(experiment)
-            entry = experiment{i};
-            if isstruct(entry) && isfield(entry, 'repetitions') && isnumeric(entry.repetitions)
-                experiment{i}.repetitions = int32(entry.repetitions);
-            end
-        end
-        data.experiment = experiment;
-    end
+    STR = org.yaml.snakeyaml.nodes.Tag.STR;
+    MAP = org.yaml.snakeyaml.nodes.Tag.MAP;
+    SEQ = org.yaml.snakeyaml.nodes.Tag.SEQ;
 
-    % Plugin definition integers (baudrate, port, sample_rate)
-    if isfield(data, 'plugins')
-        data.plugins = convert_plugin_definition_integers(data.plugins);
-    end
+    mk_str  = @(v)    org.yaml.snakeyaml.nodes.ScalarNode(STR, v, [], [], PLAIN);
+    mk_pair = @(k, v) org.yaml.snakeyaml.nodes.NodeTuple(mk_str(k), mk_str(v));
 
-    % Conditions library command integers
-    if isfield(data, 'conditions')
-        conditions = data.conditions;
-        if ~iscell(conditions)
-            conditions = arrayfun(@(s) s, conditions, 'UniformOutput', false);
-        end
-        for i = 1:length(conditions)
-            if isfield(conditions{i}, 'commands')
-                conditions{i}.commands = convert_command_integers(conditions{i}.commands);
-            end
-        end
-        data.conditions = conditions;
+    % mappings: sequence of {original, sd_name} pairs
+    items = java.util.ArrayList();
+    for i = 1:length(mappings_list)
+        t = java.util.ArrayList();
+        t.add(mk_pair('original', mappings_list{i}.original));
+        t.add(mk_pair('sd_name',  mappings_list{i}.sd_name));
+        items.add(org.yaml.snakeyaml.nodes.MappingNode(MAP, t, BLOCK));
     end
+    mappingsSeq = org.yaml.snakeyaml.nodes.SequenceNode(SEQ, items, BLOCK);
+
+    % sd_card_mapping body
+    body = java.util.ArrayList();
+    body.add(mk_pair('timestamp', sd_mapping.timestamp));
+    body.add(mk_pair('sd_drive',  sd_mapping.sd_drive));
+    body.add(org.yaml.snakeyaml.nodes.NodeTuple(mk_str('mappings'), mappingsSeq));
+    bodyNode = org.yaml.snakeyaml.nodes.MappingNode(MAP, body, BLOCK);
+
+    % Append to root
+    rootNode.getValue().add( ...
+        org.yaml.snakeyaml.nodes.NodeTuple(mk_str('sd_card_mapping'), bodyNode));
 end
 
+function num_updated = update_pattern_id_nodes(rootNode, filename_to_id)
+% Walk the conditions->commands subtree and replace each pattern_ID
+% ScalarNode with the corresponding SD card ID number.
+%
+% ScalarNode is immutable in SnakeYAML, so we replace the NodeTuple that
+% contains it with a new NodeTuple pointing to a new ScalarNode.  The
+% parent MappingNode's getValue() list is a mutable Java ArrayList so
+% set() works directly.
 
-function plugins = convert_plugin_definition_integers(plugins)
-% Convert integer fields in plugin definitions (baudrate, port, sample_rate)
-
-    if isempty(plugins)
+    num_updated    = 0;
+    conditionsNode = get_value_node(rootNode, 'conditions');
+    if isempty(conditionsNode)
         return;
     end
 
-    if iscell(plugins)
-        for i = 1:length(plugins)
-            if isstruct(plugins{i})
-                if isfield(plugins{i}, 'baudrate') && isnumeric(plugins{i}.baudrate)
-                    plugins{i}.baudrate = int32(plugins{i}.baudrate);
-                end
-                if isfield(plugins{i}, 'port') && isnumeric(plugins{i}.port)
-                    plugins{i}.port = int32(plugins{i}.port);
-                end
-                if isfield(plugins{i}, 'config') && isstruct(plugins{i}.config)
-                    if isfield(plugins{i}.config, 'sample_rate') && ...
-                            isnumeric(plugins{i}.config.sample_rate)
-                        plugins{i}.config.sample_rate = int32(plugins{i}.config.sample_rate);
-                    end
-                end
-            end
+    condList = conditionsNode.getValue();          % Java List of condition MappingNodes
+    for i = 0:condList.size()-1
+        condNode     = condList.get(i);
+        commandsNode = get_value_node(condNode, 'commands');
+        if isempty(commandsNode)
+            continue;
         end
-    else
-        for i = 1:length(plugins)
-            if isfield(plugins(i), 'baudrate') && isnumeric(plugins(i).baudrate)
-                plugins(i).baudrate = int32(plugins(i).baudrate);
+
+        cmdList = commandsNode.getValue();         % Java List of command MappingNodes
+        for j = 0:cmdList.size()-1
+            cmdNode = cmdList.get(j);
+            if ~isa(cmdNode, 'org.yaml.snakeyaml.nodes.MappingNode')
+                continue;
             end
-            if isfield(plugins(i), 'port') && isnumeric(plugins(i).port)
-                plugins(i).port = int32(plugins(i).port);
+
+            patternVal = get_scalar_string(cmdNode, 'pattern');
+            if isempty(patternVal)
+                continue;
             end
-            if isfield(plugins(i), 'config') && isstruct(plugins(i).config)
-                if isfield(plugins(i).config, 'sample_rate') && ...
-                        isnumeric(plugins(i).config.sample_rate)
-                    plugins(i).config.sample_rate = int32(plugins(i).config.sample_rate);
-                end
+
+            [~, fn, ext] = fileparts(char(patternVal));
+            filename = [fn ext];
+            if ~isKey(filename_to_id, filename)
+                continue;
+            end
+
+            if replace_scalar(cmdNode, 'pattern_ID', num2str(filename_to_id(filename)))
+                num_updated = num_updated + 1;
             end
         end
     end
 end
 
 
-function commands = convert_command_integers(commands)
-% Convert integer fields within a commands list.
-%
-%   controller commands: pattern_ID, mode, frame_index, frame_rate, gain
-%   plugin commands params: fps, buffer_size, port
+function valueNode = get_value_node(mappingNode, key)
+% Return the value Node for the given key in a MappingNode, or [] if absent.
 
-    if isempty(commands)
+    valueNode = [];
+    if ~isa(mappingNode, 'org.yaml.snakeyaml.nodes.MappingNode')
         return;
     end
-
-    if iscell(commands)
-        for i = 1:length(commands)
-            if isstruct(commands{i})
-                commands{i} = convert_single_command_integers(commands{i});
-            end
-        end
-    else
-        for i = 1:length(commands)
-            commands(i) = convert_single_command_integers(commands(i));
+    tuples = mappingNode.getValue();
+    for i = 0:tuples.size()-1
+        tuple   = tuples.get(i);
+        keyNode = tuple.getKeyNode();
+        if isa(keyNode, 'org.yaml.snakeyaml.nodes.ScalarNode') && ...
+                strcmp(char(keyNode.getValue()), key)
+            valueNode = tuple.getValueNode();
+            return;
         end
     end
 end
 
 
-function command = convert_single_command_integers(command)
-% Convert integer fields in a single command struct
+function value = get_scalar_string(mappingNode, key)
+% Return the string value of a scalar field, or '' if absent or non-scalar.
 
-    if isfield(command, 'type') && strcmp(command.type, 'controller')
-        int_fields = {'pattern_ID', 'mode', 'frame_index', 'frame_rate', 'gain'};
-        for i = 1:length(int_fields)
-            f = int_fields{i};
-            if isfield(command, f) && isnumeric(command.(f))
-                command.(f) = int32(command.(f));
-            end
-        end
+    value = '';
+    node  = get_value_node(mappingNode, key);
+    if isempty(node) || ~isa(node, 'org.yaml.snakeyaml.nodes.ScalarNode')
+        return;
     end
+    value = char(node.getValue());
+end
 
-    if isfield(command, 'type') && strcmp(command.type, 'plugin')
-        if isfield(command, 'params') && isstruct(command.params)
-            int_fields = {'panel_num', 'fps', 'buffer_size', 'port'};
-            for i = 1:length(int_fields)
-                f = int_fields{i};
-                if isfield(command.params, f) && isnumeric(command.params.(f))
-                    command.params.(f) = int32(command.params.(f));
-                end
-            end
+
+function success = replace_scalar(mappingNode, key, newValue)
+% Replace a scalar value in a MappingNode by swapping its NodeTuple.
+%
+% ScalarNode is immutable, so a new ScalarNode is constructed with the same
+% Tag and ScalarStyle as the original (preserving quoting behaviour), then
+% placed in a new NodeTuple which replaces the old one in the parent list.
+
+    success = false;
+    tuples  = mappingNode.getValue();
+    for i = 0:tuples.size()-1
+        tuple   = tuples.get(i);
+        keyNode = tuple.getKeyNode();
+        if isa(keyNode, 'org.yaml.snakeyaml.nodes.ScalarNode') && ...
+                strcmp(char(keyNode.getValue()), key)
+            old     = tuple.getValueNode();
+            newNode = org.yaml.snakeyaml.nodes.ScalarNode( ...
+                old.getTag(), newValue, [], [], old.getScalarStyle());
+            tuples.set(i, org.yaml.snakeyaml.nodes.NodeTuple(keyNode, newNode));
+            success = true;
+            return;
         end
     end
 end
