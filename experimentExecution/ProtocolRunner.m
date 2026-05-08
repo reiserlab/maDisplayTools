@@ -189,6 +189,8 @@ classdef ProtocolRunner < handle
             %   .controllerConfig - host and port
             %   .plugins          - cell array of plugin definition structs
             %   .variables        - resolved variable name -> value struct
+            %   .rawYamlData      - raw YAML struct (aliases resolved) for
+            %                       writing per-run resolved copies to disk
             %   .commandSequence  - flat ordered cell array of {id, commands}
             %                       structs, ready to execute top-to-bottom
 
@@ -260,13 +262,16 @@ classdef ProtocolRunner < handle
                 yamlDir = '.';
             end
 
-            % Copy the protocol YAML
+            % Write a resolved copy of the protocol YAML — all anchor/alias
+            % references replaced with their actual values.  This is the
+            % per-run record: it captures exactly what values were in use
+            % for this run, including any variables the user may have edited
+            % in the timestamped working YAML before running.
             [~, yamlName, yamlExt] = fileparts(self.protocolFilePath);
             destYaml = fullfile(self.experimentDir, [yamlName yamlExt]);
             try
-                copyfile(self.protocolFilePath, destYaml);
-                
-                self.logger.log('INFO', sprintf('Archived protocol YAML: %s', destYaml));
+                yaml.dumpFile(destYaml, self.protocolData.rawYamlData, 'block');
+                self.logger.log('INFO', sprintf('Archived resolved protocol YAML: %s', destYaml));
             catch ME
                 self.logger.log('WARNING', sprintf( ...
                     'Could not archive protocol YAML: %s', ME.message));

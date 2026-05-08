@@ -30,6 +30,10 @@ classdef ProtocolParser < handle
     %     .variables        - struct from the optional "variables" YAML section
     %                         (anchor values resolved at load time;
     %                          preserved here for logging/documentation purposes)
+    %     .rawYamlData      - raw YAML struct as loaded by yaml.loadFile, with all
+    %                         anchor/alias values already resolved by SnakeYAML.
+    %                         Used by ProtocolRunner to write a resolved copy of
+    %                         the YAML into each run's results folder.
     %     .commandSequence  - cell array of structs, each with:
     %                           .id       string label for logging
     %                           .commands cell array of command structs
@@ -99,7 +103,7 @@ classdef ProtocolParser < handle
             end
 
             try
-                rawData = yamlread(filepath);
+                rawData = yaml.loadFile(filepath);
 
                 if self.verbose
                     fprintf('  YAML loaded successfully\n');
@@ -578,6 +582,13 @@ classdef ProtocolParser < handle
             experiment = self.normalizeToCell(data.experiment);
             protocol.commandSequence = self.expandExperiment(experiment, conditionsMap);
 
+            % --- Raw YAML data (aliases resolved) ----------------------------
+            % Stored so ProtocolRunner can write a fully-resolved copy of this
+            % YAML into the results folder for each run without re-reading the
+            % file.  The 'data' struct has all anchors/aliases already expanded
+            % by SnakeYAML before any parser code touched it.
+            protocol.rawYamlData = data;
+
             if self.verbose
                 fprintf('  Command sequence: %d steps\n', ...
                     length(protocol.commandSequence));
@@ -710,9 +721,9 @@ classdef ProtocolParser < handle
     methods (Access = private)
 
         function cellArr = normalizeToCell(~, input)
-            % Convert yamlread output to a uniform cell array.
+            % Convert loadFile output to a uniform cell array.
             %
-            % yamlread returns:
+            % loadFile returns:
             %   - A cell array for YAML sequences with mixed types
             %   - A struct array for YAML sequences of mappings
             %   - A plain value for YAML scalars

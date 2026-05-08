@@ -1,0 +1,378 @@
+version: 3
+
+# ============================================================================
+# EXPERIMENT METADATA
+# ============================================================================
+experiment_info:
+  name: "G4.1 Test Experiment using Bias and backlight"
+  date_created: "2026-03-23"
+  author: "Reiser Lab"
+  pattern_library: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/patterns/reference/G41_2x12_cw'
+
+# ============================================================================
+# ARENA CONFIGURATION
+# ============================================================================
+rig: '/Users/lisaferguson/Documents/PC/Programming/Reiser/maDisplayTools/configs/rigs/test_rig_1.yaml'
+
+# ============================================================================
+# VARIABLES
+# ============================================================================
+variables:
+  dur_long: &dur_long 10
+  dur_short: &dur_short 3
+  color_command: &color_command "setRedLEDPower"
+  color_power: &color_power 5
+
+# ============================================================================
+# PLUGIN DEFINITIONS
+# ============================================================================
+plugins:
+  - name: "camera"
+    type: "class"
+    matlab:
+      class: "BiasPlugin"
+
+  - name: "backlight"
+    type: "class"
+    matlab:
+      class: "LEDControllerPlugin"
+
+
+# ============================================================================
+# EXPERIMENT SEQUENCE
+# ============================================================================
+experiment:
+  - "arena check"
+  - "start light and camera"
+  - name: "main block"
+    trials:
+      - "sine_grating_60deg_fine_gs16"
+      - "counter_0000_1000_gs2"
+      - "top_on_gs2_G4"
+      - "sq_grating_60deg_gs16"
+      - "sine_grating_30deg_gs16"
+      - "sine_grating_60deg_gs16"
+      - "sine_grating_30deg_fine_gs16"
+    repetitions: 3
+    randomize: true
+    intertrial: "intertrial"
+  - "posttrial"
+
+
+# ============================================================================
+# CONDITIONS LIBRARY
+# ============================================================================
+conditions:
+  - name: "arena check"
+    commands:
+      - type: "controller"
+        command_name: "allOn"
+      - type: "wait"
+        duration: *dur_short
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "start light and camera"
+    commands:
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setIRLEDPower"
+        params:
+          power: 50
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "turnOnLED"
+
+      - type: "wait"
+        duration: 0.5
+
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "startRecording"
+        params:
+          filename: 'testExperiment'
+
+  - name: "sine_grating_60deg_fine_gs16"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat08_sine_grating_60deg_fine_gs16_G4.pat"
+        pattern_ID: 1
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: 3
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: *color_command
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "wait"
+        duration: 4
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+      - type: "wait"
+        duration: 3
+
+  - name: "counter_0000_1000_gs2"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat09_counter_0000_1000_gs2_G4.pat"
+        pattern_ID: 2
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: 3
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setGreenLEDPower"
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "wait"
+        duration: 7
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+  - name: "top_on_gs2_G4"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setBlueLEDPower"
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat13_top_on_gs2_G4.pat"
+        pattern_ID: 3
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: 5
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+      - type: "wait"
+        duration: 5
+
+  - name: "sq_grating_60deg_gs16"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: *color_command
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat04_sq_grating_60deg_gs16_G4.pat"
+        pattern_ID: 4
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: *dur_long
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+  - name: "sine_grating_30deg_gs16"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat05_sine_grating_30deg_gs16_G4.pat"
+        pattern_ID: 5
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: *dur_long
+
+  - name: "sine_grating_60deg_gs16"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat06_sine_grating_60deg_gs16_G4.pat"
+        pattern_ID: 6
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: 2
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setGreenLEDPower"
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "wait"
+        duration: 2
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+      - type: "wait"
+        duration: 2
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setGreenLEDPower"
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "wait"
+        duration: 2
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+      - type: "wait"
+        duration: 2
+
+  - name: "sine_grating_30deg_fine_gs16"
+    commands:
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "getTimestamp"
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: *color_command
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "pat07_sine_grating_30deg_fine_gs16_G4.pat"
+        pattern_ID: 7
+        duration: *dur_long
+        mode: 2
+        frame_index: 1
+        frame_rate: 10
+        gain: 0
+
+      - type: "wait"
+        duration: 3
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setBlueLEDPower"
+        params:
+          power: *color_power
+          panel_num: 0
+          pattern: "1010"
+
+      - type: "wait"
+        duration: 7
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "setVisibleBacklightsOff"
+
+  - name: "intertrial"
+    commands:
+      - type: "controller"
+        command_name: "allOff"
+
+      - type: "wait"
+        duration: 2
+
+  - name: "posttrial"
+    commands:
+      - type: "controller"
+        command_name: "allOff"
+
+      - type: "plugin"
+        plugin_name: "backlight"
+        command_name: "turnOffLED"
+
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "stopRecording"
+
+      - type: "plugin"
+        plugin_name: "camera"
+        command_name: "stopCapture"
+
+      - type: "wait"
+        duration: 1
