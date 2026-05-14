@@ -432,15 +432,25 @@ function append_sd_card_mapping_node(rootNode, sd_mapping, mappings_list)
 end
 
 function num_updated = update_pattern_id_nodes(rootNode, filename_to_id)
-% Walk the conditions->commands subtree and replace each pattern_ID
-% ScalarNode with the corresponding SD card ID number.
+% Walk the conditions->commands subtree and write each pattern_ID field
+% with the corresponding SD card ID number.
 %
-% ScalarNode is immutable in SnakeYAML, so we replace the NodeTuple that
-% contains it with a new NodeTuple pointing to a new ScalarNode.  The
-% parent MappingNode's getValue() list is a mutable Java ArrayList so
-% set() works directly.
+% Three source cases are handled:
+%   1. pattern_ID is a literal scalar  — value is replaced in-place.
+%   2. pattern_ID is an alias (*var)   — alias is resolved and replaced
+%                                        with a literal integer, intentionally
+%                                        breaking the anchor link.
+%   3. pattern_ID is absent or empty   — field is inserted after 'pattern'.
+%
+% ScalarNode is immutable in SnakeYAML, so replacements are made by
+% swapping the NodeTuple in the parent MappingNode's mutable ArrayList.
 
-    num_updated    = 0;
+    num_updated = 0;
+
+    % Borrow PLAIN ScalarStyle from the first key in the document.
+    % All new ScalarNodes for pattern_ID values are constructed with this style.
+    PLAIN = rootNode.getValue().get(0).getKeyNode().getScalarStyle();
+
     conditionsNode = get_value_node(rootNode, 'conditions');
     if isempty(conditionsNode)
         return;
@@ -472,7 +482,13 @@ function num_updated = update_pattern_id_nodes(rootNode, filename_to_id)
                 continue;
             end
 
-            if replace_scalar(cmdNode, 'pattern_ID', num2str(filename_to_id(filename)))
+            new_id_str = num2str(filename_to_id(filename));
+
+            if replace_scalar(cmdNode, 'pattern_ID', new_id_str, PLAIN)
+                num_updated = num_updated + 1;
+            else
+                % pattern_ID field absent — insert it immediately after 'pattern'
+                insert_scalar_after(cmdNode, 'pattern', 'pattern_ID', new_id_str, PLAIN);
                 num_updated = num_updated + 1;
             end
         end
@@ -512,28 +528,73 @@ function value = get_scalar_string(mappingNode, key)
 end
 
 
-function success = replace_scalar(mappingNode, key, newValue)
+function success = replace_scalar(mappingNode, key, newValue, PLAIN)
 % Replace a scalar value in a MappingNode by swapping its NodeTuple.
 %
-% ScalarNode is immutable, so a new ScalarNode is constructed with the same
-% Tag and ScalarStyle as the original (preserving quoting behaviour), then
-% placed in a new NodeTuple which replaces the old one in the parent list.
+% If the existing value node is an AliasNode (*anchor), it is resolved to
+% its anchored ScalarNode so that its Tag can be read. The replacement is
+% always a literal ScalarNode — the alias link is intentionally broken,
+% which is correct when writing SD card IDs (we want a hard number, not
+% a variable reference).
+%
+% If the existing value has a null tag (field was present but left empty),
+% Tag.INT is used so the output is a valid integer scalar.
+%
+% Returns false if the key is not found (field absent entirely).
 
     success = false;
+    INT     = org.yaml.snakeyaml.nodes.Tag.INT;
     tuples  = mappingNode.getValue();
     for i = 0:tuples.size()-1
         tuple   = tuples.get(i);
         keyNode = tuple.getKeyNode();
         if isa(keyNode, 'org.yaml.snakeyaml.nodes.ScalarNode') && ...
                 strcmp(char(keyNode.getValue()), key)
-            old     = tuple.getValueNode();
+            old = tuple.getValueNode();
+            % Resolve alias to its anchored node so we can read Tag
+            if isa(old, 'org.yaml.snakeyaml.nodes.AliasNode')
+                old = old.getRealNode();
+            end
+            % Use INT tag if the field was left empty (null tag)
+            tag = old.getTag();
+            if tag.equals(org.yaml.snakeyaml.nodes.Tag.NULL)
+                tag = INT;
+            end
             newNode = org.yaml.snakeyaml.nodes.ScalarNode( ...
-                old.getTag(), newValue, [], [], old.getScalarStyle());
+                tag, newValue, [], [], PLAIN);
             tuples.set(i, org.yaml.snakeyaml.nodes.NodeTuple(keyNode, newNode));
             success = true;
             return;
         end
     end
+end
+
+
+function insert_scalar_after(mappingNode, after_key, new_key, new_value, PLAIN)
+% Insert a new integer scalar field into a MappingNode immediately after
+% the specified anchor key. If the anchor key is not found, the new field
+% is appended at the end.
+%
+% Used to add pattern_ID when it is entirely absent from a source YAML
+% command block.
+
+    STR      = org.yaml.snakeyaml.nodes.Tag.STR;
+    INT      = org.yaml.snakeyaml.nodes.Tag.INT;
+    keyNode  = org.yaml.snakeyaml.nodes.ScalarNode(STR, new_key,   [], [], PLAIN);
+    valNode  = org.yaml.snakeyaml.nodes.ScalarNode(INT, new_value, [], [], PLAIN);
+    newTuple = org.yaml.snakeyaml.nodes.NodeTuple(keyNode, valNode);
+
+    tuples    = mappingNode.getValue();
+    insertIdx = tuples.size();          % default: append at end
+    for i = 0:tuples.size()-1
+        kn = tuples.get(i).getKeyNode();
+        if isa(kn, 'org.yaml.snakeyaml.nodes.ScalarNode') && ...
+                strcmp(char(kn.getValue()), after_key)
+            insertIdx = i + 1;
+            break;
+        end
+    end
+    tuples.add(int32(insertIdx), newTuple);
 end
 
 

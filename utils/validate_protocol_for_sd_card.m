@@ -598,14 +598,28 @@ function [errors, warnings] = validateControllerCommand(cmd, context, index)
             end
 
         case {'startG41Trial', 'trialParams'}
-            requiredFields = {'mode', 'pattern', 'pattern_ID', 'frame_index', ...
+            requiredFields = {'mode', 'pattern', 'frame_index', ...
                 'duration', 'frame_rate', 'gain'};
+            % Note: pattern_ID is intentionally excluded from required fields.
+            % It is written automatically by deploy_experiments_to_sd() when
+            % the SD card is prepared. Source YAML files should omit it or
+            % leave it empty; do not use an anchor/alias for this field.
 
             for i = 1:length(requiredFields)
                 field = requiredFields{i};
                 if ~isfield(cmd, field)
                     errors{end+1} = sprintf('%s trial command (command %d) missing required field: %s', ...
                         context, index, field);
+                end
+            end
+
+            % Validate pattern_ID only if present and non-empty
+            if isfield(cmd, 'pattern_ID') && ~isempty(cmd.pattern_ID)
+                pid = cmd.pattern_ID;
+                if ~isnumeric(pid) || pid < 1 || floor(pid) ~= pid
+                    errors{end+1} = sprintf( ...
+                        '%s pattern_ID must be a positive integer (got %s)', ...
+                        context, num2str(pid));
                 end
             end
 
