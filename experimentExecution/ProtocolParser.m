@@ -747,7 +747,9 @@ classdef ProtocolParser < handle
             % Resolve relPath relative to the protocol file's directory.
             % Absolute paths (Windows drive letters or Unix /...) are returned
             % unchanged.
-
+      
+            relPath = char(relPath);
+            
             [protDir, ~, ~] = fileparts(self.filepath);
 
             isAbsolute = (ispc() && length(relPath) >= 2 && relPath(2) == ':') || ...
