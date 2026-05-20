@@ -144,6 +144,8 @@ classdef LEDControllerPlugin < handle
             
             if ~exist('params', 'var')
                 params = struct();
+            elseif isfield(params, 'pattern')
+                params.pattern = char(params.pattern);
             end
             
             try

@@ -684,8 +684,8 @@ classdef BiasPlugin < handle
             timestampObj = self.biasControl.getTimeStamp();
             frameCountObj = self.biasControl.getFrameCount();
             
-            timestamp = timestampObj.value;
-            frameCount = frameCountObj.value;
+            timestamp = timestampObj{1}.value;
+            frameCount = frameCountObj{1}.value;
             
             result = struct();
             result.timestamp = timestamp;
