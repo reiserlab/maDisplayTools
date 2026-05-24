@@ -21,3 +21,4 @@ tests/logs/
 # Benchmark result files
 benchmark_*.mat
 simple_comparison_*.mat
+.codex-review/
