@@ -27,7 +27,10 @@ function g6_save_pattern(Pats, stretch, arena_config, save_dir, filename, vararg
 %   Byte 10:     col_count (FULL grid columns)
 %   Byte 11:     gs_val (1=GS2, 2=GS16)
 %   Bytes 12-17: panel_mask (6 bytes)
-%   Byte 18:     checksum (XOR of frame data)
+%   Byte 18:     CRC-8/AUTOSAR over header bytes 1-17 (per g6_01-panel-protocol.md § CRC-8)
+%
+%   Each frame ends with a 2-byte CRC-16/CCITT-FALSE trailer (little-endian)
+%   over {FR_magic, frame_index, panel_blocks} of that frame.
 %
 % Example:
 %   % Quick usage with [rows, cols]
@@ -312,10 +315,25 @@ header(9) = row_count;
 header(10) = col_count;  % Full grid column count
 header(11) = uint8(gs_val);              % GS mode (1=GS2, 2=GS16)
 header(12:17) = panel_mask(1:6);
-header(18) = 0;  % Checksum placeholder
+header(18) = 0;  % CRC-8/AUTOSAR placeholder; filled in after header is fully populated
 
-% Generate all frames
-all_frames = [];
+% Frame size (bytes per frame): 4 magic+idx + num_panels * block_size + 2 CRC-16 trailer
+% Block size depends on GS mode: GS2 = 53 bytes, GS16 = 203 bytes
+if gs_val == 1
+    block_size = 53;
+elseif gs_val == 2
+    block_size = 203;
+else
+    error('g6_save_pattern:UnsupportedGS', 'Unsupported gs_val: %d (expected 1 or 2)', gs_val);
+end
+% Cast to double so the arithmetic doesn't saturate at uint8(255)
+% (row_count and panel_mask fields are uint8 inside arena_config).
+num_panels_installed = double(length(installed_cols)) * double(row_count);
+frame_size = 4 + num_panels_installed * block_size + 2;  % +2 for CRC-16 trailer
+total_frames_size = double(num_frames) * frame_size;
+
+% Preallocate output buffer (avoid O(N^2) `[all_frames, ...]` growth)
+all_frames = zeros(1, total_frames_size, 'uint8');
 
 for frame_idx = 0:(num_frames-1)
     % Frame header
@@ -327,10 +345,13 @@ for frame_idx = 0:(num_frames-1)
     full_frame = Pats(:, :, frame_idx+1);
     stretch_val = stretch(frame_idx+1);
 
-    panel_blocks = [];
+    % Slice into all_frames at the per-frame offset (1-indexed)
+    frame_offset = frame_idx * frame_size + 1;
+    all_frames(frame_offset:frame_offset+3) = frame_header;
+    panel_cursor = frame_offset + 4;
 
-    % Iterate over installed columns only
-    % Pats dimensions match installed columns, so we use local indexing
+    % Iterate over installed columns only.
+    % Pats dimensions match installed columns, so we use local indexing.
     for panel_row = 0:(row_count-1)
         for local_col_idx = 1:length(installed_cols)
             % local_col_idx is 1-indexed into the Pats array
@@ -343,7 +364,6 @@ for frame_idx = 0:(num_frames-1)
             try
                 panel_block = g6_encode_panel(panel_pixels, stretch_val, mode);
             catch ME
-                % Provide detailed diagnostics if the call fails
                 fprintf('Error in g6_encode_panel call:\n');
                 fprintf('  panel_pixels size: %s\n', mat2str(size(panel_pixels)));
                 fprintf('  stretch_val: %d (class: %s)\n', stretch_val, class(stretch_val));
@@ -351,19 +371,21 @@ for frame_idx = 0:(num_frames-1)
                 fprintf('  g6_encode_panel location: %s\n', which('g6_encode_panel'));
                 rethrow(ME);
             end
-            panel_blocks = [panel_blocks, panel_block];
+            all_frames(panel_cursor:panel_cursor+block_size-1) = panel_block;
+            panel_cursor = panel_cursor + block_size;
         end
     end
 
-    all_frames = [all_frames, frame_header, panel_blocks];
+    % Per-frame CRC-16/CCITT-FALSE trailer over {FR_magic, frame_index, panel_blocks}
+    % of THIS frame only, little-endian.
+    frame_crc = crc16_ccitt_false(all_frames(frame_offset:panel_cursor-1));
+    all_frames(panel_cursor)   = uint8(bitand(frame_crc, 255));
+    all_frames(panel_cursor+1) = uint8(bitand(bitshift(frame_crc, -8), 255));
 end
 
-% Compute checksum
-checksum = uint8(0);
-for i = 1:length(all_frames)
-    checksum = bitxor(checksum, all_frames(i));
-end
-header(18) = checksum;
+% Header CRC-8/AUTOSAR over header bytes 1-17 (zero-indexed 0-16)
+% Placeholder byte 18 is NOT in scope.
+header(18) = crc8_autosar(header(1:17));
 
 file_data = [header, all_frames];
 

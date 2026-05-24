@@ -932,10 +932,16 @@ classdef maDisplayTools < handle
             %fprintf('img shape: %d x %d\n', size(img, 1), size(img, 2));
         end
 
-        function [frames, meta] = load_pat(filepath)
+        function [frames, meta] = load_pat(filepath, varargin)
             % LOAD_PAT Load and decode all frames from a .pat file
             %   Takes in the path to a pattern file and loads it and decodes all frames.
             %   Automatically detects G4 vs G6 format based on header.
+            %
+            %   Name-value options:
+            %     'strict' (default false) — CRC-8 / CRC-16 mismatches throw an
+            %       error instead of issuing a warning. Used by CI / regen / export
+            %       validation. UI-side callers leave the default so they can still
+            %       load a partially-corrupted file for inspection.
             %
             %   Returns:
             %   - frames: 4D array (NumPatsY, NumPatsX, rows, cols)
@@ -955,9 +961,9 @@ classdef maDisplayTools < handle
             magic = char(header_peek');
             if strcmp(magic, 'G6PT')
                 % G6 format detected
-                [frames, meta] = maDisplayTools.load_pat_g6(filepath);
+                [frames, meta] = maDisplayTools.load_pat_g6(filepath, varargin{:});
             else
-                % G4 format (original)
+                % G4 format (original; CRC scheme does not apply, varargin ignored)
                 [frames, meta] = maDisplayTools.load_pat_g4(filepath);
             end
         end
@@ -1022,24 +1028,38 @@ classdef maDisplayTools < handle
                           'header_version', header_info.version);
         end
 
-        function [frames, meta] = load_pat_g6(filepath)
+        function [frames, meta] = load_pat_g6(filepath, varargin)
             % LOAD_PAT_G6 Load G6 format .pat file
             %   Internal function for loading G6 pattern files.
             %
-            %   G6 Header (17 bytes):
+            %   Name-value options:
+            %     'strict' (default false) — CRC failures error out (instead of warning)
+            %
+            %   G6 V1 Header (17 bytes):
             %     Bytes 1-4:   Magic "G6PT"
             %     Byte 5:      Version (1)
             %     Byte 6:      gs_val (1=GS2, 2=GS16)
             %     Bytes 7-8:   num_frames (little-endian uint16)
             %     Byte 9:      row_count
             %     Byte 10:     col_count
-            %     Byte 11:     checksum
+            %     Byte 11:     checksum (XOR of frame data — V1 only)
             %     Bytes 12-17: panel_mask (6 bytes)
+            %
+            %   G6 V2 Header (18 bytes): see read_g6_header.m. Byte 18 is
+            %     CRC-8/AUTOSAR over header bytes 1-17.
             %
             %   Frame structure:
             %     Frame header: 4 bytes ["FR", frame_idx (little-endian uint16)]
             %     Panel blocks: row_count * col_count panels
             %       GS2: 53 bytes/panel, GS16: 203 bytes/panel
+            %     V2 only: 2-byte CRC-16/CCITT-FALSE trailer (little-endian) over
+            %       {FR_magic, frame_index, panel_blocks} of that frame.
+
+            % Parse strict-mode option
+            p = inputParser;
+            addParameter(p, 'strict', false, @islogical);
+            parse(p, varargin{:});
+            strict = p.Results.strict;
 
             % Read entire file
             fid = fopen(filepath, 'rb');
@@ -1086,6 +1106,22 @@ classdef maDisplayTools < handle
                 header_size = 18;
             end
 
+            % V2 header CRC-8/AUTOSAR check (byte 18 over bytes 1-17).
+            % V1 keeps the legacy XOR-over-frame-data checksum at byte 11; not validated here.
+            if version >= 2
+                expected_hdr_crc = crc8_autosar(uint8(data(1:17)));
+                if expected_hdr_crc ~= uint8(data(18))
+                    msg = sprintf('G6 header CRC-8 mismatch: file=0x%02X computed=0x%02X', ...
+                                  uint8(data(18)), expected_hdr_crc);
+                    if strict
+                        error('maDisplayTools:G6HeaderCRC', '%s', msg);
+                    else
+                        warning('maDisplayTools:G6HeaderCRC', '%s', msg);
+                    end
+                end
+            end
+            has_frame_trailer = (version >= 2);
+
             % Determine mode and panel size
             if gs_val_g6 == 1
                 mode = 'GS2';
@@ -1130,10 +1166,18 @@ classdef maDisplayTools < handle
             panel_data_size = num_panels_in_file * panel_bytes;
 
             for f = 1:num_frames
+                frame_start = offset;
+
                 % Skip frame header (4 bytes: "FR" + frame_idx)
                 % Verify frame header
                 if char(frame_data(offset:offset+1)') ~= "FR"
-                    warning('Frame %d: expected FR header, found %s', f, char(frame_data(offset:offset+1)'));
+                    msg = sprintf('Frame %d: expected FR header, found %s', ...
+                                  f, char(frame_data(offset:offset+1)'));
+                    if strict
+                        error('maDisplayTools:G6FrameHeader', '%s', msg);
+                    else
+                        warning('maDisplayTools:G6FrameHeader', '%s', msg);
+                    end
                 end
                 offset = offset + frame_header_size;
 
@@ -1155,6 +1199,22 @@ classdef maDisplayTools < handle
                         frame_img(row_start:row_end, col_start:col_end) = panel_pixels;
                         offset = offset + panel_bytes;
                     end
+                end
+
+                % V2: per-frame CRC-16/CCITT-FALSE trailer (little-endian).
+                if has_frame_trailer
+                    file_crc = uint16(frame_data(offset)) + bitshift(uint16(frame_data(offset+1)), 8);
+                    expected_crc = crc16_ccitt_false(uint8(frame_data(frame_start:offset-1)));
+                    if expected_crc ~= file_crc
+                        msg = sprintf('Frame %d: CRC-16 mismatch — file=0x%04X computed=0x%04X', ...
+                                      f, file_crc, expected_crc);
+                        if strict
+                            error('maDisplayTools:G6FrameCRC', '%s', msg);
+                        else
+                            warning('maDisplayTools:G6FrameCRC', '%s', msg);
+                        end
+                    end
+                    offset = offset + 2;
                 end
 
                 frames(1, f, :, :) = frame_img;
