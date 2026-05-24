@@ -73,8 +73,10 @@ Standard arena configs are in `configs/arenas/`:
 
 | Config | Generation | Panels | Description |
 |--------|------------|--------|-------------|
-| G6_2x10_full | G6 | 2×10 | Full cylinder, 20 panels |
-| G6_2x8_walking | G6 | 2×8 | Walking arena, 16 panels |
+| G6_2x10 | G6 | 2×10 | Full G6 arena, 360° coverage, 20 panels |
+| G6_2x8of10 | G6 | 2×8 of 10 | Walking arena, columns 0 + 9 uninstalled (288° coverage), 16 panels |
+| G6_3x12of18 | G6 | 3×12 of 18 | Partial arena, 12 of 18 columns installed (240° coverage), 36 panels |
+| G6_3x16_full | G6 | 3×16 | Full arena, 360° coverage, 48 panels |
 | G41_2x12_cw | G4.1 | 2×12 | Clockwise, c0 at south |
 | G4_3x12_full | G4 | 3×12 | 3-row full arena |
 | G4_4x12_full | G4 | 4×12 | 4-row full arena |
