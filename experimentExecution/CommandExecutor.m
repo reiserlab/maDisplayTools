@@ -198,7 +198,7 @@ classdef CommandExecutor < handle
             
             duration = command.duration;
             
-            self.logger.log('INFO', sprintf('Wait command: %d s', duration));
+            self.logger.log('INFO', sprintf('Wait command: %.1f s', duration));
             
             % Convert milliseconds to seconds and pause
             pause(duration);
