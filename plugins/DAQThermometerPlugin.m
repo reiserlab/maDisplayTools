@@ -29,15 +29,29 @@ classdef DAQThermometerPlugin < handle
     %   THEM IN THE EXPERIMENT YAML'S TEMPERATURE CONFIG.
     %
     % Commands:
-    %   get_temperature  - Short read; logs and returns mean per channel.
-    %                      Intended for between-trial passive monitoring.
-    %   log_temperature  - Longer read; logs mean/min/max per channel and
-    %                      optionally saves a plot. Intended for pre/post-
-    %                      experiment records.
+    %   get_temperature          - Blocking read for sample_duration seconds;
+    %                              logs and returns mean per channel. Intended
+    %                              for between-trial passive monitoring.
+    %   log_temperature          - Blocking read; logs mean/min/max per channel
+    %                              and optionally saves a plot. Intended for
+    %                              pre/post-experiment records.
+    %   startContinuousLogging   - Starts non-blocking background acquisition at
+    %                              the configured sample_rate. Each sample fires a
+    %                              callback that writes one row to a CSV file.
+    %                              Returns immediately; does not block execution.
+    %                              Cannot be combined with get_temperature or
+    %                              log_temperature while active.
+    %   stopContinuousLogging    - Stops background acquisition and closes the
+    %                              CSV file. Called automatically by cleanup() if
+    %                              still running at experiment end.
     %
     % Optional Command Params:
-    %   sample_duration  - Override config default read duration (both commands)
+    %   sample_duration  - Override config default read duration
+    %                      (get_temperature and log_temperature only)
     %   generate_plots   - Override config plot default (log_temperature only)
+    %   filename         - Full path for the CSV log file
+    %                      (startContinuousLogging only; default: auto-named
+    %                       temperature_YYYYMMDD_HHMMSS.csv in saveDir)
     %
     % Experiment YAML Example:
     %   
@@ -83,6 +97,11 @@ classdef DAQThermometerPlugin < handle
         defaultSampleDuration   % Default read duration in seconds
         defaultGeneratePlots    % Default plot-saving behaviour (logical)
         saveDir                 % Directory for plot output
+        % --- Continuous logging state ---
+        isLogging               % logical: true while startContinuousLogging is active
+        logFileId               % file handle for continuous CSV log (-1 when closed)
+        logFilePath             % full path of the active continuous log CSV
+        continuousTic           % tic handle used for elapsed timestamps in callback
     end
 
     methods (Access = public)
@@ -99,6 +118,9 @@ classdef DAQThermometerPlugin < handle
             self.config      = config;
             self.logger      = logger;
             self.isConnected = false;
+            self.isLogging   = false;
+            self.logFileId   = -1;
+            self.logFilePath = '';
 
             self.extractConfig();
         end
@@ -144,8 +166,10 @@ classdef DAQThermometerPlugin < handle
             % Dispatch a command to the appropriate handler
             %
             % Supported commands:
-            %   get_temperature - Short read; returns mean per channel
-            %   log_temperature - Longer read; logs stats and optionally plots
+            %   get_temperature        - Blocking read; returns mean per channel
+            %   log_temperature        - Blocking read; logs stats and optionally plots
+            %   startContinuousLogging - Start non-blocking background CSV logging
+            %   stopContinuousLogging  - Stop background logging and close CSV
             %
             % Args:
             %   command - Command name string
@@ -160,9 +184,23 @@ classdef DAQThermometerPlugin < handle
 
             switch command
                 case 'get_temperature'
+                    if self.isLogging
+                        error('DAQThermometerPlugin:LoggingActive', ...
+                            '[%s] Cannot call get_temperature while continuous logging is active. Call stopContinuousLogging first.', ...
+                            self.name);
+                    end
                     result = self.cmdGetTemperature(params);
                 case 'log_temperature'
+                    if self.isLogging
+                        error('DAQThermometerPlugin:LoggingActive', ...
+                            '[%s] Cannot call log_temperature while continuous logging is active. Call stopContinuousLogging first.', ...
+                            self.name);
+                    end
                     result = self.cmdLogTemperature(params);
+                case 'startContinuousLogging'
+                    result = self.cmdStartContinuousLogging(params);
+                case 'stopContinuousLogging'
+                    result = self.cmdStopContinuousLogging(params);
                 otherwise
                     error('DAQThermometerPlugin:UnknownCommand', ...
                         '[%s] Unknown command: %s', self.name, command);
@@ -172,13 +210,23 @@ classdef DAQThermometerPlugin < handle
         function cleanup(self)
             % Stop and release the DAQ session
             %
-            % Called automatically by PluginManager at the end of the
-            % experiment, whether the experiment completes normally or errors.
+            % If continuous logging is still active, stops it and closes the
+            % CSV file before releasing the DAQ session. Called automatically
+            % by PluginManager at the end of the experiment, whether the
+            % experiment completes normally or errors.
+
+            if self.isLogging
+                self.logger.log('INFO', sprintf( ...
+                    '[%s] Stopping continuous logging during cleanup', self.name));
+                self.cmdStopContinuousLogging(struct());
+            end
 
             if self.isConnected && ~isempty(self.daqSession)
                 try
                     self.logger.log('INFO', sprintf('[%s] Releasing DAQ session', self.name));
-                    stop(self.daqSession);
+                    if self.daqSession.Running
+                        stop(self.daqSession);
+                    end
                     delete(self.daqSession);
                     self.isConnected = false;
                     self.logger.log('INFO', sprintf('[%s] DAQ session released', self.name));
@@ -200,6 +248,8 @@ classdef DAQThermometerPlugin < handle
             status.sampleRate       = self.sampleRate;
             status.numChannels      = self.numChannels;
             status.connected        = self.isConnected;
+            status.isLogging        = self.isLogging;
+            status.logFilePath      = self.logFilePath;
         end
 
     end
@@ -363,6 +413,153 @@ classdef DAQThermometerPlugin < handle
 
             if doPlot
                 result.plotFile = self.savePlot(data, result);
+            end
+        end
+
+        function result = cmdStartContinuousLogging(self, params)
+            % Start non-blocking background temperature acquisition
+            %
+            % Configures the DAQ session for continuous mode and starts it.
+            % Returns immediately. The hardware driver acquires samples
+            % independently and fires continuousLogCallback once per sample,
+            % which writes one row to the CSV file. MATLAB processes callbacks
+            % during pause() calls in the main protocol, so logging is
+            % effectively concurrent with experiment execution.
+            %
+            % Cannot be called while continuous logging is already active, or
+            % while get_temperature / log_temperature would be appropriate
+            % (those commands cannot run while the session is in continuous mode).
+            %
+            % Args:
+            %   params.filename - Full path for the CSV log file (optional).
+            %                     Default: temperature_YYYYMMDD_HHMMSS.csv in saveDir.
+            %
+            % Returns:
+            %   result.logFile - Full path of the opened CSV log file
+
+            if ~self.isConnected
+                error('DAQThermometerPlugin:NotConnected', ...
+                    '[%s] DAQ session not initialized', self.name);
+            end
+
+            if self.isLogging
+                self.logger.log('WARNING', sprintf( ...
+                    '[%s] startContinuousLogging called but logging is already active', ...
+                    self.name));
+                result = struct('logFile', self.logFilePath);
+                return;
+            end
+
+            % Resolve log file path
+            if isfield(params, 'filename') && ~isempty(params.filename)
+                filepath = params.filename;
+            else
+                timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+                filepath  = fullfile(self.saveDir, ...
+                    sprintf('temperature_%s.csv', timestamp));
+            end
+
+            % Open CSV and write header
+            fid = fopen(filepath, 'w');
+            if fid == -1
+                error('DAQThermometerPlugin:FileError', ...
+                    '[%s] Could not open temperature log file: %s', self.name, filepath);
+            end
+            self.logFileId  = fid;
+            self.logFilePath = filepath;
+
+            headerParts = [{'elapsed_s'}, self.channels];
+            if self.numChannels == 2
+                headerParts{end+1} = 'dT_C';
+            end
+            fprintf(self.logFileId, '%s\n', strjoin(headerParts, ','));
+
+            % Configure callback: fire once per acquired scan
+            self.daqSession.ScansAvailableFcnCount = 1;
+            self.continuousTic = tic;
+            self.daqSession.ScansAvailableFcn = @(src, ~) self.continuousLogCallback(src);
+
+            % Start continuous acquisition (non-blocking)
+            start(self.daqSession, "continuous");
+            self.isLogging = true;
+
+            self.logger.log('INFO', sprintf( ...
+                '[%s] Continuous logging started at %g Hz -> %s', ...
+                self.name, self.sampleRate, filepath));
+
+            result = struct('logFile', filepath);
+        end
+
+        function result = cmdStopContinuousLogging(self, ~)
+            % Stop background temperature acquisition and close the CSV file
+            %
+            % Stops the DAQ session, removes the callback, and closes the log
+            % file. Safe to call even if logging is not active (logs a warning).
+            % Called automatically by cleanup() if still running at experiment end.
+            %
+            % Returns:
+            %   result.logFile - Full path of the closed CSV log file
+
+            if ~self.isLogging
+                self.logger.log('WARNING', sprintf( ...
+                    '[%s] stopContinuousLogging called but logging is not active', ...
+                    self.name));
+                result = struct('logFile', self.logFilePath);
+                return;
+            end
+
+            % Stop acquisition and clear callback
+            stop(self.daqSession);
+            self.daqSession.ScansAvailableFcn = [];
+
+            % Close log file
+            if self.logFileId ~= -1
+                fclose(self.logFileId);
+                self.logFileId = -1;
+            end
+
+            self.isLogging = false;
+
+            self.logger.log('INFO', sprintf( ...
+                '[%s] Continuous logging stopped -> %s', self.name, self.logFilePath));
+
+            result = struct('logFile', self.logFilePath);
+        end
+
+        function continuousLogCallback(self, src)
+            % Callback fired by the DAQ session each time a new scan is available
+            %
+            % Reads exactly one scan from the acquisition buffer, computes the
+            % elapsed time since logging started, and writes one CSV row.
+            % For two channels, also writes the inter-channel difference (dT).
+            %
+            % Format: elapsed_s, ch0_C [, ch1_C [, ch2_C [, ch3_C]]] [, dT_C]
+            %
+            % Errors inside callbacks are silently swallowed by MATLAB; any
+            % exception here is caught and written to the experiment log instead
+            % of crashing the callback infrastructure.
+
+            try
+                data    = read(src, src.ScansAvailableFcnCount);
+                elapsed = toc(self.continuousTic);
+
+                vals = zeros(1, self.numChannels);
+                for i = 1:self.numChannels
+                    vals(i) = data{1, i};
+                end
+
+                if self.numChannels == 2
+                    row = [elapsed, vals, vals(2) - vals(1)];
+                else
+                    row = [elapsed, vals];
+                end
+
+                fmt = [repmat('%.4f,', 1, numel(row) - 1), '%.4f\n'];
+                fprintf(self.logFileId, fmt, row);
+
+            catch ME
+                self.logger.log('WARNING', sprintf( ...
+                    '[%s] continuousLogCallback error: %s', self.name, ME.message));
             end
         end
 
