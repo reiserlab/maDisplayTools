@@ -281,7 +281,7 @@ classdef DAQThermometerPlugin < handle
             if ~iscell(raw)
                 raw = {raw};
             end
-            self.channels    = raw;
+            self.channels = raw(:)';
             self.numChannels = numel(self.channels);
 
             if self.numChannels < 1 || self.numChannels > 4
