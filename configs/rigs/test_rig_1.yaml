@@ -25,9 +25,9 @@ plugins:
     config_path: 'C:\Users\labadmin\Documents\FlyBowl1Rig\bias_config_default1.json'
     bias_executable: 'C:\Users\labadmin\Documents\FlyBowl1Rig\BIAS_exe_spinnaker_win64_v0_73_1\v0.73.1\test_gui.exe'
   temperature:
-    enabled: false
+    enabled: true
     type: "DAQ Thermometer" 
-    device_id: "cDAQ1Mod1"
+    device_id: "cDAQ1Mod4"
     channels:  # supports 1-4 channels
       - "ai0"
       - "ai2"
