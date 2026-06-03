@@ -347,7 +347,7 @@ classdef ProtocolRunner < handle
 
             if strcmp(generation, 'G4.1')
                 try
-                    self.arenaController = PanelsController(self.arenaIP);
+                    self.arenaController = getPanelsController(self.arenaIP);
                     self.arenaController.open(false);
                 catch ME
                     self.logger.log('ERROR', 'Failed to connect to arena controller');
