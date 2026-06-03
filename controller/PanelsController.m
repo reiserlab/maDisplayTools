@@ -36,6 +36,8 @@ classdef PanelsController < handle
         iBuf = uint8([]);  % input buffer
         prevLogStart = uint64(0);
         isLogRunning = false;
+        pendingDrainTic = []    % tic handle recorded when a non-blocking trialParams started; empty if none pending
+        pendingDrainTimeout = 0 % total drain window (seconds) for the pending completion message
     end
 
 
@@ -614,6 +616,7 @@ classdef PanelsController < handle
                     mustBeLessThanOrEqual(deciSeconds, 65535)}
                 waitForEnd (1,1) logical = true
             end
+            self.drainPendingCompletion();
             rtn = false;
             cmdData = uint8([12 08]); % Command 0x0c, 0x08
             cmd = cmdData;
@@ -635,6 +638,8 @@ classdef PanelsController < handle
                 end
             elseif waitForEnd == false && ~isempty(resp) && resp(2) == 0
                 rtn = true;
+                self.pendingDrainTic = tic;
+                self.pendingDrainTimeout = deciSeconds * 0.1 + 1;
             end
         end
 
@@ -1170,6 +1175,33 @@ classdef PanelsController < handle
                 n1 = 1 + (i-1)*16;
                 n2 = n1 + 15;
                 frameNew(n1:n2,:) = flipud(frameNew(n1:n2,:));
+            end
+        end
+
+        function drainPendingCompletion(self)
+            %% drainPendingCompletion Consume a deferred trialParams completion message
+            %
+            % When trialParams is called with waitForEnd=false, the firmware
+            % still sends an end-of-trial completion message (cmd_echo=0x08)
+            % once the trial duration elapses. That message remains in iBuf
+            % and can be incorrectly matched as the ACK for the next command
+            % that calls expectResponse with cmd_echo=0x08.
+            %
+            % This method waits until the pending trial's expected completion
+            % time has elapsed, then reads and discards the completion message
+            % from the receive buffer. It is a no-op when no non-blocking
+            % trial is pending (pendingDrainTic is empty).
+            %
+            % Called automatically at the start of each trialParams invocation.
+            if ~isempty(self.pendingDrainTic)
+                elapsed = toc(self.pendingDrainTic);
+                remaining = self.pendingDrainTimeout - elapsed;
+                if remaining > 0
+                    pause(remaining);
+                end
+                self.expectResponse(0, 8, "Sequence completed", 0.5);
+                self.pendingDrainTic = [];
+                self.pendingDrainTimeout = 0;
             end
         end
 
