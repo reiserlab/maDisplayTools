@@ -115,7 +115,7 @@ conditions:
       duration: 0.5
 
   - name: "start recording"  
-    
+    commands:
     - type: "plugin"
       plugin_name: "camera"
       command_name: "startRecording"
@@ -147,7 +147,7 @@ conditions:
         gain: 0
 
       - type: "wait"
-      duration: 3
+        duration: 3
 
       - type: "plugin"
         plugin_name: "backlight"
@@ -174,7 +174,7 @@ conditions:
         plugin_name: "camera"
         command_name: "getTimestamp"
     
-      - type: "controller  
+      - type: "controller"  
         command_name: "trialParams"
         pattern: "pat02_sq_grating_30deg_gs16_G4.pat"
         pattern_ID: 2
