@@ -459,7 +459,7 @@ commands:
 Reads temperature from NI CompactDAQ thermocouples. Configuration belongs in the experiment YAML `config` block (or optionally in the rig YAML). Continuous background logging is the recommended mode for long experiments, as it does not block any other commands.
 
 ```yaml
-- name: "thermometer"
+- name: "temperature"
   type: "class"
   matlab:
     class: "DAQThermometerPlugin"
@@ -486,12 +486,12 @@ Reads temperature from NI CompactDAQ thermocouples. Configuration belongs in the
 ```yaml
 # In ir led setup condition:
 - type: "plugin"
-  plugin_name: "thermometer"
+  plugin_name: "temperature"
   command_name: "startContinuousLogging"  # Returns immediately; logs in background
 
 # In shutdown condition:
 - type: "plugin"
-  plugin_name: "thermometer"
+  plugin_name: "temperature"
   command_name: "stopContinuousLogging"   # Stops acquisition and closes CSV
 ```
 
