@@ -278,7 +278,7 @@ conditions:
 
 Plugins integrate external hardware (cameras, serial devices, custom instruments) into experiments. Three plugin types are supported: **serial_device**, **class**, and **script**.
 
-Hardware-specific settings for built-in plugins (`BiasPlugin`, `LEDControllerPlugin`) are defined in the **rig YAML**. The experiment YAML's plugin definitions specify the class to use and any experiment-specific overrides. If a config field appears in both, the experiment YAML value wins.
+Hardware-specific settings for built-in plugins (`BiasPlugin`, `LEDControllerPlugin`, `DAQThermometerPlugin`) are defined in the **rig YAML**. The experiment YAML's plugin definitions specify the class to use and any experiment-specific overrides. If a config field appears in both, the experiment YAML value wins.
 
 ### Serial Device Plugin
 
