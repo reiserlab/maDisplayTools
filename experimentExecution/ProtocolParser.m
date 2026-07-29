@@ -47,6 +47,7 @@ classdef ProtocolParser < handle
     properties (Access = private)
         verbose     % Print parsing progress to console
         filepath    % Path to the protocol file being parsed
+        metricMap   % containers.Map: metricName -> pluginName (flow control)
     end
 
     properties (Constant)
@@ -399,8 +400,24 @@ classdef ProtocolParser < handle
                     end
 
                 elseif isstruct(entry)
-                    % Block definition
-                    self.validateBlockDefinition(entry, conditionNames, i);
+                    if isfield(entry, 'flow_control')
+                        % Flow-control entry
+                        self.validateFlowControlEntry(entry, conditionNames, i);
+                    elseif isfield(entry, 'trials')
+                        % Block definition (may have a block-level trial_check)
+                        self.validateBlockDefinition(entry, conditionNames, i);
+                    elseif isfield(entry, 'condition')
+                        % Verbose condition reference (mapping form)
+                        if ~ismember(char(entry.condition), conditionNames)
+                            self.throwValidationError( ...
+                                'experiment entry %d references unknown condition: "%s"', ...
+                                i, char(entry.condition));
+                        end
+                    else
+                        self.throwValidationError( ...
+                            ['experiment entry %d is a mapping but has no "trials:", ' ...
+                             '"condition:", or "flow_control:" key'], i);
+                    end
 
                 else
                     self.throwValidationError( ...
@@ -449,6 +466,21 @@ classdef ProtocolParser < handle
                         ['experiment block %d "intertrial" references unknown ' ...
                          'condition: "%s"'], blockIndex, itName);
                 end
+            end
+
+            % Mutual exclusivity: repetitions and min_repeats/max_repeats
+            hasRepetitions = isfield(block, 'repetitions') && ~isempty(block.repetitions);
+            hasMinMax = (isfield(block, 'min_repeats') && ~isempty(block.min_repeats)) || ...
+                        (isfield(block, 'max_repeats') && ~isempty(block.max_repeats));
+            if hasRepetitions && hasMinMax
+                self.throwValidationError( ...
+                    'experiment block %d sets both "repetitions" and "min_repeats"/"max_repeats" — use one or the other', ...
+                    blockIndex);
+            end
+
+            % Block-level trial_check validation
+            if isfield(block, 'trial_check') && ~isempty(block.trial_check)
+                self.validateBlockTrialCheck(block.trial_check, conditionNames, blockIndex);
             end
         end
 
@@ -526,6 +558,9 @@ classdef ProtocolParser < handle
             protocol.version       = data.version;
             protocol.experimentInfo = data.experiment_info;
 
+            % --- Capabilities ------------------------------------------------
+            protocol.capabilities = self.parseCapabilities(data);
+
             % --- Rig / arena / controller ------------------------------------
             rigPath = self.resolveRelativePath(data.rig);
             rigConfig = load_rig_config(rigPath);
@@ -563,10 +598,11 @@ classdef ProtocolParser < handle
                 end
             end
 
+            % --- Metric map (flow control) -----------------------------------
+            self.metricMap     = self.buildMetricMap(protocol.plugins);
+            protocol.metricMap = self.metricMap;
+
             % --- Variables ---------------------------------------------------
-            % The "variables" section is optional and used purely for YAML
-            % anchor declarations.  Aliases are resolved by SnakeYAML before
-            % this code runs; the struct is preserved for logging purposes.
             protocol.variables = self.parseVariables(data);
 
             if self.verbose && ~isempty(fieldnames(protocol.variables))
@@ -578,21 +614,41 @@ classdef ProtocolParser < handle
             % --- Conditions → commands map -----------------------------------
             conditionsMap = self.buildConditionsMap(data.conditions);
 
-            % --- Experiment → flat command sequence --------------------------
+            % --- Determine if flow control is used ---------------------------
+            protocol.hasFlowControl = ismember('flow_control', protocol.capabilities);
+
+            % --- Experiment → command sequence and/or program ----------------
             experiment = self.normalizeToCell(data.experiment);
-            protocol.commandSequence = self.expandExperiment(experiment, conditionsMap);
+
+            if protocol.hasFlowControl
+                % Flow-control protocol: build a program of control nodes.
+                % The commandSequence is not pre-expanded (repeat_until has
+                % unknown iteration count at parse time).
+                protocol.program         = self.buildProgram(experiment, conditionsMap);
+                protocol.conditionsMap   = conditionsMap;
+                protocol.commandSequence = {};
+
+                % Validate the program (criteria, monitors, caps)
+                self.validateFlowControlProgram(protocol);
+
+                if self.verbose
+                    fprintf('  Program: %d nodes (flow control)\n', ...
+                        numel(protocol.program));
+                end
+            else
+                % Standard protocol: fully expand into flat command sequence
+                protocol.commandSequence = self.expandExperiment(experiment, conditionsMap);
+                protocol.program         = {};
+                protocol.conditionsMap   = conditionsMap;
+
+                if self.verbose
+                    fprintf('  Command sequence: %d steps\n', ...
+                        length(protocol.commandSequence));
+                end
+            end
 
             % --- Raw YAML data (aliases resolved) ----------------------------
-            % Stored so ProtocolRunner can write a fully-resolved copy of this
-            % YAML into the results folder for each run without re-reading the
-            % file.  The 'data' struct has all anchors/aliases already expanded
-            % by SnakeYAML before any parser code touched it.
             protocol.rawYamlData = data;
-
-            if self.verbose
-                fprintf('  Command sequence: %d steps\n', ...
-                    length(protocol.commandSequence));
-            end
         end
 
         function variables = parseVariables(self, data)
@@ -710,6 +766,396 @@ classdef ProtocolParser < handle
                     entries{end+1} = struct('id', itId, ...
                                            'commands', {intertrialCommands}); %#ok<AGROW>
                 end
+            end
+        end
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — FLOW CONTROL PARSING (Stage 1)
+    % =========================================================================
+    methods (Access = private)
+
+        function caps = parseCapabilities(~, data)
+            % Extract the requires: list from the YAML
+            if isfield(data, 'requires') && ~isempty(data.requires)
+                r = data.requires;
+                if ischar(r) || isstring(r)
+                    caps = {char(r)};
+                elseif iscell(r)
+                    caps = cellfun(@char, r, 'UniformOutput', false);
+                else
+                    caps = {};
+                end
+            else
+                caps = {};
+            end
+        end
+
+        function map = buildMetricMap(self, plugins)
+            % Build a mapping from metric name to the plugin that provides
+            % it. Plugins declare this via a provides_metric field.
+            map = containers.Map();
+            for i = 1:numel(plugins)
+                pd = plugins{i};
+                if isfield(pd, 'provides_metric') && ~isempty(pd.provides_metric)
+                    metricName = char(pd.provides_metric);
+                    pluginName = char(pd.name);
+                    if map.isKey(metricName)
+                        self.throwValidationError( ...
+                            'Metric "%s" is provided by both "%s" and "%s"', ...
+                            metricName, map(metricName), pluginName);
+                    end
+                    map(metricName) = pluginName;
+                    if self.verbose
+                        fprintf('  Metric "%s" -> plugin "%s"\n', metricName, pluginName);
+                    end
+                end
+            end
+        end
+
+        function program = buildProgram(self, experiment, conditionsMap)
+            % Build a program of control nodes from the experiment list.
+            % This is the flow-control analogue of expandExperiment: instead
+            % of a flat command sequence, it produces a list of nodes that
+            % the runner interprets at runtime.
+            program = {};
+            for i = 1:numel(experiment)
+                program{end + 1} = self.classifyEntry(experiment{i}, conditionsMap); %#ok<AGROW>
+            end
+        end
+
+        function node = classifyEntry(self, entry, conditionsMap)
+            % Map one experiment entry to a program node
+
+            if ischar(entry) || isstring(entry)
+                node = struct('kind', 'ref', 'name', char(entry));
+                return;
+            end
+
+            if ~isstruct(entry)
+                self.throwValidationError( ...
+                    'Experiment entry is neither a string nor a mapping');
+            end
+
+            if isfield(entry, 'flow_control')
+                fc = char(entry.flow_control);
+                switch fc
+                    case 'trial_check'
+                        node = self.parseTrialCheckNode(entry);
+                    case 'repeat_until'
+                        node = self.parseRepeatUntilNode(entry);
+                    otherwise
+                        self.throwValidationError( ...
+                            'Unrecognised flow_control value: "%s" (Stage 1 supports trial_check and repeat_until)', fc);
+                end
+            elseif isfield(entry, 'trials')
+                node = self.parseStaticBlockNode(entry);
+            elseif isfield(entry, 'condition')
+                node = struct('kind', 'ref', 'name', char(entry.condition));
+            else
+                self.throwValidationError( ...
+                    'Experiment mapping has no "condition:", "trials:", or "flow_control:" key');
+            end
+        end
+
+        function node = parseTrialCheckNode(self, entry)
+            node              = struct();
+            node.kind         = 'trial_check';
+            node.trial        = char(entry.condition);
+            node.criterion    = self.parseCriterion(entry.criterion);
+            node.monitor      = self.resolveMonitor(node.criterion.metric);
+            node.max_attempts = self.requiredFlowField(entry, 'max_attempts', 'trial_check');
+            node.on_exhausted = char(self.requiredFlowField(entry, 'on_exhausted', 'trial_check'));
+
+            if isfield(entry, 'on_fail') && isstruct(entry.on_fail) ...
+                    && isfield(entry.on_fail, 'run') && ~isempty(entry.on_fail.run)
+                node.on_fail_run = char(entry.on_fail.run);
+            else
+                node.on_fail_run = '';
+            end
+        end
+
+        function node = parseRepeatUntilNode(self, entry)
+            node              = struct();
+            node.kind         = 'repeat_until';
+            node.name         = char(self.fieldOrDefault(entry, 'name', 'repeat_until block'));
+            node.trials       = self.normalizeToCellOfChar(entry.trials);
+            node.criterion    = self.parseCriterion(entry.criterion);
+            node.monitor      = self.resolveMonitor(node.criterion.metric);
+            node.min_repeats  = self.fieldOrDefault(entry, 'min_repeats', 1);
+            node.max_repeats  = self.requiredFlowField(entry, 'max_repeats', 'repeat_until');
+            node.randomize    = logical(self.fieldOrDefault(entry, 'randomize', false));
+
+            if isfield(entry, 'trial_check') && ~isempty(entry.trial_check)
+                node.trial_check = self.parseBlockTrialCheckNode(entry.trial_check);
+            else
+                node.trial_check = [];
+            end
+        end
+
+        function node = parseStaticBlockNode(self, entry)
+            node             = struct();
+            node.kind        = 'block';
+            node.name        = char(self.fieldOrDefault(entry, 'name', 'block'));
+            node.trials      = self.normalizeToCellOfChar(entry.trials);
+            node.repetitions = self.fieldOrDefault(entry, 'repetitions', 1);
+            node.randomize   = logical(self.fieldOrDefault(entry, 'randomize', false));
+            node.intertrial  = '';
+            if isfield(entry, 'intertrial') && ~isempty(entry.intertrial)
+                node.intertrial = char(entry.intertrial);
+            end
+
+            if isfield(entry, 'trial_check') && ~isempty(entry.trial_check)
+                node.trial_check = self.parseBlockTrialCheckNode(entry.trial_check);
+            else
+                node.trial_check = [];
+            end
+        end
+
+        function tc = parseBlockTrialCheckNode(self, tcEntry)
+            tc              = struct();
+            tc.criterion    = self.parseCriterion(tcEntry.criterion);
+            tc.monitor      = self.resolveMonitor(tc.criterion.metric);
+            tc.max_attempts = self.requiredFlowField(tcEntry, 'max_attempts', 'block trial_check');
+            tc.on_exhausted = char(self.requiredFlowField(tcEntry, 'on_exhausted', 'block trial_check'));
+
+            if isfield(tcEntry, 'on_fail') && isstruct(tcEntry.on_fail) ...
+                    && isfield(tcEntry.on_fail, 'run') && ~isempty(tcEntry.on_fail.run)
+                tc.on_fail_run = char(tcEntry.on_fail.run);
+            else
+                tc.on_fail_run = '';
+            end
+        end
+
+        function crit = parseCriterion(~, raw)
+            % Parse a criterion struct from the YAML
+            crit = struct();
+            crit.metric    = char(raw.metric);
+            crit.statistic = char(raw.statistic);
+            crit.stop_when = char(raw.stop_when);
+
+            if isfield(raw, 'threshold') && ~isempty(raw.threshold)
+                crit.threshold = raw.threshold;
+            end
+            if isfield(raw, 'level') && ~isempty(raw.level)
+                crit.level = raw.level;
+            end
+            if isfield(raw, 'baseline') && ~isempty(raw.baseline)
+                bl = raw.baseline;
+                crit.baseline = struct();
+                if isfield(bl, 'window')
+                    w = bl.window;
+                    if iscell(w)
+                        crit.baseline.window = [w{1}, w{2}];
+                    else
+                        crit.baseline.window = w;
+                    end
+                end
+                if isfield(bl, 'units')
+                    crit.baseline.units = char(bl.units);
+                end
+            end
+            if isfield(raw, 'fraction') && ~isempty(raw.fraction)
+                crit.fraction = raw.fraction;
+            end
+        end
+
+        function monitorName = resolveMonitor(self, metricName)
+            metricName = char(metricName);
+            if self.metricMap.isKey(metricName)
+                monitorName = self.metricMap(metricName);
+            else
+                monitorName = '';
+            end
+        end
+    end
+
+    % =========================================================================
+    %  PRIVATE — FLOW CONTROL VALIDATION
+    % =========================================================================
+    methods (Access = private)
+
+        function validateFlowControlEntry(self, entry, conditionNames, entryIndex)
+            % Validate a flow-control experiment entry at the structural
+            % level (fields present, references valid). Criterion-level
+            % validation happens in validateFlowControlProgram.
+            fc = char(entry.flow_control);
+            loc = sprintf('experiment entry %d', entryIndex);
+
+            switch fc
+                case 'trial_check'
+                    if ~isfield(entry, 'condition') || isempty(entry.condition)
+                        self.throwValidationError( ...
+                            '%s: trial_check requires "condition:" field', loc);
+                    end
+                    if ~ismember(char(entry.condition), conditionNames)
+                        self.throwValidationError( ...
+                            '%s: trial_check references unknown condition: "%s"', ...
+                            loc, char(entry.condition));
+                    end
+                    if ~isfield(entry, 'criterion') || isempty(entry.criterion)
+                        self.throwValidationError( ...
+                            '%s: trial_check requires "criterion:" field', loc);
+                    end
+                    if isfield(entry, 'on_fail') && isstruct(entry.on_fail) ...
+                            && isfield(entry.on_fail, 'run') && ~isempty(entry.on_fail.run)
+                        if ~ismember(char(entry.on_fail.run), conditionNames)
+                            self.throwValidationError( ...
+                                '%s: on_fail.run references unknown condition: "%s"', ...
+                                loc, char(entry.on_fail.run));
+                        end
+                    end
+
+                case 'repeat_until'
+                    if ~isfield(entry, 'trials') || isempty(entry.trials)
+                        self.throwValidationError( ...
+                            '%s: repeat_until requires "trials:" field', loc);
+                    end
+                    trials = self.normalizeToCell(entry.trials);
+                    for j = 1:numel(trials)
+                        tName = char(trials{j});
+                        if ~ismember(tName, conditionNames)
+                            self.throwValidationError( ...
+                                '%s: repeat_until references unknown condition: "%s"', ...
+                                loc, tName);
+                        end
+                    end
+                    if ~isfield(entry, 'criterion') || isempty(entry.criterion)
+                        self.throwValidationError( ...
+                            '%s: repeat_until requires "criterion:" field', loc);
+                    end
+
+                otherwise
+                    self.throwValidationError( ...
+                        '%s: unknown flow_control type: "%s"', loc, fc);
+            end
+
+            % Validate block-level trial_check if present on a repeat_until
+            if isfield(entry, 'trial_check') && ~isempty(entry.trial_check)
+                self.validateBlockTrialCheck(entry.trial_check, conditionNames, entryIndex);
+            end
+        end
+
+        function validateBlockTrialCheck(self, tc, conditionNames, blockIndex)
+            loc = sprintf('experiment block %d (block-level trial_check)', blockIndex);
+
+            if ~isfield(tc, 'criterion') || isempty(tc.criterion)
+                self.throwValidationError('%s: missing "criterion:" field', loc);
+            end
+            if ~isfield(tc, 'max_attempts') || isempty(tc.max_attempts)
+                self.throwValidationError('%s: missing "max_attempts" (required, no default)', loc);
+            end
+            if ~isfield(tc, 'on_exhausted') || isempty(tc.on_exhausted)
+                self.throwValidationError('%s: missing "on_exhausted" (required, no default)', loc);
+            else
+                exVal = char(tc.on_exhausted);
+                if ~ismember(exVal, {'advance', 'abort'})
+                    self.throwValidationError( ...
+                        '%s: on_exhausted must be "advance" or "abort" (got "%s")', loc, exVal);
+                end
+            end
+            if isfield(tc, 'on_fail') && isstruct(tc.on_fail) ...
+                    && isfield(tc.on_fail, 'run') && ~isempty(tc.on_fail.run)
+                if ~ismember(char(tc.on_fail.run), conditionNames)
+                    self.throwValidationError( ...
+                        '%s: on_fail.run references unknown condition: "%s"', ...
+                        loc, char(tc.on_fail.run));
+                end
+            end
+        end
+
+        function validateFlowControlProgram(self, protocol)
+            % Validate the program nodes after they've been parsed.
+            % Criterion-level validation and monitor resolution checks.
+            cmap = protocol.conditionsMap;
+
+            % Check requires: [flow_control] is present
+            hasFC = any(cellfun(@(n) ismember(n.kind, {'trial_check', 'repeat_until'}), ...
+                protocol.program));
+            if hasFC && ~ismember('flow_control', protocol.capabilities)
+                self.throwValidationError( ...
+                    'Protocol uses flow control but does not declare requires: [flow_control]');
+            end
+
+            for i = 1:numel(protocol.program)
+                node = protocol.program{i};
+                loc  = sprintf('program entry %d', i);
+
+                switch node.kind
+                    case 'ref'
+                        % Already validated in validateExperimentSequence
+
+                    case 'trial_check'
+                        self.validateCriterionFields(node.criterion, loc);
+                        self.assertMonitorResolved(node.monitor, node.criterion.metric, loc);
+                        self.assertOnExhaustedKeyword(node.on_exhausted, loc);
+                        if ~isempty(node.on_fail_run)
+                            if ~cmap.isKey(node.on_fail_run)
+                                self.throwValidationError( ...
+                                    '%s: on_fail.run references unknown condition: "%s"', ...
+                                    loc, node.on_fail_run);
+                            end
+                        end
+
+                    case 'repeat_until'
+                        self.validateCriterionFields(node.criterion, loc);
+                        self.assertMonitorResolved(node.monitor, node.criterion.metric, loc);
+                        if node.min_repeats > node.max_repeats
+                            self.throwValidationError( ...
+                                '%s: min_repeats (%d) cannot exceed max_repeats (%d)', ...
+                                loc, node.min_repeats, node.max_repeats);
+                        end
+                        if ~isempty(node.trial_check)
+                            tc    = node.trial_check;
+                            tcLoc = sprintf('%s (block-level trial_check)', loc);
+                            self.validateCriterionFields(tc.criterion, tcLoc);
+                            self.assertMonitorResolved(tc.monitor, tc.criterion.metric, tcLoc);
+                            self.assertOnExhaustedKeyword(tc.on_exhausted, tcLoc);
+                        end
+
+                    case 'block'
+                        if ~isempty(node.trial_check)
+                            tc    = node.trial_check;
+                            tcLoc = sprintf('%s (block-level trial_check)', loc);
+                            self.validateCriterionFields(tc.criterion, tcLoc);
+                            self.assertMonitorResolved(tc.monitor, tc.criterion.metric, tcLoc);
+                            self.assertOnExhaustedKeyword(tc.on_exhausted, tcLoc);
+                        end
+                end
+            end
+        end
+
+        function validateCriterionFields(self, criterion, loc)
+            issues = CriterionEvaluator.validate(criterion);
+            if ~isempty(issues)
+                msg = sprintf('%s: criterion validation failed:\n', loc);
+                for j = 1:numel(issues)
+                    msg = sprintf('%s  - %s\n', msg, issues{j});
+                end
+                self.throwValidationError('%s', msg);
+            end
+
+            supported = CriterionEvaluator.supportedMetrics();
+            if ~ismember(char(criterion.metric), supported)
+                self.throwValidationError( ...
+                    '%s: metric "%s" is not supported (available: %s)', ...
+                    loc, char(criterion.metric), strjoin(supported, ', '));
+            end
+        end
+
+        function assertMonitorResolved(self, monitorName, metricName, loc)
+            if isempty(monitorName)
+                self.throwValidationError( ...
+                    '%s: no plugin provides metric "%s" — add provides_metric to the plugin definition', ...
+                    loc, char(metricName));
+            end
+        end
+
+        function assertOnExhaustedKeyword(self, value, loc)
+            if ~ismember(value, {'advance', 'abort'})
+                self.throwValidationError( ...
+                    '%s: on_exhausted must be "advance" or "abort" (got "%s")', loc, value);
             end
         end
 
@@ -867,6 +1313,25 @@ classdef ProtocolParser < handle
             error('ProtocolParser:ValidationError', '%s', fullMsg);
         end
 
+        % --- flow control helpers ---
+
+        function val = requiredFlowField(self, s, fieldName, context)
+            % Read a required flow-control field, erroring if missing
+            if ~isfield(s, fieldName) || isempty(s.(fieldName))
+                self.throwValidationError( ...
+                    '%s requires "%s" (no default)', context, fieldName);
+            end
+            val = s.(fieldName);
+        end
+
+        function out = normalizeToCellOfChar(self, input)
+            c   = self.normalizeToCell(input);
+            out = cell(1, numel(c));
+            for i = 1:numel(c)
+                out{i} = char(c{i});
+            end
+        end
+
     end
 
     % =========================================================================
@@ -883,6 +1348,15 @@ classdef ProtocolParser < handle
             %   n - number of entries in protocol.commandSequence
 
             n = length(protocol.commandSequence);
+        end
+
+        function v = fieldOrDefault(s, field, default)
+            % Return a struct field value, or a default if absent/empty
+            if isstruct(s) && isfield(s, field) && ~isempty(s.(field))
+                v = s.(field);
+            else
+                v = default;
+            end
         end
 
     end

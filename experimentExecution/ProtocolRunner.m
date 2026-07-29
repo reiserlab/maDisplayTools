@@ -30,6 +30,10 @@ classdef ProtocolRunner < handle
         dryRun              % Dry run mode — validate only, no hardware
         maxAttempts         % Max retry attempts per step on recoverable error
         recoverableErrors   % Cell array of error identifiers that allow retry
+
+        % --- Flow control (Stage 1) ---
+        executedTrace       % Cell array of structured trace records
+        baselineValues      % containers.Map: metricName -> baseline value
     end
 
     % =========================================================================
@@ -77,6 +81,9 @@ classdef ProtocolRunner < handle
                 'SerialPlugin:CriticalFailure'
             };
 
+            self.executedTrace  = {};
+            self.baselineValues = containers.Map();
+
             self.validateEnvironment();
             self.parseProtocol();
 
@@ -96,7 +103,9 @@ classdef ProtocolRunner < handle
             %
             % Execution flow:
             %   1. Initialize experiment directory, logger, plugins, hardware
-            %   2. Execute every step in the command sequence in order
+            %   2. Execute the experiment:
+            %      - Standard protocols: iterate the flat command sequence
+            %      - Flow-control protocols: interpret the program of nodes
             %   3. Finalize (save summary, clean shutdown)
 
             try
@@ -108,7 +117,12 @@ classdef ProtocolRunner < handle
                     return;
                 end
 
-                self.executeCommandSequence();
+                if self.protocolData.hasFlowControl
+                    self.executeProgramSequence();
+                else
+                    self.executeCommandSequence();
+                end
+
                 self.finalizeExperiment();
 
             catch ME
@@ -455,20 +469,525 @@ classdef ProtocolRunner < handle
             self.logger.log('INFO', sprintf('"%s" completed in %.2f s', phaseName, elapsed));
         end
 
+    end
+
+    % =========================================================================
+    %  PRIVATE — FLOW CONTROL EXECUTION (Stage 1)
+    % =========================================================================
+    methods (Access = private)
+
+        function executeProgramSequence(self)
+            % Execute a flow-control program (the parallel path to
+            % executeCommandSequence for protocols with requires: [flow_control])
+
+            program = self.protocolData.program;
+            fprintf('\n=== Starting Experiment (%d top-level nodes) ===\n\n', ...
+                numel(program));
+            self.logger.log('INFO', '=== EXPERIMENT PROGRAM START ===');
+            self.logger.log('INFO', sprintf('Total nodes: %d', numel(program)));
+
+            for i = 1:numel(program)
+                self.executeNode(program{i});
+            end
+
+            self.logger.log('INFO', '=== EXPERIMENT PROGRAM COMPLETE ===');
+            fprintf('\n=== All Nodes Complete ===\n\n');
+        end
+
+        function executeNode(self, node)
+            switch node.kind
+                case 'ref';          self.executeFlowCondition(node.name);
+                case 'trial_check';  self.runTrialCheck(node);
+                case 'repeat_until'; self.runRepeatUntil(node);
+                case 'block';        self.runStaticFlowBlock(node);
+                otherwise
+                    error('ProtocolRunner:UnknownNode', ...
+                        'Unknown node kind: %s', node.kind);
+            end
+        end
+
+        % --- leaf execution (flow control path) --------------------------
+
+        function timing = executeFlowCondition(self, name)
+            % Run all commands of a named condition and record timestamps.
+            % Returns a timing struct for the calling control method.
+            commands = self.protocolData.conditionsMap(name);
+
+            self.logger.log('INFO', sprintf('--- Running condition: %s ---', name));
+            fprintf('  > %s\n', name);
+
+            monitorName = self.firstMonitor();
+            if ~isempty(monitorName)
+                t_start = self.pluginManager.executePluginCommand( ...
+                    monitorName, 'getTime');
+            else
+                t_start = NaN;
+            end
+
+            for i = 1:numel(commands)
+                self.commandExecutor.execute(commands{i});
+            end
+
+            if ~isempty(monitorName)
+                t_end = self.pluginManager.executePluginCommand( ...
+                    monitorName, 'getTime');
+            else
+                t_end = NaN;
+            end
+
+            timing = struct('t_start', t_start, 't_end', t_end);
+
+            self.addTraceRecord(struct( ...
+                'type',          'condition', ...
+                'step_name',     name, ...
+                'trial_start_t', t_start, ...
+                'trial_end_t',   t_end));
+        end
+
+        % --- trial_check -------------------------------------------------
+
+        function runTrialCheck(self, node)
+            tc = struct( ...
+                'criterion',    node.criterion, ...
+                'monitor',      node.monitor, ...
+                'on_fail_run',  node.on_fail_run, ...
+                'max_attempts', node.max_attempts, ...
+                'on_exhausted', node.on_exhausted);
+            self.runTrialCheckLogic(node.trial, tc);
+        end
+
+        function runTrialCheckLogic(self, conditionName, tc)
+            % Shared trial_check logic used by standalone trial_check
+            % nodes, block-level checks, and repeat_until with per-trial
+            % checks.
+
+            fprintf('\n[TRIAL_CHECK] "%s" (metric: %s, max %d attempts)\n', ...
+                conditionName, tc.criterion.metric, tc.max_attempts);
+
+            if strcmp(tc.on_exhausted, 'abort')
+                invalidReason = 'technical';
+            else
+                invalidReason = 'biological';
+            end
+
+            attempt  = 1;
+            resolved = false;
+
+            while ~resolved
+                fprintf('  attempt %d/%d:\n', attempt, tc.max_attempts);
+                self.logger.log('INFO', sprintf( ...
+                    'trial_check "%s" attempt %d', conditionName, attempt));
+
+                timing = self.executeFlowCondition(conditionName);
+
+                window = self.getMonitorWindow(tc.monitor, ...
+                    timing.t_start, timing.t_end);
+
+                baselineVal = self.getBaseline(tc.criterion, tc.monitor);
+                evalResult  = CriterionEvaluator.evaluate( ...
+                    window, tc.criterion, baselineVal);
+
+                % Handle abort from evaluator
+                if evalResult.abort
+                    self.logger.log('ERROR', sprintf( ...
+                        'trial_check "%s": criterion evaluation aborted: %s', ...
+                        conditionName, evalResult.abort_reason));
+                    self.addTraceRecord(struct( ...
+                        'type',          'trial_check_result', ...
+                        'step_name',     conditionName, ...
+                        'exit',          'abort', ...
+                        'total_attempts', attempt, ...
+                        'abort_reason',  evalResult.abort_reason));
+                    error('ProtocolRunner:CriterionAbort', ...
+                        'trial_check "%s": %s', ...
+                        conditionName, evalResult.abort_reason);
+                end
+
+                trialPassed = ~evalResult.fired;
+
+                self.addTraceRecord(struct( ...
+                    'type',                'trial_check_attempt', ...
+                    'step_name',           conditionName, ...
+                    'parent_step',         conditionName, ...
+                    'attempt',             attempt, ...
+                    'attempt_of',          tc.max_attempts, ...
+                    'valid',               trialPassed, ...
+                    'invalid_reason',      ternaryStr(trialPassed, '', invalidReason), ...
+                    'criterion_value',     evalResult.statistic_value, ...
+                    'effective_threshold', evalResult.effective_threshold, ...
+                    'mode',                evalResult.mode, ...
+                    'valid_count',         evalResult.valid_count, ...
+                    'total_count',         evalResult.total_count, ...
+                    'result',              ternaryStr(trialPassed, 'pass', 'fail'), ...
+                    'recovery_run',        tc.on_fail_run, ...
+                    'trial_start_t',       timing.t_start, ...
+                    'trial_end_t',         timing.t_end));
+
+                if trialPassed
+                    fprintf('  -> trial valid (value=%.3f, threshold=%.3f), advancing\n', ...
+                        evalResult.statistic_value, evalResult.effective_threshold);
+                    self.logger.log('INFO', sprintf( ...
+                        'trial_check "%s" passed on attempt %d', ...
+                        conditionName, attempt));
+                    self.addTraceRecord(struct( ...
+                        'type',          'trial_check_result', ...
+                        'step_name',     conditionName, ...
+                        'exit',          'pass', ...
+                        'total_attempts', attempt));
+                    resolved = true;
+
+                elseif attempt >= tc.max_attempts
+                    fprintf('  -> max attempts reached; on_exhausted = %s\n', ...
+                        tc.on_exhausted);
+                    self.logger.log('WARNING', sprintf( ...
+                        'trial_check "%s" exhausted after %d attempts', ...
+                        conditionName, attempt));
+                    self.addTraceRecord(struct( ...
+                        'type',          'trial_check_result', ...
+                        'step_name',     conditionName, ...
+                        'exit',          sprintf('exhausted_%s', tc.on_exhausted), ...
+                        'total_attempts', attempt));
+                    if strcmp(tc.on_exhausted, 'abort')
+                        error('ProtocolRunner:TrialCheckExhausted', ...
+                            'trial_check for "%s" failed after %d attempts — aborting', ...
+                            conditionName, attempt);
+                    end
+                    resolved = true;
+
+                else
+                    fprintf('  -> trial invalid (value=%.3f, threshold=%.3f)', ...
+                        evalResult.statistic_value, evalResult.effective_threshold);
+                    if ~isempty(tc.on_fail_run)
+                        fprintf('; running "%s"', tc.on_fail_run);
+                        self.executeFlowCondition(tc.on_fail_run);
+                    end
+                    fprintf('\n');
+                    attempt = attempt + 1;
+                end
+            end
+        end
+
+        % --- repeat_until ------------------------------------------------
+
+        function runRepeatUntil(self, node)
+            fprintf('\n[REPEAT_UNTIL] block "%s" (min %d, max %d repeats)\n', ...
+                node.name, node.min_repeats, node.max_repeats);
+
+            hasTrialCheck = isfield(node, 'trial_check') && ~isempty(node.trial_check);
+            rep  = 1;
+            stop = false;
+
+            while ~stop
+                fprintf('  repetition %d/%d:\n', rep, node.max_repeats);
+                self.logger.log('INFO', sprintf( ...
+                    'Block "%s" repetition %d', node.name, rep));
+
+                repStartT = self.getMonitorTime(node.monitor);
+
+                order = 1:numel(node.trials);
+                if node.randomize
+                    order = order(randperm(numel(order)));
+                end
+                for k = order
+                    if hasTrialCheck
+                        self.runTrialCheckLogic(node.trials{k}, node.trial_check);
+                    else
+                        self.executeFlowCondition(node.trials{k});
+                    end
+                end
+
+                repEndT = self.getMonitorTime(node.monitor);
+
+                % Evaluate criterion only after min_repeats
+                if rep < node.min_repeats
+                    fprintf('  -> below min_repeats (%d), continuing\n', ...
+                        node.min_repeats);
+                    self.addTraceRecord(struct( ...
+                        'type',             'repeat_until_repetition', ...
+                        'step_name',        node.name, ...
+                        'repetition',       rep, ...
+                        'max_repeats',      node.max_repeats, ...
+                        'criterion_active', false, ...
+                        'result',           'continue'));
+                    rep = rep + 1;
+                    continue;
+                end
+
+                window      = self.getMonitorWindow(node.monitor, repStartT, repEndT);
+                baselineVal = self.getBaseline(node.criterion, node.monitor);
+
+                % Baseline not yet available -> criterion inactive
+                if isfield(node.criterion, 'baseline') && isempty(baselineVal)
+                    fprintf('  -> baseline not yet available, continuing\n');
+                    self.addTraceRecord(struct( ...
+                        'type',             'repeat_until_repetition', ...
+                        'step_name',        node.name, ...
+                        'repetition',       rep, ...
+                        'max_repeats',      node.max_repeats, ...
+                        'criterion_active', false, ...
+                        'result',           'continue'));
+                    rep = rep + 1;
+                    if rep > node.max_repeats
+                        stop = true;
+                    end
+                    continue;
+                end
+
+                evalResult = CriterionEvaluator.evaluate( ...
+                    window, node.criterion, baselineVal);
+
+                if evalResult.abort
+                    self.logger.log('ERROR', sprintf( ...
+                        'repeat_until "%s": criterion evaluation aborted: %s', ...
+                        node.name, evalResult.abort_reason));
+                    error('ProtocolRunner:CriterionAbort', ...
+                        'repeat_until "%s": %s', ...
+                        node.name, evalResult.abort_reason);
+                end
+
+                criterionMet = evalResult.fired;
+
+                self.addTraceRecord(struct( ...
+                    'type',                'repeat_until_repetition', ...
+                    'step_name',           node.name, ...
+                    'repetition',          rep, ...
+                    'max_repeats',         node.max_repeats, ...
+                    'criterion_active',    true, ...
+                    'criterion_value',     evalResult.statistic_value, ...
+                    'effective_threshold', evalResult.effective_threshold, ...
+                    'mode',                evalResult.mode, ...
+                    'valid_count',         evalResult.valid_count, ...
+                    'total_count',         evalResult.total_count, ...
+                    'result',              ternaryStr(criterionMet, 'criterion_met', 'continue')));
+
+                if criterionMet
+                    fprintf('  -> criterion met after %d repetition(s) (value=%.3f, threshold=%.3f)\n', ...
+                        rep, evalResult.statistic_value, evalResult.effective_threshold);
+                    self.logger.log('INFO', sprintf( ...
+                        'repeat_until "%s": criterion met after %d repetitions', ...
+                        node.name, rep));
+                    stop = true;
+
+                elseif rep >= node.max_repeats
+                    fprintf('  -> max repeats reached (%d)\n', node.max_repeats);
+                    self.logger.log('INFO', sprintf( ...
+                        'repeat_until "%s": max repeats reached (%d)', ...
+                        node.name, node.max_repeats));
+                    self.executedTrace{end}.result = 'max_reached';
+                    stop = true;
+
+                else
+                    fprintf('  -> criterion not met (value=%.3f, threshold=%.3f), continuing\n', ...
+                        evalResult.statistic_value, evalResult.effective_threshold);
+                    rep = rep + 1;
+                end
+            end
+        end
+
+        % --- static block (flow control path) ----------------------------
+
+        function runStaticFlowBlock(self, node)
+            fprintf('\n[BLOCK] "%s" (%d repetition(s), randomize=%d)\n', ...
+                node.name, node.repetitions, node.randomize);
+
+            hasTrialCheck = ~isempty(node.trial_check);
+
+            for rep = 1:node.repetitions
+                order = 1:numel(node.trials);
+                if node.randomize
+                    order = order(randperm(numel(order)));
+                end
+                for k = order
+                    if hasTrialCheck
+                        self.runTrialCheckLogic(node.trials{k}, node.trial_check);
+                    else
+                        self.executeFlowCondition(node.trials{k});
+                    end
+                end
+            end
+        end
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — FLOW CONTROL HELPERS
+    % =========================================================================
+    methods (Access = private)
+
+        function t = getMonitorTime(self, monitorName)
+            t = self.pluginManager.executePluginCommand( ...
+                monitorName, 'getTime');
+        end
+
+        function window = getMonitorWindow(self, monitorName, t_start, t_end)
+            params = struct('t_start', t_start, 't_end', t_end);
+            window = self.pluginManager.executePluginCommand( ...
+                monitorName, 'getDataForInterval', params);
+        end
+
+        function val = getBaseline(self, criterion, monitorName)
+            if ~isfield(criterion, 'baseline') || isempty(criterion.baseline)
+                val = [];
+                return;
+            end
+
+            metricName = char(criterion.metric);
+
+            if self.baselineValues.isKey(metricName)
+                val = self.baselineValues(metricName);
+                return;
+            end
+
+            bl = criterion.baseline;
+            if strcmp(char(bl.units), 'minutes')
+                windowEnd = bl.window(2) * 60;
+            else
+                windowEnd = bl.window(2);
+            end
+
+            currentTime = self.getMonitorTime(monitorName);
+            if currentTime < windowEnd
+                val = [];
+                self.logger.log('INFO', sprintf( ...
+                    'Baseline for "%s" not yet available (%.1f s elapsed, need %.1f s)', ...
+                    metricName, currentTime, windowEnd));
+                return;
+            end
+
+            if strcmp(char(bl.units), 'minutes')
+                blStart = bl.window(1) * 60;
+                blEnd   = bl.window(2) * 60;
+            else
+                blStart = bl.window(1);
+                blEnd   = bl.window(2);
+            end
+
+            blWindow = self.getMonitorWindow(monitorName, blStart, blEnd);
+
+            if isempty(blWindow.values)
+                self.logger.log('WARNING', sprintf( ...
+                    'Baseline window for "%s" contains no samples', metricName));
+                val = [];
+                return;
+            end
+
+            val = mean(blWindow.values(~isnan(blWindow.values)));
+            self.baselineValues(metricName) = val;
+
+            self.logger.log('INFO', sprintf( ...
+                'Baseline for "%s" computed: %.3f (from %.1f to %.1f s, %d samples)', ...
+                metricName, val, blStart, blEnd, numel(blWindow.values)));
+            fprintf('  [baseline] %s = %.3f (%.0f–%.0f s)\n', ...
+                metricName, val, blStart, blEnd);
+        end
+
+        function name = firstMonitor(self)
+            keys = self.protocolData.metricMap.keys();
+            if isempty(keys)
+                name = '';
+            else
+                name = self.protocolData.metricMap(keys{1});
+            end
+        end
+
+        function addTraceRecord(self, record)
+            self.executedTrace{end + 1} = record;
+        end
+
+        function writeFlowControlTraceSummary(self)
+            summaryFile = fullfile(self.experimentDir, 'executed_trace.txt');
+            fid = fopen(summaryFile, 'w');
+            fprintf(fid, 'EXECUTED TRACE\n');
+            fprintf(fid, '==============\n\n');
+            fprintf(fid, 'Experiment : %s\n', self.protocolData.experimentInfo.name);
+            fprintf(fid, 'Date       : %s\n\n', datestr(now));
+
+            for i = 1:numel(self.executedTrace)
+                r = self.executedTrace{i};
+                switch r.type
+                    case 'condition'
+                        fprintf(fid, '  %3d. [condition] %s (%.2f–%.2f s)\n', ...
+                            i, r.step_name, r.trial_start_t, r.trial_end_t);
+
+                    case 'trial_check_attempt'
+                        validStr = ternaryStr(r.valid, 'VALID', ...
+                            sprintf('INVALID (%s)', r.invalid_reason));
+                        fprintf(fid, '  %3d. [trial_check attempt %d/%d] %s — %s (value=%.3f, threshold=%.3f)\n', ...
+                            i, r.attempt, r.attempt_of, r.step_name, ...
+                            validStr, r.criterion_value, r.effective_threshold);
+
+                    case 'trial_check_result'
+                        fprintf(fid, '  %3d. [trial_check result] %s — %s (%d attempt(s))\n', ...
+                            i, r.step_name, r.exit, r.total_attempts);
+
+                    case 'repeat_until_repetition'
+                        if r.criterion_active
+                            fprintf(fid, '  %3d. [repeat_until rep %d/%d] %s — %s (value=%.3f, threshold=%.3f)\n', ...
+                                i, r.repetition, r.max_repeats, r.step_name, ...
+                                r.result, r.criterion_value, r.effective_threshold);
+                        else
+                            fprintf(fid, '  %3d. [repeat_until rep %d/%d] %s — %s (criterion inactive)\n', ...
+                                i, r.repetition, r.max_repeats, r.step_name, r.result);
+                        end
+
+                    otherwise
+                        fprintf(fid, '  %3d. [%s] %s\n', i, r.type, r.step_name);
+                end
+            end
+
+            fclose(fid);
+            self.logger.log('INFO', sprintf('Executed trace saved: %s', summaryFile));
+
+            % Print to console
+            fprintf('\n--- Executed trace (%d entries) ---\n', numel(self.executedTrace));
+            fid2 = fopen(summaryFile, 'r');
+            while ~feof(fid2)
+                line = fgetl(fid2);
+                if ischar(line)
+                    fprintf('%s\n', line);
+                end
+            end
+            fclose(fid2);
+        end
+
+    end
+
+    % =========================================================================
+    %  PRIVATE — FINALIZATION
+    % =========================================================================
+    methods (Access = private)
+
         function finalizeExperiment(self)
             % Save execution record and summary, then clean shutdown
 
             self.logger.log('INFO', 'Finalizing experiment...');
 
-            % Save a record of the step IDs that were executed, in order
             dataDir = fullfile(self.experimentDir, 'data');
             if ~exist(dataDir, 'dir')
                 mkdir(dataDir);
             end
 
-            seq       = self.protocolData.commandSequence;
-            stepIds   = cellfun(@(s) s.id, seq, 'UniformOutput', false);
-            save(fullfile(dataDir, 'experiment_steps.mat'), 'stepIds');
+            if self.protocolData.hasFlowControl
+                % Flow-control protocol: save both planned and actual
+
+                % Planned sequence (the program of nodes as parsed)
+                experimentSteps = self.protocolData.program; %#ok<NASGU>
+                conditionsMap   = self.protocolData.conditionsMap; %#ok<NASGU>
+                experimentInfo  = self.protocolData.experimentInfo; %#ok<NASGU>
+                save(fullfile(dataDir, 'experiment_steps.mat'), ...
+                    'experimentSteps', 'conditionsMap', 'experimentInfo');
+
+                % Executed trace (what actually ran)
+                executedTrace = self.executedTrace; %#ok<NASGU>
+                save(fullfile(dataDir, 'executed_trace.mat'), 'executedTrace');
+
+                self.writeFlowControlTraceSummary();
+            else
+                % Standard protocol: save step IDs as before
+                seq     = self.protocolData.commandSequence;
+                stepIds = cellfun(@(s) s.id, seq, 'UniformOutput', false); %#ok<NASGU>
+                save(fullfile(dataDir, 'experiment_steps.mat'), 'stepIds');
+            end
 
             self.generateExperimentSummary();
             self.cleanup();
@@ -509,10 +1028,25 @@ classdef ProtocolRunner < handle
             end
 
             % Execution steps
-            seq = self.protocolData.commandSequence;
-            fprintf(fid, 'Execution sequence (%d steps):\n', length(seq));
-            for i = 1:length(seq)
-                fprintf(fid, '  %3d. %s\n', i, seq{i}.id);
+            if self.protocolData.hasFlowControl
+                program = self.protocolData.program;
+                fprintf(fid, 'Program (%d nodes, flow control):\n', numel(program));
+                for i = 1:numel(program)
+                    node = program{i};
+                    if isfield(node, 'trial')
+                        fprintf(fid, '  %3d. [%s] %s\n', i, node.kind, node.trial);
+                    elseif isfield(node, 'name')
+                        fprintf(fid, '  %3d. [%s] %s\n', i, node.kind, node.name);
+                    else
+                        fprintf(fid, '  %3d. [%s]\n', i, node.kind);
+                    end
+                end
+            else
+                seq = self.protocolData.commandSequence;
+                fprintf(fid, 'Execution sequence (%d steps):\n', length(seq));
+                for i = 1:length(seq)
+                    fprintf(fid, '  %3d. %s\n', i, seq{i}.id);
+                end
             end
 
             fclose(fid);
@@ -521,4 +1055,11 @@ classdef ProtocolRunner < handle
         end
 
     end
+end
+
+% =========================================================================
+%  LOCAL HELPER (outside classdef — MATLAB requires this at file scope)
+% =========================================================================
+function s = ternaryStr(cond, a, b)
+    if cond, s = a; else, s = b; end
 end

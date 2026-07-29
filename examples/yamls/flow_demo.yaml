@@ -1,0 +1,206 @@
+version: 3
+requires: [flow_control]
+
+# ============================================================================
+# FLOW-CONTROL STAGE 1 DEMO
+# ----------------------------------------------------------------------------
+# Demonstrates trial_check and repeat_until with declarative criteria.
+# All hardware is simulated. The "wingbeat" monitor reads a SimulatedFly
+# that starts tired (low WBF) and is revived by the air puff.
+# ============================================================================
+
+experiment_info:
+  name: "Flow-control Stage 1 demo"
+  author: "Reiser Lab"
+
+rig: './configs/rigs/test_rig_1.yaml'  # UPDATE THIS TO FULL PATH BEFORE USE
+
+variables:
+  trial_duration: &trial_duration 2
+
+# ----------------------------------------------------------------------------
+# PLUGINS
+#   - wingbeat monitor: continuous buffering of wingbeat frequency
+#   - airpuff actuator: delivers air to revive a tired fly
+# The provides_metric field tells the parser which plugin supplies each
+# metric, so the criterion can name the metric and the runner resolves
+# the plugin automatically.
+# ----------------------------------------------------------------------------
+plugins:
+  - name: "wingbeat"
+    type: "class"
+    provides_metric: "wingbeat_frequency"
+    matlab:
+      class: "DummyWingbeatMonitor"
+    config:
+      sample_rate: 50
+      buffer_seconds: 120
+
+  - name: "airpuff"
+    type: "class"
+    matlab:
+      class: "DummyAirPuff"
+
+# ----------------------------------------------------------------------------
+# EXPERIMENT SEQUENCE
+# ----------------------------------------------------------------------------
+experiment:
+  - "start"
+
+  # 1) Standalone trial_check with recovery (the canonical puff case).
+  #    The fly starts tired (~140 Hz), so fraction_below 180 is ~100%,
+  #    well above the 30% threshold -> criterion fires -> trial is bad.
+  #    The guard runs "puff and rest" (reviving the fly), then retries.
+  #    Second attempt: fly is ~210 Hz, fraction_below 180 is ~0% -> passes.
+  - condition: "fixation trial"
+    flow_control: trial_check
+    criterion:
+      metric: wingbeat_frequency
+      statistic: fraction_below
+      level: 180
+      stop_when: above
+      threshold: 0.30
+    on_fail:
+      run: "puff and rest"
+    max_attempts: 5
+    on_exhausted: advance
+
+  # 2) Static block with block-level trial_check.
+  #    Same criterion applied to every trial inside the block. The fly is
+  #    now flying, so all trials pass on the first attempt.
+  - name: "observation block"
+    trials:
+      - "observation A"
+      - "observation B"
+    repetitions: 2
+    trial_check:
+      criterion:
+        metric: wingbeat_frequency
+        statistic: fraction_below
+        level: 180
+        stop_when: above
+        threshold: 0.30
+      on_fail:
+        run: "puff and rest"
+      max_attempts: 3
+      on_exhausted: advance
+
+  # 3) repeat_until block.
+  #    Repeats until the fly's vigor drops: stop when mean WBF falls
+  #    below 150 Hz. Since the fly is healthy (~210 Hz), the criterion
+  #    never fires and the block runs to max_repeats (the good outcome:
+  #    the fly stayed strong the whole time).
+  - name: "training blocks"
+    trials:
+      - "training A"
+      - "training B"
+    flow_control: repeat_until
+    min_repeats: 2
+    max_repeats: 4
+    criterion:
+      metric: wingbeat_frequency
+      statistic: mean
+      stop_when: below
+      threshold: 150
+
+  - "shutdown"
+
+# ----------------------------------------------------------------------------
+# CONDITIONS LIBRARY
+# ----------------------------------------------------------------------------
+conditions:
+
+  - name: "start"
+    commands:
+      - type: "wait"
+        duration: 0.3
+
+  - name: "fixation trial"
+    commands:
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "fixation.pat"
+        pattern_ID: 1
+        duration: *trial_duration
+        mode: 2
+        frame_index: 1
+        frame_rate: 1
+      - type: "wait"
+        duration: *trial_duration
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "puff and rest"
+    commands:
+      - type: "plugin"
+        plugin_name: "airpuff"
+        command_name: "puff"
+      - type: "wait"
+        duration: 1
+
+  - name: "observation A"
+    commands:
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "obsA.pat"
+        pattern_ID: 2
+        duration: 1
+        mode: 2
+        frame_index: 1
+        frame_rate: 1
+      - type: "wait"
+        duration: 1
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "observation B"
+    commands:
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "obsB.pat"
+        pattern_ID: 3
+        duration: 1
+        mode: 2
+        frame_index: 1
+        frame_rate: 1
+      - type: "wait"
+        duration: 1
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "training A"
+    commands:
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "trainA.pat"
+        pattern_ID: 4
+        duration: 1
+        mode: 2
+        frame_index: 1
+        frame_rate: 1
+      - type: "wait"
+        duration: 1
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "training B"
+    commands:
+      - type: "controller"
+        command_name: "trialParams"
+        pattern: "trainB.pat"
+        pattern_ID: 5
+        duration: 1
+        mode: 2
+        frame_index: 1
+        frame_rate: 1
+      - type: "wait"
+        duration: 1
+      - type: "controller"
+        command_name: "allOff"
+
+  - name: "shutdown"
+    commands:
+      - type: "controller"
+        command_name: "allOff"
+      - type: "wait"
+        duration: 0.3
