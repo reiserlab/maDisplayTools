@@ -278,7 +278,7 @@ classdef CommandExecutor < handle
 
         function check_required_fields(self, command, fields)
     
-            if ~isfield(command, fields)
+            if any(~isfield(command, fields))
                 msg = 'command failed due to missing at least one required field.';
                 self.logger.log('INFO', sprintf(msg));
                 error(msg);

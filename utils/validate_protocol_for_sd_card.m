@@ -498,22 +498,31 @@ end
 % -------------------------------------------------------------------------
 
 function [errors, warnings] = validateCommands(protocol, verbose)
-    % Validate all commands in the V3 command sequence.
+    % Validate every command in every condition in the protocol's
+    % conditions library.
     %
-    % The V3 protocol struct contains a flat commandSequence cell array
-    % produced by ProtocolParser.  Each entry has an .id label and a
-    % .commands cell array.  We iterate every step and validate every
-    % command within it.
+    % ProtocolParser.conditionsMap is a containers.Map of
+    % conditionName -> commands, populated identically for both standard
+    % V3 protocols and flow-control protocols (requires: [flow_control]).
+    % Validating from conditionsMap rather than commandSequence keeps this
+    % function agnostic to which execution path the protocol uses:
+    % commandSequence is the flat, fully-expanded step list and is left
+    % empty ({}) by the parser for flow-control protocols (their execution
+    % order isn't known until runtime — e.g. repeat_until iteration count),
+    % so validating against it silently checks zero commands for any
+    % flow-control protocol. conditionsMap has no such gap, and as a bonus
+    % each condition is validated exactly once regardless of how many
+    % times it's referenced or repeated.
 
     errors   = {};
     warnings = {};
 
-    seq = protocol.commandSequence;
+    condNames  = keys(protocol.conditionsMap);
+    numChecked = 0;
 
-    for i = 1:length(seq)
-        step     = seq{i};
-        commands = step.commands;
-        label    = step.id;
+    for i = 1:length(condNames)
+        label    = condNames{i};
+        commands = protocol.conditionsMap(label);
 
         if ~iscell(commands)
             commands = {commands};
@@ -525,10 +534,12 @@ function [errors, warnings] = validateCommands(protocol, verbose)
             errors   = [errors,   cmdErrors];   %#ok<AGROW>
             warnings = [warnings, cmdWarnings]; %#ok<AGROW>
         end
+
+        numChecked = numChecked + 1;
     end
 
     if verbose && isempty(errors)
-        fprintf('  ✓ All commands valid (%d sequence steps checked)\n', length(seq));
+        fprintf('  ✓ All commands valid (%d condition(s) checked)\n', numChecked);
     end
 end
 
@@ -598,18 +609,40 @@ function [errors, warnings] = validateControllerCommand(cmd, context, index)
             end
 
         case {'startG41Trial', 'trialParams'}
-            requiredFields = {'mode', 'pattern', 'frame_index', ...
-                'duration', 'frame_rate', 'gain'};
+            % Fields required for every mode.
             % Note: pattern_ID is intentionally excluded from required fields.
             % It is written automatically by deploy_experiments_to_sd() when
             % the SD card is prepared. Source YAML files should omit it or
             % leave it empty; do not use an anchor/alias for this field.
+            requiredFields = {'mode', 'pattern', 'frame_index', 'duration'};
 
             for i = 1:length(requiredFields)
                 field = requiredFields{i};
                 if ~isfield(cmd, field)
                     errors{end+1} = sprintf('%s trial command (command %d) missing required field: %s', ...
                         context, index, field);
+                end
+            end
+
+            % Mode-specific required fields, matching
+            % CommandExecutor.executeControllerCommand's trialParams cases:
+            %   mode 2 additionally requires frame_rate
+            %   mode 3 has no additional requirements
+            %   mode 4 additionally requires gain
+            if isfield(cmd, 'mode')
+                switch cmd.mode
+                    case 2
+                        if ~isfield(cmd, 'frame_rate')
+                            errors{end+1} = sprintf(...
+                                '%s trial command (command %d) mode 2 missing required field: frame_rate', ...
+                                context, index);
+                        end
+                    case 4
+                        if ~isfield(cmd, 'gain')
+                            errors{end+1} = sprintf(...
+                                '%s trial command (command %d) mode 4 missing required field: gain', ...
+                                context, index);
+                        end
                 end
             end
 
