@@ -1,0 +1,21 @@
+# Arena configuration for G6 display
+# Partial G6 arena: 1 row, 18-column grid, 12 columns installed (240 degree coverage)
+# Bench / test build on the arena_12-18 v1.0 controller (one panel high), the board
+# with the Qwiic / STEMMA QT jack (webDisplayTools LAB-214).
+
+format_version: "1.0"
+name: "G6_1x12of18"
+description: "G6 arena, 1 row, 12 of 18 columns installed (240 degree coverage)"
+
+# Controller-side hardware topology: the arena_12-18 v1.0 board exists but has no
+# ../arena_hardware/ profile yet; add one and set hardware_profile when it does.
+hardware_profile: null
+
+arena:
+  generation: "G6"
+  num_rows: 1
+  num_cols: 18
+  columns_installed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]  # 0-indexed column indices
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: -60  # Centers the 120 degree gap at south (installed panels centered at the front)

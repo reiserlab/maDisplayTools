@@ -89,7 +89,9 @@ arena_registry/
     └── G6/
         ├── 001_G6_2x10.yaml
         ├── 002_G6_2x8of10.yaml
-        └── 003_G6_3x12of18.yaml
+        ├── 003_G6_3x12of18.yaml
+        ├── 007_G6_1x12of18.yaml
+        └── 008_G6_3x10of14.yaml
 ```
 
 ## File Naming Convention
