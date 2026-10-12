@@ -81,6 +81,8 @@ Standard configurations in `configs/arenas/`:
 | `G6_2x10` | G6 | 2×10 | 360° | Full G6 arena |
 | `G6_2x8of10` | G6 | 2×8 of 10 | 288° | G6 with rear gap |
 | `G6_3x12of18` | G6 | 3×12 of 18 | 240° | Large G6, rear gap |
+| `G6_1x12of18` | G6 | 1×12 of 18 | 240° | arena_12-18 bench build, one row |
+| `G6_3x10of14` | G6 | 3×10 of 14 | ~257° | 10-of-14 ring, rear gap |
 | `G41_2x12_cw` | G4.1 | 2×12 | 360° | G4.1 arena, c0 at south |
 | `G4_4x12` | G4 | 4×12 | 360° | Full G4 arena |
 | `G4_3x12` | G4 | 3×12 | 360° | 3-row G4 arena |

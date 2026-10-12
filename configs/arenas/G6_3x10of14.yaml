@@ -1,0 +1,20 @@
+# Arena configuration for G6 display
+# Partial G6 arena: 3 rows, 14-column grid, 10 columns installed (~257 degree coverage)
+# The 10-of-14 ring (built 3 panels high); its controller has a Qwiic / STEMMA QT jack.
+
+format_version: "1.0"
+name: "G6_3x10of14"
+description: "G6 arena, 3 rows, 10 of 14 columns installed (257 degree coverage)"
+
+# Controller-side hardware topology: no ../arena_hardware/ profile yet for this
+# board; add one and set hardware_profile when the hardware is built.
+hardware_profile: null
+
+arena:
+  generation: "G6"
+  num_rows: 3
+  num_cols: 14
+  columns_installed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 0-indexed column indices
+  orientation: "normal"
+  column_order: "cw"
+  angle_offset_deg: -51.4286  # = -360/14 * 2: centers the 4-column (~103 degree) gap at south
